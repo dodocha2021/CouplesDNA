@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import ChatInput from '../components/ChatInput';
 import { MessageList } from '../components/ui/Message';
 import axios from 'axios';
-import '../styles/animations.css';
 
 const N8N_WEBHOOK = 'https://couplesdna.app.n8n.cloud/webhook/f196bb14-f364-4a66-afea-079c2dd1cf1c';
 
