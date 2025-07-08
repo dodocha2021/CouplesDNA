@@ -68,13 +68,26 @@ export default function Home() {
       maxWidth: 600,
       margin: '0 auto',
       boxShadow: '0 0 8px #eee',
+      position: 'relative', // 关键
     }}>
       <header style={{ padding: 16, fontWeight: 'bold', fontSize: 20, textAlign: 'center', background: '#fff' }}>
         CouplesDNA Chat Analysis
       </header>
       <MessageList messages={messages} loading={loading} />
       <div ref={chatEndRef} />
-      <ChatInput onSend={handleSend} onFileUploaded={handleFileUploaded} loading={loading} />
+      <div
+        style={{
+          position: 'sticky', // 或 fixed
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: '#f7f8fa',
+          zIndex: 10,
+          paddingBottom: 'env(safe-area-inset-bottom, 8px)', // 兼容 iPhone X 等刘海屏
+        }}
+      >
+        <ChatInput onSend={handleSend} onFileUploaded={handleFileUploaded} loading={loading} />
+      </div>
       <style jsx global>{`
         body {
           margin: 0;
@@ -85,6 +98,10 @@ export default function Home() {
             max-width: 100vw !important;
             box-shadow: none !important;
           }
+        }
+        /* 给消息区加底部 padding，防止被输入框遮挡 */
+        .message-list {
+          padding-bottom: 72px;
         }
       `}</style>
     </div>

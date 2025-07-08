@@ -34,7 +34,7 @@ export function MessageBubble({ message, isLast, loading }) {
 // 消息列表组件
 export function MessageList({ messages, loading }) {
   return (
-    <div style={{ 
+    <div className="message-list" style={{ 
       flex: 1, 
       overflowY: 'auto', 
       padding: 16, 
