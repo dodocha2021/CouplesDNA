@@ -1,0 +1,74 @@
+/* 脉冲点动画 */
+.pulse-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.pulse-dots span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #666;
+  animation: pulse 1.4s infinite;
+}
+
+.pulse-dots span:nth-child(2) { 
+  animation-delay: 0.2s; 
+}
+
+.pulse-dots span:nth-child(3) { 
+  animation-delay: 0.4s; 
+}
+
+@keyframes pulse {
+  0%, 60%, 100% { 
+    opacity: 0.3; 
+  }
+  30% { 
+    opacity: 1; 
+  }
+}
+
+/* 旋转动画 */
+.spinner {
+  border: 2px solid transparent;
+  border-top: 2px solid;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { 
+    transform: rotate(0deg); 
+  }
+  100% { 
+    transform: rotate(360deg); 
+  }
+}
+
+/* 淡入动画 */
+.fade-in {
+  animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 60%, 100% { 
+    opacity: 0.3; 
+  }
+  30% { 
+    opacity: 1; 
+  }
+} 

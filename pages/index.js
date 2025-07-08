@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ChatInput from '../components/ChatInput';
+import { MessageList } from '../components/ui/Message';
 import axios from 'axios';
+import '../styles/animations.css';
 
 const N8N_WEBHOOK = 'https://couplesdna.app.n8n.cloud/webhook/f196bb14-f364-4a66-afea-079c2dd1cf1c';
 
@@ -71,26 +73,8 @@ export default function Home() {
       <header style={{ padding: 16, fontWeight: 'bold', fontSize: 20, textAlign: 'center', background: '#fff' }}>
         CouplesDNA Chat Analysis
       </header>
-      <div style={{ flex: 1, overflowY: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            style={{
-              alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-              background: msg.role === 'user' ? '#e0eaff' : msg.role === 'bot' ? '#fff' : '#e6ffe6',
-              color: '#222',
-              borderRadius: 8,
-              padding: '8px 12px',
-              maxWidth: '80%',
-              fontSize: 16,
-              wordBreak: 'break-all',
-            }}
-          >
-            {msg.text}
-          </div>
-        ))}
-        <div ref={chatEndRef} />
-      </div>
+      <MessageList messages={messages} loading={loading} />
+      <div ref={chatEndRef} />
       <ChatInput onSend={handleSend} onFileUploaded={handleFileUploaded} loading={loading} />
       <style jsx global>{`
         body {
