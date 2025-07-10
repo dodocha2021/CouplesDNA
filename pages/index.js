@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ChatInput from '../components/ChatInput';
 import { MessageList } from '../components/ui/Message';
+import TopBar from '../components/ui/TopBar';
+import InfoDrawer from '../components/ui/InfoDrawer';
 import axios from 'axios';
 
 const N8N_WEBHOOK = 'https://couplesdna.app.n8n.cloud/webhook/f196bb14-f364-4a66-afea-079c2dd1cf1c';
@@ -10,6 +12,7 @@ export default function Home() {
     { role: 'system', text: 'Welcome to CouplesDNA Chat Analysis Assistant!' },
   ]);
   const [loading, setLoading] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
   const chatEndRef = useRef(null);
   const sessionIdRef = useRef(
     typeof window !== 'undefined'
@@ -68,26 +71,30 @@ export default function Home() {
       maxWidth: 600,
       margin: '0 auto',
       boxShadow: '0 0 8px #eee',
-      position: 'relative', // 关键
+      position: 'relative',
     }}>
-      <header style={{ padding: 16, fontWeight: 'bold', fontSize: 20, textAlign: 'center', background: '#fff' }}>
-        CouplesDNA Chat Analysis
-      </header>
+      <TopBar
+        title="CouplesDNA Chat Analysis"
+        showMenu={!showInfo}
+        showBack={false}
+        onMenu={() => setShowInfo(true)}
+      />
       <MessageList messages={messages} loading={loading} />
       <div ref={chatEndRef} />
       <div
         style={{
-          position: 'sticky', // 或 fixed
+          position: 'sticky',
           bottom: 0,
           left: 0,
           right: 0,
           background: '#f7f8fa',
           zIndex: 10,
-          paddingBottom: 'env(safe-area-inset-bottom, 8px)', // 兼容 iPhone X 等刘海屏
+          paddingBottom: 'env(safe-area-inset-bottom, 8px)',
         }}
       >
         <ChatInput onSend={handleSend} onFileUploaded={handleFileUploaded} loading={loading} />
       </div>
+      <InfoDrawer open={showInfo} onClose={() => setShowInfo(false)} />
       <style jsx global>{`
         body {
           margin: 0;
@@ -99,7 +106,6 @@ export default function Home() {
             box-shadow: none !important;
           }
         }
-        /* 给消息区加底部 padding，防止被输入框遮挡 */
         .message-list {
           padding-bottom: 72px;
         }
