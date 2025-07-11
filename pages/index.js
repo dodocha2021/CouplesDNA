@@ -33,7 +33,7 @@ export default function Home() {
     return null;
   }
 
-  // 页面加载时自动查历史
+  // 页面首次加载时自动查历史
   useEffect(() => {
     if (sessionId) {
       (async () => {
@@ -56,7 +56,7 @@ export default function Home() {
       ]);
     }
     // eslint-disable-next-line
-  }, [sessionId]);
+  }, []); // 只在首次加载时执行
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -122,15 +122,23 @@ export default function Home() {
       margin: '0 auto',
       boxShadow: '0 0 8px #eee',
       position: 'relative',
+      height: '100vh',
     }}>
-      <TopBar
-        title="CouplesDNA Chat Analysis"
-        showMenu={!showInfo}
-        showBack={false}
-        onMenu={() => setShowInfo(true)}
-      />
-      <MessageList messages={messages} loading={loading} />
-      <div ref={chatEndRef} />
+      {/* 顶部标题栏固定 */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: '#fff' }}>
+        <TopBar
+          title="CouplesDNA Chat Analysis"
+          showMenu={!showInfo}
+          showBack={false}
+          onMenu={() => setShowInfo(true)}
+        />
+      </div>
+      {/* 聊天内容区可滚动 */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        <MessageList messages={messages} loading={loading} />
+        <div ref={chatEndRef} />
+      </div>
+      {/* 底部输入框固定 */}
       <div
         style={{
           position: 'sticky',
