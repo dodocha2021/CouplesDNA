@@ -1,40 +1,57 @@
-<<<<<<< HEAD
-# CouplesDNA
-=======
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CouplesDNA MCP Chat
 
-## Getting Started
+A next-generation Minimalist Conversational Platform (MCP) for unified, intelligent, and extensible chat experiences.
 
-First, run the development server:
+---
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 🚀 Vision
+
+**CouplesDNA MCP Chat** is designed to be the single conversational entrypoint for all your personal and professional needs. It seamlessly integrates:
+
+- **User Databases**: Securely connect and query your own data.
+- **Public Knowledge Bases**: Tap into global knowledge, research, and open data.
+- **Tool APIs**: Leverage a growing suite of productivity, analysis, and automation tools—directly from chat.
+- **Automation**: Orchestrate workflows, trigger actions, and connect services—all in one place.
+
+All of this is delivered through a beautiful, distraction-free, and mobile-adaptive chat interface.
+
+---
+
+## ✨ Features
+
+- **Minimalist, Modern UI** — Focus on what matters: your conversation and results.
+- **Unified Knowledge Access** — Query both your private data and public knowledge in one window.
+- **Tool Integration** — Use advanced tools and APIs (search, analysis, file upload, more coming) without leaving chat.
+- **Persistent Chat History** — All conversations are securely stored and instantly retrievable.
+- **Automation Ready** — Designed for future integration with workflow engines and smart triggers.
+- **Mobile First** — Fully responsive, works beautifully on any device.
+- **Markdown & Rich Content** — AI and user messages support Markdown, code, and more.
+- **Versioned & Extensible** — Built for rapid iteration, with clear versioning and modular architecture.
+
+---
+
+## 🛠️ Tech Stack
+- Next.js 15
+- React 19
+- Supabase (for chat history and user data)
+- Modern API integrations
+- Vercel (for instant global deployment)
+
+---
+
+## 📦 Project Structure
+```
+components/         # Reusable UI components
+pages/              # Next.js pages
+public/             # Static assets & version.txt
+lib/                # API clients, utilities
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📝 License
+MIT
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
->>>>>>> 7eb81c0 (Initial commit)
+> CouplesDNA MCP Chat — The future of unified, intelligent, and automated conversation. 
