@@ -52,11 +52,11 @@ export default function ChatInput({ onSend, onFileUploaded, loading }) {
         ref={fileInputRef}
         style={{ display: 'none' }}
         onChange={handleFileChange}
-        disabled={uploading}
+        disabled={uploading || loading}
       />
       <button
         onClick={() => fileInputRef.current.click()}
-        disabled={uploading}
+        disabled={uploading || loading}
         style={{ padding: '8px 12px' }}
       >
         {uploading ? 'Uploading...' : 'Upload File'}

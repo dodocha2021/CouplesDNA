@@ -4,8 +4,13 @@ import { MessageList } from '../components/ui/Message';
 import TopBar from '../components/ui/TopBar';
 import InfoDrawer from '../components/ui/InfoDrawer';
 import axios from 'axios';
+import { supabase } from '../lib/supabase';
 
 const N8N_WEBHOOK = 'https://couplesdna.app.n8n.cloud/webhook/f196bb14-f364-4a66-afea-079c2dd1cf1c';
+
+function generateSessionId() {
+  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+}
 
 export default function Home() {
   const [messages, setMessages] = useState([
@@ -14,38 +19,76 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const chatEndRef = useRef(null);
-  const sessionIdRef = useRef(
-    typeof window !== 'undefined'
-      ? localStorage.getItem('sessionId') || Math.random().toString(36).slice(2)
-      : Math.random().toString(36).slice(2)
+  const [sessionId, setSessionId] = useState(
+    typeof window !== 'undefined' ? localStorage.getItem('sessionId') || null : null
   );
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('sessionId', sessionIdRef.current);
-    }
-  }, []);
 
+  function parseDbMessage(dbMessage) {
+    if (dbMessage.type === 'human') {
+      return { role: 'user', text: dbMessage.content };
+    }
+    if (dbMessage.type === 'ai') {
+      return { role: 'bot', text: dbMessage.content };
+    }
+    return null;
+  }
+
+  // 页面加载时自动查历史
+  useEffect(() => {
+    if (sessionId) {
+      (async () => {
+        const { data, error } = await supabase
+          .from('n8n_chat_histories')
+          .select('message')
+          .eq('session_id', sessionId)
+          .order('created_at', { ascending: true });
+        if (!error && data) {
+          const history = data.map(item => parseDbMessage(item.message)).filter(Boolean);
+          setMessages([
+            { role: 'system', text: 'Welcome to CouplesDNA Chat Analysis Assistant!' },
+            ...history
+          ]);
+        }
+      })();
+    } else {
+      setMessages([
+        { role: 'system', text: 'Welcome to CouplesDNA Chat Analysis Assistant!' }
+      ]);
+    }
+    // eslint-disable-next-line
+  }, [sessionId]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // 发送消息
   const handleSend = async (text) => {
+    let sid = sessionId;
+    if (!sid) {
+      sid = generateSessionId();
+      setSessionId(sid);
+      localStorage.setItem('sessionId', sid);
+    }
     setMessages((msgs) => [...msgs, { role: 'user', text }]);
     setLoading(true);
     try {
-      const res = await axios.post(N8N_WEBHOOK, [
-        {
-          sessionId: sessionIdRef.current,
-          action: 'sendMessage',
-          chatInput: text
-        }
-      ]);
-      setMessages((msgs) => [
-        ...msgs,
-        { role: 'bot', text: res.data.output || res.data.message || res.data.reply || JSON.stringify(res.data) }
-      ]);
+      const res = await axios.post(
+        N8N_WEBHOOK,
+        [
+          {
+            sessionId: sid,
+            action: 'sendMessage',
+            chatInput: text
+          }
+        ],
+        { headers: { 'Content-Type': 'application/json' } }
+      );
+      // 假设 n8n 返回 { reply: 'xxx' } 或 { message: 'xxx' } 或 { output: 'xxx' }
+      const aiText = res.data.reply || res.data.message || res.data.output || res.data.content || JSON.stringify(res.data);
+      setMessages((msgs) => [...msgs, { role: 'bot', text: aiText }]);
     } catch (e) {
-      console.log('Request failed details:', e);
-      setMessages((msgs) => [
-        ...msgs,
-        { role: 'bot', text: 'Request failed, please try again later.' }
-      ]);
+      setMessages((msgs) => [...msgs, { role: 'bot', text: 'Request failed, please try again later.' }]);
     } finally {
       setLoading(false);
     }
@@ -58,9 +101,16 @@ export default function Home() {
     ]);
   };
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  // 清空聊天
+  const handleClearChat = () => {
+    setMessages([
+      { role: 'system', text: 'Welcome to CouplesDNA Chat Analysis Assistant!' }
+    ]);
+    setSessionId(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sessionId');
+    }
+  };
 
   return (
     <div style={{
@@ -94,7 +144,7 @@ export default function Home() {
       >
         <ChatInput onSend={handleSend} onFileUploaded={handleFileUploaded} loading={loading} />
       </div>
-      <InfoDrawer open={showInfo} onClose={() => setShowInfo(false)} />
+      <InfoDrawer open={showInfo} onClose={() => setShowInfo(false)} onClearChat={handleClearChat} />
       <style jsx global>{`
         body {
           margin: 0;
