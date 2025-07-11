@@ -25,7 +25,7 @@ export function MessageBubble({ message, isLast, loading }) {
           message.text
         )}
       </div>
-      {/* 如果是最后一条消息且正在加载，显示等待动画 */}
+      {/* 只在最后一条消息下方显示动画 */}
       {isLast && loading && <LoadingAnimation />}
     </React.Fragment>
   );

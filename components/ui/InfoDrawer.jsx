@@ -2,13 +2,13 @@ import React from 'react';
 import TopBar from './TopBar';
 
 const menuItems = [
-  'Search chat history',
-  'Background',
-  'Clear chat history',
-  'Report',
+  { label: 'Search chat history', key: 'search' },
+  { label: 'Background', key: 'background' },
+  { label: 'Clear chat history', key: 'clear' },
+  { label: 'Report', key: 'report' },
 ];
 
-export default function InfoDrawer({ open, onClose }) {
+export default function InfoDrawer({ open, onClose, onClearChat }) {
   return (
     <div
       style={{
@@ -30,9 +30,9 @@ export default function InfoDrawer({ open, onClose }) {
     >
       <TopBar title="CouplesDNA Chat Analysis" showBack={true} onBack={onClose} showMenu={false} />
       <div style={{ flex: 1, padding: 24, display: 'flex', flexDirection: 'column', gap: 20 }}>
-        {menuItems.map((item, idx) => (
+        {menuItems.map((item) => (
           <button
-            key={item}
+            key={item.key}
             style={{
               background: '#f7f8fa',
               border: 'none',
@@ -46,9 +46,14 @@ export default function InfoDrawer({ open, onClose }) {
               boxShadow: '0 1px 4px #eee',
               transition: 'background 0.2s',
             }}
-            onClick={() => {}}
+            onClick={() => {
+              if (item.key === 'clear' && onClearChat) {
+                onClearChat();
+                onClose();
+              }
+            }}
           >
-            {item}
+            {item.label}
           </button>
         ))}
       </div>
