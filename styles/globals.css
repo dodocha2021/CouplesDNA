@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义样式 */
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+  }
+  
+  body {
+    margin: 0;
+    padding: 0;
+  }
+}
+
+@layer components {
+  /* 自定义组件样式 */
+}
+
+@layer utilities {
+  /* 自定义工具类 */
+} 

@@ -33,7 +33,7 @@ export default function Home() {
     return null;
   }
 
-  // 页面首次加载时自动查历史
+  // 页面首次加载时自动查历史，并恢复等待状态
   useEffect(() => {
     if (sessionId) {
       (async () => {
@@ -42,12 +42,42 @@ export default function Home() {
           .select('message')
           .eq('session_id', sessionId)
           .order('created_at', { ascending: true });
+        let history = [];
         if (!error && data) {
-          const history = data.map(item => parseDbMessage(item.message)).filter(Boolean);
-          setMessages([
-            { role: 'system', text: 'Welcome to CouplesDNA Chat Analysis Assistant!' },
-            ...history
-          ]);
+          history = data.map(item => parseDbMessage(item.message)).filter(Boolean);
+        }
+        // 检查本地pendingMessage
+        let pending = null;
+        if (typeof window !== 'undefined') {
+          const pendingStr = localStorage.getItem('pendingMessage');
+          if (pendingStr) {
+            try {
+              const obj = JSON.parse(pendingStr);
+              if (obj && obj.text && obj.sessionId === sessionId) {
+                pending = obj.text;
+              }
+            } catch {}
+          }
+        }
+        let msgs = [
+          { role: 'system', text: 'Welcome to CouplesDNA Chat Analysis Assistant!' },
+          ...history
+        ];
+        if (pending) {
+          msgs = [...msgs, { role: 'user', text: pending }];
+          setMessages(msgs);
+          setLoading(true);
+          // 新增：最大等待时间，超时自动清理
+          setTimeout(() => {
+            if (typeof window !== 'undefined' && localStorage.getItem('pendingMessage')) {
+              setLoading(false);
+              localStorage.removeItem('pendingMessage');
+              setMessages((msgs) => [
+                ...msgs,
+                { role: 'bot', text: 'Request failed, please try again later.' }
+              ]);
+            }
+          }, 60000); // 60秒
         }
       })();
     } else {
@@ -72,6 +102,10 @@ export default function Home() {
     }
     setMessages((msgs) => [...msgs, { role: 'user', text }]);
     setLoading(true);
+    // 存储pendingMessage
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('pendingMessage', JSON.stringify({ text, sessionId: sid }));
+    }
     try {
       const res = await axios.post(
         N8N_WEBHOOK,
@@ -84,11 +118,18 @@ export default function Home() {
         ],
         { headers: { 'Content-Type': 'application/json' } }
       );
-      // 假设 n8n 返回 { reply: 'xxx' } 或 { message: 'xxx' } 或 { output: 'xxx' }
       const aiText = res.data.reply || res.data.message || res.data.output || res.data.content || JSON.stringify(res.data);
       setMessages((msgs) => [...msgs, { role: 'bot', text: aiText }]);
+      // 清除pendingMessage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('pendingMessage');
+      }
     } catch (e) {
+      console.log('catch error', e);
       setMessages((msgs) => [...msgs, { role: 'bot', text: 'Request failed, please try again later.' }]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('pendingMessage');
+      }
     } finally {
       setLoading(false);
     }
@@ -110,6 +151,18 @@ export default function Home() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('sessionId');
     }
+  };
+
+  // 取消等待
+  const cancelPendingMessage = () => {
+    setLoading(false);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('pendingMessage');
+    }
+    setMessages((msgs) => [
+      ...msgs,
+      { role: 'bot', text: 'Request cancelled by user.' }
+    ]);
   };
 
   return (
@@ -135,7 +188,12 @@ export default function Home() {
       </div>
       {/* 聊天内容区可滚动 */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-        <MessageList messages={messages} loading={loading} />
+        <MessageList
+          messages={messages}
+          loading={loading}
+          onCancelPendingMessage={cancelPendingMessage}
+          pendingMessage={typeof window !== 'undefined' && localStorage.getItem('pendingMessage')}
+        />
         <div ref={chatEndRef} />
       </div>
       {/* 底部输入框固定 */}

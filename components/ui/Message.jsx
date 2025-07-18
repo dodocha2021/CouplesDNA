@@ -3,7 +3,7 @@ import { MarkdownMessage } from './MarkdownMessage';
 import { LoadingAnimation } from './Animation';
 
 // 消息气泡组件
-export function MessageBubble({ message, isLast, loading }) {
+export function MessageBubble({ message, isLast, loading, onCancelPendingMessage, showCancel }) {
   return (
     <React.Fragment>
       <div
@@ -25,14 +25,36 @@ export function MessageBubble({ message, isLast, loading }) {
           message.text
         )}
       </div>
-      {/* 只在最后一条消息下方显示动画 */}
-      {isLast && loading && <LoadingAnimation />}
+      {/* 只在最后一条消息下方显示动画和Cancel按钮 */}
+      {isLast && loading && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+          <LoadingAnimation />
+          {showCancel && (
+            <button
+              onClick={onCancelPendingMessage}
+              style={{
+                marginLeft: 8,
+                padding: '4px 10px',
+                fontSize: 14,
+                border: 'none',
+                borderRadius: 4,
+                background: '#eee',
+                color: '#666',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+              }}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      )}
     </React.Fragment>
   );
 }
 
 // 消息列表组件
-export function MessageList({ messages, loading }) {
+export function MessageList({ messages, loading, onCancelPendingMessage, pendingMessage }) {
   return (
     <div className="message-list" style={{ 
       flex: 1, 
@@ -48,6 +70,8 @@ export function MessageList({ messages, loading }) {
           message={msg} 
           isLast={i === messages.length - 1}
           loading={loading}
+          onCancelPendingMessage={onCancelPendingMessage}
+          showCancel={loading && pendingMessage}
         />
       ))}
     </div>
