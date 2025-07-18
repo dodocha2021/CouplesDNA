@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import { Dialog, DialogContent, DialogTrigger } from '../components/ui/dialog';
 import { HeroGeometric } from '../components/ui/shape-landing-hero';
 import { StarBorder } from '../components/ui/star-border';
+import { Button as MovingBorderButton } from '../src/components/ui/moving-border';
 
 // Utility function
 const cn = (...classes) => {
@@ -714,13 +715,12 @@ export default function TestChat() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Dialog>
             <DialogTrigger asChild>
-              <StarBorder 
-                color="white" 
-                speed="4s"
-                className="text-white"
+              <MovingBorderButton
+                borderRadius="1.75rem"
+                className="bg-slate-900 text-white border-slate-800"
               >
                 Start Team Chat
-              </StarBorder>
+              </MovingBorderButton>
             </DialogTrigger>
             <DialogContent className="p-0 h-[700px] flex flex-col bg-white max-w-6xl">
               {/* Team Chat Interface with Sidebar */}
