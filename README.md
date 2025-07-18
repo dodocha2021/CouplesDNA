@@ -1,60 +1,23 @@
-# 🚀 Your Website Project
+# CouplesDNA
 
-Welcome to your new website! Everything is set up and ready to go. You can start editing right away.
+A Next.js application for analyzing couple relationships through conversation patterns.
 
-## ✨ What You Can Do
+## Features
 
-This project includes everything you need to build a modern website:
+- Team chat interface with expert AI
+- File upload and analysis
+- Real-time conversation processing
+- Beautiful UI with animations
 
-- **Easy editing** - Change text, colors, and layout
-- **Live preview** - See changes instantly as you type
-- **Beautiful components** - Pre-built buttons, cards, and more
-- **Auto-sync** - Your changes save automatically to the cloud
-- **Live website** - Share your site with anyone, anywhere
-
-## 🚀 Quick Start
-
-> 🆕 **First time?** The VS Code extension will automatically set up everything when you open this project.
-
-### 1. Start Building
+## Getting Started
 
 ```bash
-pnpm start
+npm install
+npm run dev
 ```
 
-This will:
+## Deployment
 
-- Set up everything you need automatically
-- Start your website at `http://localhost:5173`
-- Sync your changes to the cloud
-- Set up browser integration in Cursor
+This project is deployed on Vercel.
 
-### 2. Start Creating!
-
-- Edit files in the `src/` folder
-- See changes instantly in your browser
-- Your live website updates automatically
-- Use the toolbar in the bottom-right to save changes
-
-## 📱 Opening Your Website
-
-**To see your website in Cursor:**
-
-```bash
-pnpm start
-```
-
-**To control your project:**
-
-- Press `Cmd+Shift+P` in Cursor
-- Type "Start Project" to run the setup
-- Type "Open Preview" to see your website
-
-## 🛠 Available Commands
-
-- `pnpm start` - 🚀 Start everything (recommended)
-- `pnpm dev` - Start only the local preview
-- `pnpm sync` - Start only the cloud sync
-- `pnpm build` - 📦 Build your website for sharing
-
-Happy building! 🎉
+<!-- Trigger new deployment -->
