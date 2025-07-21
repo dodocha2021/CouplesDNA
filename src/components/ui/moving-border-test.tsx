@@ -10,7 +10,7 @@ import {
 import { useRef } from "react";
 
 export function MovingBorderTest() {
-  const pathRef = useRef<any>(null);
+  const pathRef = useRef<SVGRectElement | null>(null);
   const progress = useMotionValue<number>(0);
 
   useAnimationFrame((time) => {

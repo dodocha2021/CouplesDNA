@@ -46,8 +46,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     {
       emoji: "🚀",
       title: "Welcome to Cursor + Phion",
-      subtitle: "Let's get you coding in 60 seconds",
-      content: "You're about to experience the future of coding. We'll show you exactly how to build anything with AI assistance and deploy it instantly."
+      subtitle: "Let&apos;s get you coding in 60 seconds",
+      content: "You&apos;re about to experience the future of coding. We&apos;ll show you exactly how to build anything with AI assistance and deploy it instantly."
     },
     {
       emoji: "🎚️",
@@ -83,7 +83,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       content: (
         <div className="space-y-6">
           <p className="text-muted-foreground leading-relaxed">
-            Look at the top toolbar - you'll see Save and Discard buttons there.
+            Look at the top toolbar - you&apos;ll see Save and Discard buttons there.
           </p>
           <div className="space-y-4">
             <div className="flex items-start gap-4">
@@ -141,7 +141,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       content: (
         <div className="space-y-6">
           <p className="text-muted-foreground leading-relaxed">
-            Press <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">⌘I</kbd> to open your AI assistant. It's like having a senior developer sitting next to you.
+            Press <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">⌘I</kbd> to open your AI assistant. It&apos;s like having a senior developer sitting next to you.
           </p>
           <div className="bg-muted/30 rounded-xl p-4">
             <div className="text-center">
@@ -159,7 +159,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       content: (
         <div className="space-y-6">
           <p className="text-muted-foreground leading-relaxed">
-            Use Ask mode to brainstorm, plan features, and get architectural advice. Perfect for the "what" and "how" questions.
+            Use Ask mode to brainstorm, plan features, and get architectural advice. Perfect for the &quot;what&quot; and &quot;how&quot; questions.
           </p>
           <div className="space-y-3">
             <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-4">
@@ -203,7 +203,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       content: (
         <div className="space-y-6">
           <p className="text-muted-foreground leading-relaxed">
-            Here's the magic: use the same chat for both modes. Plan in Ask, then switch to Agent to build.
+            Here&apos;s the magic: use the same chat for both modes. Plan in Ask, then switch to Agent to build.
           </p>
           <div className="bg-muted/30 rounded-xl p-4 space-y-4">
             <div className="text-center">
