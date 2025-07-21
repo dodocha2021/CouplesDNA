@@ -26,7 +26,7 @@ export default function ChatInput({ onSend, onFileUploaded, loading }) {
       if (onFileUploaded) {
         onFileUploaded(res.data.fileName, res.data.message);
       }
-    } catch (err) {
+    } catch (error) {
       if (onFileUploaded) {
         onFileUploaded(file.name, 'Upload failed');
       }

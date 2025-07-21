@@ -221,7 +221,7 @@ export default function ModernChat() {
               </div>
               <h3 className="font-bold text-gray-900 text-xl mb-3">Start a conversation</h3>
               <p className="text-gray-600 max-w-xs leading-relaxed">
-                Send a message to begin chatting with your AI assistant. I'm here to help!
+                Send a message to begin chatting with your AI assistant. I&apos;m here to help!
               </p>
             </div>
           ) : (

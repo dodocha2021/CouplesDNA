@@ -1,9 +1,10 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import { Dialog, DialogContent, DialogTrigger } from '../components/ui/dialog';
 import { HeroGeometric } from '../components/ui/shape-landing-hero';
-import { StarBorder } from '../components/ui/star-border';
+
 import { Button as MovingBorderButton } from '../src/components/ui/moving-border';
 import { MarkdownMessage } from '../components/ui/MarkdownMessage';
 import { Dialog as ConfirmDialog } from '../components/ui/dialog';
@@ -610,8 +611,8 @@ export default function Home() {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('pendingMessage');
       }
-    } catch (e) {
-      console.log('catch error', e);
+          } catch (error) {
+        console.log('catch error', error);
       setMessages(prev => {
         const newMsgs = [...prev, { 
           id: Date.now() + 1,
@@ -712,14 +713,7 @@ export default function Home() {
   };
 
   // 清空聊天
-  const handleClearChat = () => {
-    setMessages([defaultWelcome[selectedMember.id]]);
-    setMessagesByExpert(m => ({ ...m, [selectedMember.id]: [defaultWelcome[selectedMember.id]] }));
-    setSessionId(null);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('sessionId');
-    }
-  };
+
 
   // 切换专家
   const handleMemberSelect = (member) => {
@@ -734,10 +728,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <a href="/" className="flex items-center group">
-                <img src="/couplesdna-ai.png" alt="CouplesDNA Logo" className="h-9 w-9 transition-transform duration-200 group-hover:scale-105 rounded" />
-                <span className="ml-2 text-2xl font-bold text-gray-900">CouplesDNA</span>
-              </a>
+                      <Link href="/" className="flex items-center group">
+          <img src="/couplesdna-ai.png" alt="CouplesDNA Logo" className="h-9 w-9 transition-transform duration-200 group-hover:scale-105 rounded" />
+          <span className="ml-2 text-2xl font-bold text-gray-900">CouplesDNA</span>
+        </Link>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Trusted by 10,000+ couples worldwide</span>
@@ -876,7 +870,7 @@ export default function Home() {
                                           .delete()
                                           .eq('session_id', sessionId)
                                           .eq('expert_id', selectedMember.id);
-                                      } catch (e) {}
+                                      } catch (error) {}
                                       setDeleting(false);
                                     }}
                                     disabled={deleting}
@@ -1073,7 +1067,7 @@ export default function Home() {
             Ready to Decode Your Relationship?
           </h2>
           <p className="text-xl text-blue-100 mb-8">
-            Join thousands of couples who've discovered deeper connection, better communication, and lasting love through CouplesDNA.
+            Join thousands of couples who&apos;ve discovered deeper connection, better communication, and lasting love through CouplesDNA.
           </p>
           <button 
             className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-blue-600 hover:bg-gray-100 h-12 px-8"
@@ -1140,7 +1134,7 @@ export default function Home() {
                       .delete()
                       .eq('session_id', sessionId)
                       .eq('expert_id', selectedMember.id);
-                  } catch (e) {}
+                  } catch (error) {}
                   setDeleting(false);
                   setShowDeleteConfirm(false);
                 }}
