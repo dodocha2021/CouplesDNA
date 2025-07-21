@@ -16,7 +16,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     // Check for Phion toolbar in DOM
     const checkToolbar = () => {
       const phionContainer = document.getElementById('phion-root-container')
-      const phionConfig = (window as any).PHION_CONFIG
+      // 类型安全地访问 window.PHION_CONFIG
+      const win = window as unknown as { PHION_CONFIG?: unknown }
+      const phionConfig = win.PHION_CONFIG
       setHasRealToolbar(!!phionContainer || !!phionConfig)
     }
     
@@ -163,9 +165,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <div className="bg-blue-500/5 border border-blue-500/20 rounded-lg p-4">
               <div className="font-medium text-sm mb-1">💭 Great for:</div>
               <div className="text-xs text-muted-foreground space-y-1">
-                <div>• "How should I structure this app?"</div>
-                <div>• "What's the best way to add auth?"</div>
-                <div>• "Plan a shopping cart feature"</div>
+                <div>• &quot;How should I structure this app?&quot;</div>
+                <div>• &quot;What&apos;s the best way to add auth?&quot;</div>
+                <div>• &quot;Plan a shopping cart feature&quot;</div>
               </div>
             </div>
           </div>
@@ -185,9 +187,9 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-4">
               <div className="font-medium text-sm mb-1">⚡ Perfect for:</div>
               <div className="text-xs text-muted-foreground space-y-1">
-                <div>• "Build that shopping cart now"</div>
-                <div>• "Add dark mode to the app"</div>
-                <div>• "Fix this bug in the login"</div>
+                <div>• &quot;Build that shopping cart now&quot;</div>
+                <div>• &quot;Add dark mode to the app&quot;</div>
+                <div>• &quot;Fix this bug in the login&quot;</div>
               </div>
             </div>
           </div>
@@ -209,13 +211,13 @@ export function Onboarding({ onComplete }: OnboardingProps) {
               <div className="text-sm font-medium">Switch Modes</div>
             </div>
             <div className="text-xs text-muted-foreground text-center">
-              Press this in any chat to toggle between Ask ↔ Agent
+              Press this in any chat to toggle between Ask &harr; Agent
             </div>
           </div>
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
             <div className="text-xs font-medium text-amber-700 dark:text-amber-300">Pro tip:</div>
             <div className="text-xs text-muted-foreground mt-1">
-              Plan your feature in Ask mode, then say "build it" and switch to Agent
+              Plan your feature in Ask mode, then say &quot;build it&quot; and switch to Agent
             </div>
           </div>
         </div>
