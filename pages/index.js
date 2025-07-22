@@ -347,17 +347,27 @@ function parseDbMessage(dbMessage) {
 
   if (dbMessage.type === 'human') {
     return { 
-      id: Date.now(),
+      id: Date.now() + Math.random(),
       content: getContentString(dbMessage.content),
-      sender: 'user',
+      sender: {
+        name: "You",
+        avatar: "",
+        isOnline: true,
+        isCurrentUser: true,
+      },
       timestamp: new Date()
     };
   }
   if (dbMessage.type === 'ai') {
     return { 
-      id: Date.now() + 1,
+      id: Date.now() + Math.random(),
       content: getContentString(dbMessage.content),
-      sender: 'ai',
+      sender: {
+        name: "CouplesDNA-AI",
+        avatar: "/couplesdna-ai.png",
+        isOnline: true,
+        isCurrentUser: false,
+      },
       timestamp: new Date()
     };
   }
@@ -532,8 +542,8 @@ export default function Home() {
                   id: Date.now() + 1,
                   content: 'Request failed, please try again later.',
                   sender: {
-                    name: selectedMember.name,
-                    avatar: selectedMember.avatar,
+                    name: "CouplesDNA-AI",
+                    avatar: "/couplesdna-ai.png",
                     isOnline: true,
                     isCurrentUser: false,
                   },
@@ -601,25 +611,16 @@ export default function Home() {
         { headers: { 'Content-Type': 'application/json' } }
       );
       
-      // 检查是否有直接的 AI 响应
-      let aiText = res.data.aiResponse;
-      
-      // 如果没有直接的 AI 响应，尝试从其他位置提取
-      if (!aiText) {
-        aiText = res.data.data?.reply || res.data.data?.message || res.data.data?.output || res.data.data?.content || res.data.reply || res.data.message || res.data.output || res.data.content;
-      }
-      
-      // 如果还是没有，显示等待消息
-      if (!aiText) {
-        aiText = ""; // 空字符串，让加载动画显示
-      }
+      // API 现在立即返回，不包含 AI 响应
+      // 直接开始轮询等待 AI 回复
+      let aiText = ""; // 空字符串，让加载动画显示
       
               const aiMessage = {
           id: Date.now() + Math.random(), // 使用更唯一的 ID
           content: aiText,
           sender: {
-            name: selectedMember.name,
-            avatar: selectedMember.avatar,
+            name: "CouplesDNA-AI",
+            avatar: "/couplesdna-ai.png",
             isOnline: true,
             isCurrentUser: false,
           },
@@ -640,81 +641,85 @@ export default function Home() {
         localStorage.removeItem('pendingMessage');
       }
       
-      // 如果只收到初始响应，开始轮询等待最终结果
-      if (aiText === "") {
-        console.log('🔄 Starting to poll for AI response...');
+      // 开始轮询等待 AI 回复
+      console.log('🔄 Starting to poll for AI response...');
+      
+      // 开始轮询检查 AI 回复
+      let pollCount = 0;
+      const maxPolls = 180; // 轮询180次（3分钟）
+      const pollInterval = setInterval(async () => {
+        pollCount++;
+        console.log(`🔍 Polling for AI response... (${pollCount}/${maxPolls})`);
         
-        // 开始轮询检查 AI 回复
-        let pollCount = 0;
-        const maxPolls = 20; // 最多轮询20次
-        const pollInterval = setInterval(async () => {
-          pollCount++;
-          console.log(`🔍 Polling for AI response... (${pollCount}/${maxPolls})`);
-          
-          try {
-            // 检查数据库中的最新 AI 消息
-            const { data, error } = await supabase
-              .from('n8n_chat_histories')
-              .select('message')
-              .eq('session_id', sid)
-              .order('created_at', { ascending: false })
-              .limit(1);
+        try {
+          // 检查数据库中的最新 AI 消息
+          const { data, error } = await supabase
+            .from('n8n_chat_histories')
+            .select('message')
+            .eq('session_id', sid)
+            .order('created_at', { ascending: false })
+            .limit(1);
 
-                        if (!error && data && data.length > 0) {
-              const latestMessage = data[0].message;
-              console.log('🔍 Checking message:', latestMessage);
-              // 检查是否是 AI 消息且内容不是用户输入
-              if (latestMessage.type === 'ai' && latestMessage.content && latestMessage.content !== input) {
-                // 找到新的 AI 回复
-                clearInterval(pollInterval);
-                
-                let actualAiText = typeof latestMessage.content === 'string' 
-                  ? latestMessage.content 
-                  : JSON.stringify(latestMessage.content);
-                
-                // 移除 "DIRECT: " 前缀
-                if (actualAiText.startsWith('DIRECT: ')) {
-                  actualAiText = actualAiText.substring(8);
-                }
-                
-                // 更新消息
-                setMessages(prev => {
-                  const newMsgs = [...prev];
-                  // 替换最后的等待消息
-                  if (newMsgs.length > 0) {
-                    newMsgs[newMsgs.length - 1] = {
-                      ...newMsgs[newMsgs.length - 1],
-                      content: actualAiText,
-                      isLoading: false // 停止加载状态
-                    };
-                  }
-                  setMessagesByExpert(m => ({ ...m, [selectedMember.id]: newMsgs }));
-                  return newMsgs;
-                });
-                
-                console.log('✅ AI response received:', actualAiText);
+          if (!error && data && data.length > 0) {
+            const latestMessage = data[0].message;
+            console.log('🔍 Checking message:', latestMessage);
+            // 检查是否是 AI 消息且内容不是用户输入
+            if (latestMessage.type === 'ai' && latestMessage.content && latestMessage.content !== input) {
+              // 找到新的 AI 回复
+              clearInterval(pollInterval);
+              
+              let actualAiText = typeof latestMessage.content === 'string' 
+                ? latestMessage.content 
+                : JSON.stringify(latestMessage.content);
+              
+              // 移除 "DIRECT: " 前缀
+              if (actualAiText.startsWith('DIRECT: ')) {
+                actualAiText = actualAiText.substring(8);
               }
+              
+              // 更新消息内容
+              setMessages(prev => {
+                const newMsgs = prev.map(msg => 
+                  msg.id === aiMessage.id 
+                    ? { 
+                        ...msg, 
+                        content: actualAiText, 
+                        isLoading: false,
+                        sender: {
+                          name: "CouplesDNA-AI",
+                          avatar: "/couplesdna-ai.png",
+                          isOnline: true,
+                          isCurrentUser: false,
+                        }
+                      }
+                    : msg
+                );
+                setMessagesByExpert(m => ({ ...m, [selectedMember.id]: newMsgs }));
+                return newMsgs;
+              });
+              
+              console.log('✅ AI response received:', actualAiText);
             }
-          } catch (pollError) {
-            console.error('❌ Polling error:', pollError);
           }
-          
-          // 如果达到最大轮询次数，停止轮询
-          if (pollCount >= maxPolls) {
-            clearInterval(pollInterval);
-            console.log('❌ Max polls reached, stopping polling');
-          }
-        }, 1000); // 每秒检查一次
-      }
-          } catch (error) {
-        console.log('catch error', error);
+        } catch (pollError) {
+          console.error('❌ Polling error:', pollError);
+        }
+        
+        // 如果达到最大轮询次数，停止轮询
+        if (pollCount >= maxPolls) {
+          clearInterval(pollInterval);
+          console.log('❌ Max polls reached, stopping polling');
+        }
+      }, 1000); // 每秒检查一次
+    } catch (error) {
+      console.log('catch error', error);
       setMessages(prev => {
         const newMsgs = [...prev, { 
-          id: Date.now() + 1,
+          id: Date.now() + Math.random(),
           content: 'Request failed, please try again later.',
           sender: {
-            name: selectedMember.name,
-            avatar: selectedMember.avatar,
+            name: "CouplesDNA-AI",
+            avatar: "/couplesdna-ai.png",
             isOnline: true,
             isCurrentUser: false,
           },
@@ -842,7 +847,7 @@ export default function Home() {
       
       // 开始轮询检查
       let checkCount = 0;
-      const maxChecks = 12; // 最多检查12次 (6分钟)
+      const maxChecks = 20; // 增加检查次数到20次 (10分钟)
       
       const checkForReport = async () => {
         checkCount++;
@@ -868,32 +873,38 @@ export default function Home() {
             const latestMessage = data[0].message;
             console.log('📄 Latest message:', latestMessage);
             
+            // 只处理 AI 消息，并且内容必须是 JSON 格式
             if (latestMessage.type === 'ai' && latestMessage.content) {
-              console.log('🤖 AI message found, parsing content...');
-              try {
-                const content = JSON.parse(latestMessage.content);
-                console.log('🔍 Parsed content:', content);
-                
-                if (content.output && content.output.reportTitle) {
-                  console.log('✅ Report found! Redirecting to report page...');
-                  setReportProgress('Report generated! Redirecting...');
-                  // 清除轮询
-                  if (reportCheckInterval) {
-                    clearInterval(reportCheckInterval);
+              console.log('🤖 AI message found, checking if it\'s a report...');
+              
+              // 检查内容是否是 JSON 格式
+              if (typeof latestMessage.content === 'string' && latestMessage.content.trim().startsWith('{')) {
+                try {
+                  const content = JSON.parse(latestMessage.content);
+                  console.log('🔍 Parsed content:', content);
+                  
+                  // 检查是否是报告格式
+                  if (content.output && content.output.reportTitle) {
+                    console.log('✅ Report found! Redirecting to report page...');
+                    setReportProgress('Report generated! Redirecting...');
+                    // 清除轮询
+                    if (reportCheckInterval) {
+                      clearInterval(reportCheckInterval);
+                    }
+                    // 成功生成报告，跳转到报告页面
+                    window.location.href = `/report/${sid}`;
+                    return;
+                  } else {
+                    console.log('❌ No reportTitle found in content.output:', content.output);
                   }
-                  // 成功生成报告，跳转到报告页面
-                  window.location.href = `/report/${sid}`;
-                  return;
-                } else {
-                  console.log('❌ No reportTitle found in content.output:', content.output);
-                  // 检查是否是普通的聊天消息，而不是报告
-                  if (content.output && typeof content.output === 'string' && content.output.includes('report')) {
-                    console.log('📝 Found report-related message, but not a structured report');
-                  }
+                } catch (parseError) {
+                  console.error('❌ Failed to parse report content:', parseError);
+                  console.log('📄 Raw content that failed to parse:', latestMessage.content);
+                  // 如果不是 JSON 格式，可能是聊天消息，忽略它
+                  console.log('📝 This appears to be a chat message, not a report. Continuing to wait for report...');
                 }
-              } catch (parseError) {
-                console.error('❌ Failed to parse report content:', parseError);
-                console.log('📄 Raw content that failed to parse:', latestMessage.content);
+              } else {
+                console.log('📝 Content is not JSON format, likely a chat message. Continuing to wait for report...');
               }
             } else {
               console.log('❌ Message is not AI type or has no content:', {
@@ -929,13 +940,12 @@ export default function Home() {
         }
       };
       
-      // 等待5秒后再开始检查，给 n8n 一些时间处理
+      // 5秒后开始第一次检查，然后每60秒检查一次
       setTimeout(async () => {
         await checkForReport();
       }, 5000);
       
-      // 每30秒检查一次
-      const interval = setInterval(checkForReport, 30000);
+      const interval = setInterval(checkForReport, 60000); // 每60秒检查一次
       setReportCheckInterval(interval);
       
     } catch (error) {
@@ -1389,7 +1399,7 @@ export default function Home() {
                       .eq('session_id', sessionId);
                   } catch (error) {
                     console.error('❌ Error deleting chat history:', error);
-                  }
+        }
                   setDeleting(false);
                   setShowDeleteConfirm(false);
                 }}

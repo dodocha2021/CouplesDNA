@@ -228,15 +228,20 @@ export default function DynamicReportPage() {
 
         const message = data[0].message
         if (message.type === 'ai' && message.content) {
-          try {
-            const content = JSON.parse(message.content)
-            if (content.output && content.output.reportTitle) {
-              setReportData(content.output)
-            } else {
-              throw new Error('Invalid report format')
+          // 检查内容是否是 JSON 格式
+          if (typeof message.content === 'string' && message.content.trim().startsWith('{')) {
+            try {
+              const content = JSON.parse(message.content)
+              if (content.output && content.output.reportTitle) {
+                setReportData(content.output)
+              } else {
+                throw new Error('Invalid report format')
+              }
+            } catch (parseError) {
+              throw new Error('Failed to parse report content')
             }
-          } catch (parseError) {
-            throw new Error('Failed to parse report content')
+          } else {
+            throw new Error('Report content is not in JSON format')
           }
         } else {
           throw new Error('Invalid message format')
@@ -330,7 +335,7 @@ export default function DynamicReportPage() {
                   <span className="text-3xl font-bold text-blue-600">{reportData.overallScore || 'N/A'}</span>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2 font-instrument-sans">Overall Score</h3>
-                <p className="text-gray-600 font-instrument-sans">Out of 100</p>
+                <p className="text-gray-600 font-instrument-sans">Out of 10</p>
               </div>
               
               <div className="bg-[#f3f1ea] p-8 rounded-lg text-center">
