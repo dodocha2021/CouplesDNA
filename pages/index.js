@@ -325,17 +325,30 @@ const ChatMessageList = React.forwardRef(({
 ChatMessageList.displayName = "ChatMessageList";
 
 // API Configuration
-const N8N_WEBHOOK = 'https://couplesdna.app.n8n.cloud/webhook/ff627dd8-7f67-4631-b2df-4332067fa07a';
+const N8N_WEBHOOK = 'https://couplesdna.app.n8n.cloud/webhook-test/ff627dd8-7f67-4631-b2df-4332067fa07a';
 
 function generateSessionId() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
 function parseDbMessage(dbMessage) {
+  // 确保 content 是字符串
+  const getContentString = (content) => {
+    if (typeof content === 'string') return content;
+    if (typeof content === 'object') {
+      try {
+        return JSON.stringify(content);
+      } catch (e) {
+        return 'Invalid content format';
+      }
+    }
+    return String(content || '');
+  };
+
   if (dbMessage.type === 'human') {
     return { 
       id: Date.now(),
-      content: dbMessage.content,
+      content: getContentString(dbMessage.content),
       sender: 'user',
       timestamp: new Date()
     };
@@ -343,7 +356,7 @@ function parseDbMessage(dbMessage) {
   if (dbMessage.type === 'ai') {
     return { 
       id: Date.now() + 1,
-      content: dbMessage.content,
+      content: getContentString(dbMessage.content),
       sender: 'ai',
       timestamp: new Date()
     };
@@ -456,6 +469,9 @@ export default function Home() {
   const fileInputRef = useRef(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [generatingReport, setGeneratingReport] = useState(false);
+  const [reportProgress, setReportProgress] = useState('');
+  const [reportCheckInterval, setReportCheckInterval] = useState(null);
 
   // Load chat history on page load
   useEffect(() => {
@@ -550,7 +566,7 @@ export default function Home() {
     }
 
     const userMessage = {
-      id: Date.now(),
+      id: Date.now() + Math.random(), // 使用更唯一的 ID
       content: input,
       sender: {
         name: "You",
@@ -576,30 +592,42 @@ export default function Home() {
 
     try {
       const res = await axios.post(
-        N8N_WEBHOOK,
-        [
+        '/api/team-chat',
           {
             sessionId: sid,
-            action: 'sendMessage',
-            chatInput: input
-          }
-        ],
+          expertId: selectedMember.id,
+          message: input
+        },
         { headers: { 'Content-Type': 'application/json' } }
       );
       
-      const aiText = res.data.reply || res.data.message || res.data.output || res.data.content || JSON.stringify(res.data);
+      // 检查是否有直接的 AI 响应
+      let aiText = res.data.aiResponse;
       
-      const aiMessage = {
-        id: Date.now() + 1,
-        content: aiText,
-        sender: {
-          name: selectedMember.name,
-          avatar: selectedMember.avatar,
-          isOnline: true,
-          isCurrentUser: false,
-        },
-        timestamp: new Date(),
-      };
+      // 如果没有直接的 AI 响应，尝试从其他位置提取
+      if (!aiText) {
+        aiText = res.data.data?.reply || res.data.data?.message || res.data.data?.output || res.data.data?.content || res.data.reply || res.data.message || res.data.output || res.data.content;
+      }
+      
+      // 如果还是没有，显示等待消息
+      if (!aiText) {
+        aiText = ""; // 空字符串，让加载动画显示
+      }
+      
+              const aiMessage = {
+          id: Date.now() + Math.random(), // 使用更唯一的 ID
+          content: aiText,
+          sender: {
+            name: selectedMember.name,
+            avatar: selectedMember.avatar,
+            isOnline: true,
+            isCurrentUser: false,
+          },
+          timestamp: new Date(),
+          isLoading: aiText === "" // 添加加载状态
+        };
+        
+        console.log('📝 Created AI message with isLoading:', aiMessage.isLoading);
       
       setMessages(prev => {
         const newMsgs = [...prev, aiMessage];
@@ -610,6 +638,73 @@ export default function Home() {
       // Clear pendingMessage
       if (typeof window !== 'undefined') {
         localStorage.removeItem('pendingMessage');
+      }
+      
+      // 如果只收到初始响应，开始轮询等待最终结果
+      if (aiText === "") {
+        console.log('🔄 Starting to poll for AI response...');
+        
+        // 开始轮询检查 AI 回复
+        let pollCount = 0;
+        const maxPolls = 20; // 最多轮询20次
+        const pollInterval = setInterval(async () => {
+          pollCount++;
+          console.log(`🔍 Polling for AI response... (${pollCount}/${maxPolls})`);
+          
+          try {
+            // 检查数据库中的最新 AI 消息
+            const { data, error } = await supabase
+              .from('n8n_chat_histories')
+              .select('message')
+              .eq('session_id', sid)
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+                        if (!error && data && data.length > 0) {
+              const latestMessage = data[0].message;
+              console.log('🔍 Checking message:', latestMessage);
+              // 检查是否是 AI 消息且内容不是用户输入
+              if (latestMessage.type === 'ai' && latestMessage.content && latestMessage.content !== input) {
+                // 找到新的 AI 回复
+                clearInterval(pollInterval);
+                
+                let actualAiText = typeof latestMessage.content === 'string' 
+                  ? latestMessage.content 
+                  : JSON.stringify(latestMessage.content);
+                
+                // 移除 "DIRECT: " 前缀
+                if (actualAiText.startsWith('DIRECT: ')) {
+                  actualAiText = actualAiText.substring(8);
+                }
+                
+                // 更新消息
+                setMessages(prev => {
+                  const newMsgs = [...prev];
+                  // 替换最后的等待消息
+                  if (newMsgs.length > 0) {
+                    newMsgs[newMsgs.length - 1] = {
+                      ...newMsgs[newMsgs.length - 1],
+                      content: actualAiText,
+                      isLoading: false // 停止加载状态
+                    };
+                  }
+                  setMessagesByExpert(m => ({ ...m, [selectedMember.id]: newMsgs }));
+                  return newMsgs;
+                });
+                
+                console.log('✅ AI response received:', actualAiText);
+              }
+            }
+          } catch (pollError) {
+            console.error('❌ Polling error:', pollError);
+          }
+          
+          // 如果达到最大轮询次数，停止轮询
+          if (pollCount >= maxPolls) {
+            clearInterval(pollInterval);
+            console.log('❌ Max polls reached, stopping polling');
+          }
+        }, 1000); // 每秒检查一次
       }
           } catch (error) {
         console.log('catch error', error);
@@ -712,6 +807,145 @@ export default function Home() {
     }
   };
 
+  const handleGenerateReport = async () => {
+    if (generatingReport) return;
+    
+    console.log('🚀 Starting report generation...');
+    setGeneratingReport(true);
+    setReportProgress('Sending request to AI...');
+    
+    let sid = sessionId;
+    if (!sid) {
+      sid = generateSessionId();
+      setSessionId(sid);
+      localStorage.setItem('sessionId', sid);
+    }
+    
+    console.log('📋 Session ID:', sid);
+    console.log('👤 Selected Member:', selectedMember);
+
+    try {
+      console.log('📤 Sending request to API route...');
+      // 通过我们的 API 路由发送请求
+      const response = await axios.post('/api/generate-report', {
+        sessionId: sid,
+        expertId: selectedMember.id
+      }, { 
+        headers: { 'Content-Type': 'application/json' } 
+      });
+
+      console.log('✅ API response received:', response.data);
+
+      // 无论 n8n 是否立即响应，都开始轮询数据库
+      console.log('⏳ Starting to check for report every 30 seconds...');
+      setReportProgress('AI is generating your report... Please wait 5 seconds before first check.');
+      
+      // 开始轮询检查
+      let checkCount = 0;
+      const maxChecks = 12; // 最多检查12次 (6分钟)
+      
+      const checkForReport = async () => {
+        checkCount++;
+        console.log(`🔍 Check #${checkCount} for report data...`);
+        setReportProgress(`AI is generating your report... (Check ${checkCount}/${maxChecks})`);
+        
+        try {
+          // 检查数据库中的回复
+          const { data, error } = await supabase
+            .from('n8n_chat_histories')
+            .select('message')
+            .eq('session_id', sid)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          console.log('📊 Database query result:', { data, error });
+          if (error) {
+            console.log('❌ Database error details:', error);
+          }
+
+          if (!error && data && data.length > 0) {
+            console.log('📝 Found message in database:', data[0]);
+            const latestMessage = data[0].message;
+            console.log('📄 Latest message:', latestMessage);
+            
+            if (latestMessage.type === 'ai' && latestMessage.content) {
+              console.log('🤖 AI message found, parsing content...');
+              try {
+                const content = JSON.parse(latestMessage.content);
+                console.log('🔍 Parsed content:', content);
+                
+                if (content.output && content.output.reportTitle) {
+                  console.log('✅ Report found! Redirecting to report page...');
+                  setReportProgress('Report generated! Redirecting...');
+                  // 清除轮询
+                  if (reportCheckInterval) {
+                    clearInterval(reportCheckInterval);
+                  }
+                  // 成功生成报告，跳转到报告页面
+                  window.location.href = `/report/${sid}`;
+                  return;
+                } else {
+                  console.log('❌ No reportTitle found in content.output:', content.output);
+                  // 检查是否是普通的聊天消息，而不是报告
+                  if (content.output && typeof content.output === 'string' && content.output.includes('report')) {
+                    console.log('📝 Found report-related message, but not a structured report');
+                  }
+                }
+              } catch (parseError) {
+                console.error('❌ Failed to parse report content:', parseError);
+                console.log('📄 Raw content that failed to parse:', latestMessage.content);
+              }
+            } else {
+              console.log('❌ Message is not AI type or has no content:', {
+                type: latestMessage.type,
+                hasContent: !!latestMessage.content
+              });
+            }
+          } else {
+            console.log('❌ No data found in database or error occurred:', { data, error });
+          }
+          
+          // 如果达到最大检查次数，停止轮询
+          if (checkCount >= maxChecks) {
+            console.log('❌ Max checks reached, stopping polling');
+            setReportProgress('Report generation timed out. Please try again.');
+            alert('Report generation timed out. Please try again.');
+            if (reportCheckInterval) {
+              clearInterval(reportCheckInterval);
+            }
+            setGeneratingReport(false);
+            return;
+          }
+          
+        } catch (checkError) {
+          console.error('❌ Error checking report:', checkError);
+          if (checkCount >= maxChecks) {
+            alert('Failed to generate report. Please try again.');
+            if (reportCheckInterval) {
+              clearInterval(reportCheckInterval);
+            }
+            setGeneratingReport(false);
+          }
+        }
+      };
+      
+      // 等待5秒后再开始检查，给 n8n 一些时间处理
+      setTimeout(async () => {
+        await checkForReport();
+      }, 5000);
+      
+      // 每30秒检查一次
+      const interval = setInterval(checkForReport, 30000);
+      setReportCheckInterval(interval);
+      
+    } catch (error) {
+      console.error('❌ Error generating report:', error);
+      setReportProgress('Request failed. Please try again.');
+      alert('Failed to generate report. Please try again.');
+      setGeneratingReport(false);
+    }
+  };
+
   // 清空聊天
 
 
@@ -720,6 +954,15 @@ export default function Home() {
     setSelectedMember(member);
     // 不清空消息，只切换显示
   };
+
+  // 清理轮询定时器
+  React.useEffect(() => {
+    return () => {
+      if (reportCheckInterval) {
+        clearInterval(reportCheckInterval);
+      }
+    };
+  }, [reportCheckInterval]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
@@ -736,8 +979,8 @@ export default function Home() {
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Trusted by 10,000+ couples worldwide</span>
             </div>
-          </div>
-        </div>
+      </div>
+      </div>
       </header>
 
       {/* Global hidden file input */}
@@ -868,9 +1111,10 @@ export default function Home() {
                                         await supabase
                                           .from('n8n_chat_histories')
                                           .delete()
-                                          .eq('session_id', sessionId)
-                                          .eq('expert_id', selectedMember.id);
-                                      } catch (error) {}
+                                          .eq('session_id', sessionId);
+                                      } catch (error) {
+                                        console.error('❌ Error deleting chat history:', error);
+                                      }
                                       setDeleting(false);
                                     }}
                                     disabled={deleting}
@@ -909,6 +1153,7 @@ export default function Home() {
                             )}
                             <ChatBubbleMessage
                               variant={message.sender.isCurrentUser ? "sent" : "received"}
+                              isLoading={message.isLoading}
                             >
                               {message.sender.isCurrentUser ? (
                                 message.content
@@ -1069,17 +1314,26 @@ export default function Home() {
           <p className="text-xl text-blue-100 mb-8">
             Join thousands of couples who&apos;ve discovered deeper connection, better communication, and lasting love through CouplesDNA.
           </p>
-          <button 
-            className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-blue-600 hover:bg-gray-100 h-12 px-8"
-            onClick={() => {
-              if (fileInputRef.current) {
-                fileInputRef.current.click();
-              }
-            }}
-            disabled={uploading}
-          >
-            {uploading ? 'Uploading...' : 'Upload Your Conversation'}
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-blue-600 hover:bg-gray-100 h-12 px-8"
+              onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.click();
+                }
+              }}
+              disabled={uploading}
+            >
+              {uploading ? 'Uploading...' : 'Upload Your Conversation'}
+            </button>
+            <button 
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-500 text-white hover:bg-blue-600 h-12 px-8"
+              onClick={handleGenerateReport}
+              disabled={generatingReport}
+            >
+              {generatingReport ? (reportProgress || 'Generating...') : 'Generate Report'}
+            </button>
+          </div>
           <div className="flex justify-center items-center gap-6 mt-6 text-blue-100">
             <span>✓ Secure upload</span>
             <span>✓ Privacy guaranteed</span>
@@ -1132,9 +1386,10 @@ export default function Home() {
                     await supabase
                       .from('n8n_chat_histories')
                       .delete()
-                      .eq('session_id', sessionId)
-                      .eq('expert_id', selectedMember.id);
-                  } catch (error) {}
+                      .eq('session_id', sessionId);
+                  } catch (error) {
+                    console.error('❌ Error deleting chat history:', error);
+                  }
                   setDeleting(false);
                   setShowDeleteConfirm(false);
                 }}

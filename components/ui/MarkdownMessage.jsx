@@ -2,6 +2,11 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 
 export function MarkdownMessage({ content }) {
+  // 确保 content 是字符串
+  const contentString = typeof content === 'string' ? content : 
+                       typeof content === 'object' ? JSON.stringify(content) : 
+                       String(content || '');
+  
   return (
     <ReactMarkdown
       components={{
@@ -23,7 +28,7 @@ export function MarkdownMessage({ content }) {
         a: ({node, ...props}) => <a style={{color: '#0066cc', textDecoration: 'underline'}} {...props} />,
       }}
     >
-      {content}
+      {contentString}
     </ReactMarkdown>
   );
 } 
