@@ -332,17 +332,31 @@ function generateSessionId() {
 }
 
 function parseDbMessage(dbMessage) {
-  // 确保 content 是字符串
+  // 确保 content 是字符串，并尝试解析JSON
   const getContentString = (content) => {
-    if (typeof content === 'string') return content;
-    if (typeof content === 'object') {
+    if (typeof content === 'string') {
+      // 尝试解析JSON格式
       try {
-        return JSON.stringify(content);
+        const parsed = JSON.parse(content);
+        return parsed.output || parsed.text || parsed.message || parsed.content || content;
       } catch (e) {
-        return 'Invalid content format';
+        // 如果不是JSON格式，直接返回原文本
+        return content;
       }
     }
+    if (typeof content === 'object') {
+      // 如果是对象，优先提取output字段
+      return content.output || content.text || content.message || content.content || JSON.stringify(content);
+    }
     return String(content || '');
+  };
+
+  // 专家配置映射
+  const expertConfig = {
+    'ai': { name: "CouplesDNA-AI", avatar: "/couplesdna-ai.png" },
+    '1': { name: "Matthew Hussey", avatar: "/Matthew Hussey.png" },
+    '3': { name: "John Gottman", avatar: "/John Gottman.png" },
+    '4': { name: "Esther Perel", avatar: "/Esther Perel.png" }
   };
 
   if (dbMessage.type === 'human') {
@@ -359,12 +373,16 @@ function parseDbMessage(dbMessage) {
     };
   }
   if (dbMessage.type === 'ai') {
+    // 尝试从数据库消息中获取专家ID
+    const expertId = dbMessage.expertId || 'ai';
+    const expert = expertConfig[expertId] || expertConfig['ai'];
+    
     return { 
       id: Date.now() + Math.random(),
       content: getContentString(dbMessage.content),
       sender: {
-        name: "CouplesDNA-AI",
-        avatar: "/couplesdna-ai.png",
+        name: expert.name,
+        avatar: expert.avatar,
         isOnline: true,
         isCurrentUser: false,
       },
@@ -395,11 +413,11 @@ export default function Home() {
       lastMessage: "Welcome to CouplesDNA Team Chat! 👋"
     },
     {
-      id: "2", 
-      name: "Jordan Peterson",
-      avatar: "/Jordan Peterson.png",
+      id: "4", 
+      name: "Esther Perel",
+      avatar: "/Esther Perel.png",
       isOnline: true,
-      role: "Clinical Psychologist",
+      role: "Relationship Therapist",
       lastMessage: "Ready to help with relationship insights"
     },
     {
@@ -411,6 +429,9 @@ export default function Home() {
       lastMessage: "Let's analyze your relationship patterns"
     }
   ];
+
+  // 只显示CouplesDNA-AI，但保留所有专家数据
+  const visibleMembers = defaultMembers.filter(member => member.id === "ai");
 
   const defaultWelcome = {
     ai: {
@@ -435,12 +456,12 @@ export default function Home() {
       },
       timestamp: new Date(),
     },
-    "2": {
+    "4": {
       id: 1,
       content: "Ready to help with relationship insights",
       sender: {
-        name: "Jordan Peterson",
-        avatar: "/Jordan Peterson.png",
+        name: "Esther Perel",
+        avatar: "/Esther Perel.png",
         isOnline: true,
         isCurrentUser: false,
       },
@@ -459,7 +480,7 @@ export default function Home() {
     }
   };
 
-  const [teamMembers] = useState(defaultMembers);
+  const [teamMembers] = useState(visibleMembers);
   const [selectedMember, setSelectedMember] = useState(defaultMembers[0]);
   const [messagesByExpert, setMessagesByExpert] = useState(() => {
     const obj = {};
@@ -542,8 +563,8 @@ export default function Home() {
                   id: Date.now() + 1,
                   content: 'Request failed, please try again later.',
                   sender: {
-                    name: "CouplesDNA-AI",
-                    avatar: "/couplesdna-ai.png",
+                    name: selectedMember.name,
+                    avatar: selectedMember.avatar,
                     isOnline: true,
                     isCurrentUser: false,
                   },
@@ -611,115 +632,203 @@ export default function Home() {
         { headers: { 'Content-Type': 'application/json' } }
       );
       
-      // API 现在立即返回，不包含 AI 响应
-      // 直接开始轮询等待 AI 回复
-      let aiText = ""; // 空字符串，让加载动画显示
+      // 获取专家配置
+      const expertConfig = {
+        'ai': { name: "CouplesDNA-AI", avatar: "/couplesdna-ai.png" },
+        '1': { name: "Matthew Hussey", avatar: "/Matthew Hussey.png" },
+        '3': { name: "John Gottman", avatar: "/John Gottman.png" },
+        '4': { name: "Esther Perel", avatar: "/Esther Perel.png" }
+      };
       
-              const aiMessage = {
+      const expert = expertConfig[selectedMember.id] || expertConfig['ai'];
+      
+      // CouplesDNA-AI 直接处理响应
+      if (selectedMember.id === 'ai') {
+        console.log('🤖 CouplesDNA-AI: Processing direct response...');
+        
+        if (res.data.aiResponse) {
+          // 直接显示AI回复
+          let aiText = res.data.aiResponse;
+          
+          // 如果响应是对象，尝试提取文本内容
+          if (typeof aiText === 'object') {
+            // 优先提取output字段，然后是其他常见字段
+            aiText = aiText.output || aiText.text || aiText.message || aiText.content || JSON.stringify(aiText);
+          }
+          
+          // 如果是字符串，尝试解析JSON
+          if (typeof aiText === 'string') {
+            try {
+              const parsed = JSON.parse(aiText);
+              aiText = parsed.output || parsed.text || parsed.message || parsed.content || aiText;
+            } catch (e) {
+              // 如果不是JSON格式，直接使用原文本
+              console.log('Response is not JSON format, using as-is');
+            }
+          }
+          
+          const aiMessage = {
+            id: Date.now() + Math.random(),
+            content: aiText,
+            sender: {
+              name: expert.name,
+              avatar: expert.avatar,
+              isOnline: true,
+              isCurrentUser: false,
+            },
+            timestamp: new Date(),
+            isLoading: false
+          };
+          
+          setMessages(prev => {
+            const newMsgs = [...prev, aiMessage];
+            setMessagesByExpert(m => ({ ...m, [selectedMember.id]: newMsgs }));
+            return newMsgs;
+          });
+          
+          console.log('✅ CouplesDNA-AI: Response displayed directly');
+        } else {
+          console.error('❌ CouplesDNA-AI: No aiResponse in response data');
+        }
+            } else {
+        // 其他专家：创建加载消息并开始轮询
+        let aiText = ""; // 空字符串，让加载动画显示
+        
+        const aiMessage = {
           id: Date.now() + Math.random(), // 使用更唯一的 ID
           content: aiText,
           sender: {
-            name: "CouplesDNA-AI",
-            avatar: "/couplesdna-ai.png",
+            name: expert.name,
+            avatar: expert.avatar,
             isOnline: true,
             isCurrentUser: false,
           },
           timestamp: new Date(),
           isLoading: aiText === "" // 添加加载状态
         };
-        
+          
         console.log('📝 Created AI message with isLoading:', aiMessage.isLoading);
-      
-      setMessages(prev => {
-        const newMsgs = [...prev, aiMessage];
-        setMessagesByExpert(m => ({ ...m, [selectedMember.id]: newMsgs }));
-        return newMsgs;
-      });
+        
+        setMessages(prev => {
+          const newMsgs = [...prev, aiMessage];
+          setMessagesByExpert(m => ({ ...m, [selectedMember.id]: newMsgs }));
+          return newMsgs;
+        });
+        
+        // 开始轮询等待 AI 回复
+        console.log('🔄 Starting to poll for AI response...');
+        
+        // 开始轮询检查 AI 回复
+        let pollCount = 0;
+        const maxPolls = 180; // 轮询180次（3分钟）
+        const pollInterval = setInterval(async () => {
+          pollCount++;
+          console.log(`🔍 Polling for AI response... (${pollCount}/${maxPolls})`);
+          
+          try {
+            // 检查数据库中的最新 AI 消息
+            const { data, error } = await supabase
+              .from('n8n_chat_histories')
+              .select('message')
+              .eq('session_id', sid)
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+            if (!error && data && data.length > 0) {
+              const latestMessage = data[0].message;
+              console.log('🔍 Checking message:', latestMessage);
+              // 检查是否是 AI 消息且内容不是用户输入
+              if (latestMessage.type === 'ai' && latestMessage.content && latestMessage.content !== input) {
+                // 找到新的 AI 回复
+                clearInterval(pollInterval);
+                
+                let actualAiText = typeof latestMessage.content === 'string' 
+                  ? latestMessage.content 
+                  : JSON.stringify(latestMessage.content);
+                
+                // 移除 "DIRECT: " 前缀
+                if (actualAiText.startsWith('DIRECT: ')) {
+                  actualAiText = actualAiText.substring(8);
+                }
+                
+                // 尝试解析JSON格式的响应
+                try {
+                  const parsed = JSON.parse(actualAiText);
+                  actualAiText = parsed.output || parsed.text || parsed.message || parsed.content || actualAiText;
+                } catch (e) {
+                  // 如果不是JSON格式，直接使用原文本
+                  console.log('Database response is not JSON format, using as-is');
+                }
+                
+                // 获取专家配置
+                const expertConfig = {
+                  'ai': { name: "CouplesDNA-AI", avatar: "/couplesdna-ai.png" },
+                  '1': { name: "Matthew Hussey", avatar: "/Matthew Hussey.png" },
+                  '3': { name: "John Gottman", avatar: "/John Gottman.png" },
+                  '4': { name: "Esther Perel", avatar: "/Esther Perel.png" }
+                };
+                
+                const expert = expertConfig[selectedMember.id] || expertConfig['ai'];
+                
+                // 更新消息内容
+                setMessages(prev => {
+                  const newMsgs = prev.map(msg => 
+                    msg.id === aiMessage.id 
+                      ? { 
+                          ...msg, 
+                          content: actualAiText, 
+                          isLoading: false,
+                          sender: {
+                            name: expert.name,
+                            avatar: expert.avatar,
+                            isOnline: true,
+                            isCurrentUser: false,
+                          }
+                        }
+                      : msg
+                  );
+                  setMessagesByExpert(m => ({ ...m, [selectedMember.id]: newMsgs }));
+                  return newMsgs;
+                });
+                
+                console.log('✅ AI response received:', actualAiText);
+              }
+            }
+          } catch (pollError) {
+            console.error('❌ Polling error:', pollError);
+          }
+          
+          // 如果达到最大轮询次数，停止轮询
+          if (pollCount >= maxPolls) {
+            clearInterval(pollInterval);
+            console.log('❌ Max polls reached, stopping polling');
+          }
+        }, 1000); // 每秒检查一次
+      }
       
       // Clear pendingMessage
       if (typeof window !== 'undefined') {
         localStorage.removeItem('pendingMessage');
       }
-      
-      // 开始轮询等待 AI 回复
-      console.log('🔄 Starting to poll for AI response...');
-      
-      // 开始轮询检查 AI 回复
-      let pollCount = 0;
-      const maxPolls = 180; // 轮询180次（3分钟）
-      const pollInterval = setInterval(async () => {
-        pollCount++;
-        console.log(`🔍 Polling for AI response... (${pollCount}/${maxPolls})`);
-        
-        try {
-          // 检查数据库中的最新 AI 消息
-          const { data, error } = await supabase
-            .from('n8n_chat_histories')
-            .select('message')
-            .eq('session_id', sid)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          if (!error && data && data.length > 0) {
-            const latestMessage = data[0].message;
-            console.log('🔍 Checking message:', latestMessage);
-            // 检查是否是 AI 消息且内容不是用户输入
-            if (latestMessage.type === 'ai' && latestMessage.content && latestMessage.content !== input) {
-              // 找到新的 AI 回复
-              clearInterval(pollInterval);
-              
-              let actualAiText = typeof latestMessage.content === 'string' 
-                ? latestMessage.content 
-                : JSON.stringify(latestMessage.content);
-              
-              // 移除 "DIRECT: " 前缀
-              if (actualAiText.startsWith('DIRECT: ')) {
-                actualAiText = actualAiText.substring(8);
-              }
-              
-              // 更新消息内容
-              setMessages(prev => {
-                const newMsgs = prev.map(msg => 
-                  msg.id === aiMessage.id 
-                    ? { 
-                        ...msg, 
-                        content: actualAiText, 
-                        isLoading: false,
-                        sender: {
-                          name: "CouplesDNA-AI",
-                          avatar: "/couplesdna-ai.png",
-                          isOnline: true,
-                          isCurrentUser: false,
-                        }
-                      }
-                    : msg
-                );
-                setMessagesByExpert(m => ({ ...m, [selectedMember.id]: newMsgs }));
-                return newMsgs;
-              });
-              
-              console.log('✅ AI response received:', actualAiText);
-            }
-          }
-        } catch (pollError) {
-          console.error('❌ Polling error:', pollError);
-        }
-        
-        // 如果达到最大轮询次数，停止轮询
-        if (pollCount >= maxPolls) {
-          clearInterval(pollInterval);
-          console.log('❌ Max polls reached, stopping polling');
-        }
-      }, 1000); // 每秒检查一次
     } catch (error) {
       console.log('catch error', error);
+      // 获取专家配置
+      const expertConfig = {
+        'ai': { name: "CouplesDNA-AI", avatar: "/couplesdna-ai.png" },
+        '1': { name: "Matthew Hussey", avatar: "/Matthew Hussey.png" },
+        '3': { name: "John Gottman", avatar: "/John Gottman.png" },
+        '4': { name: "Esther Perel", avatar: "/Esther Perel.png" }
+      };
+      
+      const expert = expertConfig[selectedMember.id] || expertConfig['ai'];
+      
       setMessages(prev => {
         const newMsgs = [...prev, { 
           id: Date.now() + Math.random(),
           content: 'Request failed, please try again later.',
           sender: {
-            name: "CouplesDNA-AI",
-            avatar: "/couplesdna-ai.png",
+            name: expert.name,
+            avatar: expert.avatar,
             isOnline: true,
             isCurrentUser: false,
           },
@@ -1227,33 +1336,20 @@ export default function Home() {
                       onSubmit={handleSubmit}
                       className="relative rounded-lg border border-gray-300 bg-white focus-within:ring-1 focus-within:ring-blue-500 p-1 w-full"
                     >
-                      <Input
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        placeholder="Type your message..."
-                        className="min-h-12 resize-none rounded-lg bg-white border-0 p-3 shadow-none focus-visible:ring-0"
-                        disabled={isLoading}
-                      />
-                      <div className="flex items-center p-3 pt-0 justify-between w-full">
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            type="button"
-                            onClick={handleAttachFile}
-                            disabled={isLoading || uploading}
-                            title="Upload File"
-                          >
-                            📎
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={input}
+                          onChange={(e) => setInput(e.target.value)}
+                          placeholder="Type your message..."
+                          className="min-h-10 resize-none rounded-lg bg-white border-0 p-2 shadow-none focus-visible:ring-0 flex-1"
+                          disabled={isLoading}
+                        />
                         <Button 
                           type="submit" 
                           size="sm" 
-                          className="ml-auto gap-1.5"
+                          className="h-10 w-10 p-0 rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
                           disabled={!input.trim() || isLoading}
                         >
-                          Send Message
                           ➤
                         </Button>
                       </div>

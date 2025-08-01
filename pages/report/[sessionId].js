@@ -5,6 +5,26 @@ import { ArrowBigRightIcon } from 'lucide-react'
 import * as HoverCardPrimitive from "@radix-ui/react-hover-card"
 import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion"
 import { cn } from "../../src/lib/utils"
+import { 
+  PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart, Bar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadarChart, Radar
+} from 'recharts'
+
+// 图表组件
+const ChartCard = ({ title, children, className }) => (
+  <div className={cn("bg-white p-6 rounded-lg shadow-sm border border-gray-200", className)}>
+    <h3 className="text-lg font-semibold text-gray-900 mb-4 font-instrument-sans text-center">{title}</h3>
+    <div className="w-full h-64">
+      {children}
+    </div>
+  </div>
+)
+
+// 自定义图表样式
+const chartStyle = {
+  fontSize: '12px',
+  fontFamily: 'inherit'
+}
 
 // 高级 HoverCard 组件
 const AdvancedTooltip = ({ children, content, className }) => {
@@ -405,8 +425,138 @@ export default function DynamicReportPage() {
           </div>
         </section>
 
+        {/* 可视化评估 */}
+        {reportData.charts && (
+          <section className="py-20 bg-[#f3f1ea]">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-16">
+                <h2 className="text-4xl font-bold text-gray-900 mb-4 font-instrument-sans">
+                  Visual Assessment
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* 饼图 - 关系健康分析 */}
+                {reportData.charts.scoreBreakdown && (
+                  <ChartCard title={reportData.charts.scoreBreakdown.title}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={reportData.charts.scoreBreakdown.data.labels.map((label, index) => ({
+                            name: label,
+                            value: reportData.charts.scoreBreakdown.data.values[index]
+                          }))}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {reportData.charts.scoreBreakdown.data.labels.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={reportData.charts.scoreBreakdown.data.colors[index]} />
+                          ))}
+                        </Pie>
+                        <Tooltip contentStyle={chartStyle} />
+                        <Legend wrapperStyle={chartStyle} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                )}
+
+                {/* 折线图 - 关系质量随时间变化 */}
+                {reportData.charts.progressOverTime && (
+                  <ChartCard title={reportData.charts.progressOverTime.title}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={reportData.charts.progressOverTime.data.timeLabels.map((time, index) => ({
+                        time,
+                        ...reportData.charts.progressOverTime.data.datasets.reduce((acc, dataset) => {
+                          acc[dataset.label] = dataset.values[index];
+                          return acc;
+                        }, {})
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip contentStyle={chartStyle} />
+                        <Legend wrapperStyle={chartStyle} />
+                        {reportData.charts.progressOverTime.data.datasets.map((dataset, index) => (
+                          <Line
+                            key={index}
+                            type="monotone"
+                            dataKey={dataset.label}
+                            stroke={dataset.color}
+                            strokeWidth={2}
+                            dot={{ fill: dataset.color, strokeWidth: 2, r: 4 }}
+                          />
+                        ))}
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                )}
+
+                {/* 雷达图 - 关系维度评估 */}
+                {reportData.charts.relationshipDimensions && (
+                  <ChartCard title={reportData.charts.relationshipDimensions.title}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <RadarChart data={reportData.charts.relationshipDimensions.data.labels.map((label, index) => ({
+                        subject: label,
+                        A: reportData.charts.relationshipDimensions.data.values[index],
+                        fullMark: 10
+                      }))}>
+                        <PolarGrid />
+                        <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10 }} />
+                        <PolarRadiusAxis angle={90} domain={[0, 10]} tick={{ fontSize: 10 }} />
+                        <Radar
+                          name="Score"
+                          dataKey="A"
+                          stroke="#8884d8"
+                          fill="#8884d8"
+                          fillOpacity={0.6}
+                        />
+                        <Tooltip contentStyle={chartStyle} />
+                      </RadarChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                )}
+
+                {/* 柱状图 - 沟通模式频率分析 */}
+                {reportData.charts.communicationPatterns && (
+                  <ChartCard title={reportData.charts.communicationPatterns.title}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={reportData.charts.communicationPatterns.data.labels.map((label, index) => ({
+                        name: label,
+                        value: reportData.charts.communicationPatterns.data.values[index],
+                        category: reportData.charts.communicationPatterns.data.categories[index]
+                      }))}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" angle={-45} textAnchor="end" height={80} tick={{ fontSize: 10 }} />
+                        <YAxis tick={{ fontSize: 12 }} />
+                        <Tooltip contentStyle={chartStyle} />
+                        <Bar dataKey="value" fill="#8884d8">
+                          {reportData.charts.communicationPatterns.data.labels.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={reportData.charts.communicationPatterns.data.colors[index]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                )}
+              </div>
+
+              {/* 图表说明 */}
+              {reportData.charts.communicationPatterns?.description && (
+                <div className="mt-8 bg-white p-6 rounded-lg">
+                  <p className="text-sm text-gray-600 font-instrument-sans text-center">
+                    {reportData.charts.communicationPatterns.description}
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* 详细分析 */}
-        <section className="py-20 bg-[#f3f1ea]">
+        <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-gray-900 mb-4 font-instrument-sans">
@@ -416,7 +566,7 @@ export default function DynamicReportPage() {
 
             <div className="space-y-8">
               {reportData.analysisPoints && reportData.analysisPoints.map((point, index) => (
-                <div key={index} className="bg-white p-8 rounded-lg">
+                <div key={index} className="bg-[#f3f1ea] p-8 rounded-lg">
                   <div className="mb-4">
                     <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-0.5 rounded font-instrument-sans">
                       {point.category}
@@ -462,7 +612,7 @@ export default function DynamicReportPage() {
         </section>
 
         {/* 建议 */}
-        <section className="py-20 bg-white">
+        <section className="py-20 bg-[#f3f1ea]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-gray-900 mb-4 font-instrument-sans">
@@ -470,7 +620,7 @@ export default function DynamicReportPage() {
               </h2>
             </div>
 
-            <div className="bg-[#f3f1ea] p-8 rounded-lg">
+            <div className="bg-white p-8 rounded-lg">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {reportData.recommendations && reportData.recommendations.map((recommendation, index) => (
                   <div key={index} className="flex items-start gap-4">
@@ -486,7 +636,7 @@ export default function DynamicReportPage() {
         </section>
 
         {/* 下一步 */}
-        <section className="py-20 bg-[#f3f1ea]">
+        <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
               <h2 className="text-4xl font-bold text-gray-900 mb-4 font-instrument-sans">
@@ -494,7 +644,7 @@ export default function DynamicReportPage() {
               </h2>
             </div>
 
-            <div className="bg-white p-8 rounded-lg">
+            <div className="bg-[#f3f1ea] p-8 rounded-lg">
               <p className="text-lg text-gray-600 font-instrument-sans leading-relaxed">
                 {reportData.nextSteps}
               </p>
@@ -503,7 +653,7 @@ export default function DynamicReportPage() {
         </section>
 
         {/* 返回按钮 */}
-        <section className="py-16 bg-white">
+        <section className="py-16 bg-[#f3f1ea]">
           <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
             <button 
               onClick={() => router.push('/')}

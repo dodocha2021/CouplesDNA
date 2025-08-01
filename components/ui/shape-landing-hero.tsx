@@ -6,6 +6,20 @@ import { Circle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "../../src/lib/utils";
 
+// 自定义呼吸灯动画样式
+const breatheAnimation = `
+  @keyframes breathe {
+    0%, 100% {
+      opacity: 0;
+      filter: brightness(0.3);
+    }
+    50% {
+      opacity: 1;
+      filter: brightness(1.5);
+    }
+  }
+`;
+
 
 function ElegantShape({
     className,
@@ -99,6 +113,7 @@ function HeroGeometric({
 
     return (
         <div className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-[#030303]">
+            <style dangerouslySetInnerHTML={{ __html: breatheAnimation }} />
             <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.05] via-transparent to-rose-500/[0.05] blur-3xl" />
 
             <div className="absolute inset-0 overflow-hidden">
@@ -157,7 +172,13 @@ function HeroGeometric({
                         animate="visible"
                         className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] mb-8 md:mb-12"
                     >
-                        <Circle className="h-2 w-2 fill-rose-500/80" />
+                        <Circle 
+                            className="h-2 w-2" 
+                            style={{
+                                fill: 'rgb(34, 197, 94)',
+                                animation: 'breathe 3s ease-in-out infinite'
+                            }}
+                        />
                         <span className="text-sm text-white/60 tracking-wide">
                             {badge}
                         </span>
