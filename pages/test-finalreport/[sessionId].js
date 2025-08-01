@@ -27,7 +27,7 @@ export default function ReportPage() {
       highlight: /关键|重要|核心|主要|催化/
     };
     
-    const matches = Object.entries(patterns).filter(([key, pattern]) => 
+    const matches = Object.entries(patterns).filter(([, pattern]) => 
       pattern.test(text)
     );
     
@@ -168,7 +168,7 @@ export default function ReportPage() {
     return (
       <div className={`p-6 rounded-lg border-l-4 ${quoteColors[data.type] || quoteColors.neutral}`}>
         <blockquote className="text-lg italic text-gray-700 mb-4">
-          "{data.content}"
+          &ldquo;{data.content}&rdquo;
         </blockquote>
         {data.author && (
           <cite className="text-sm text-gray-500">— {data.author}</cite>
@@ -303,74 +303,7 @@ export default function ReportPage() {
     );
   };
 
-  // 可折叠内容组件
-  const CollapsibleBlock = ({ data }) => {
-    const [isExpanded, setIsExpanded] = useState(false);
-    
-    return (
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full px-6 py-4 bg-gray-50 hover:bg-gray-100 transition-colors flex justify-between items-center"
-        >
-          <h3 className="text-lg font-semibold text-gray-800">{data.title}</h3>
-          <svg
-            className={`w-5 h-5 text-gray-600 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        
-        <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-96' : 'max-h-0'}`}>
-          <div className="px-6 py-4 bg-white">
-            <div className="prose prose-sm max-w-none">
-              <div 
-                className="text-gray-700 leading-relaxed"
-                dangerouslySetInnerHTML={{ __html: data.content }}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
 
-  // 标签页组件
-  const TabBlock = ({ data }) => {
-    const [activeTab, setActiveTab] = useState(0);
-    
-    return (
-      <div className="space-y-4">
-        <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg">
-          {data.tabs.map((tab, index) => (
-            <button
-              key={index}
-              onClick={() => setActiveTab(index)}
-              className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                activeTab === index
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              {tab.title}
-            </button>
-          ))}
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg border">
-          <div className="prose prose-sm max-w-none">
-            <div 
-              className="text-gray-700 leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: data.tabs[activeTab].content }}
-            />
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   // 基础文本组件
   const TextBlock = ({ content }) => {
@@ -640,7 +573,7 @@ export default function ReportPage() {
   };
 
   // 解析表格数据
-  const parseTableData = (content) => {
+  const parseTableData = () => {
     // 简单的表格解析，可以根据实际数据格式调整
     const headers = ['支持类型', '伴侣A贡献', '伴侣B贡献', '平衡评估'];
     const rows = [
@@ -1384,7 +1317,7 @@ export default function ReportPage() {
               <div className="text-center mb-12">
                 <div className="w-16 h-16 bg-pink-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">💕</div>
                 <h1 className="text-4xl font-bold text-gray-800 mb-4">关系起源分析</h1>
-                <p className="text-xl text-gray-600">Couple's Origin Story: A Comprehensive Analysis</p>
+                <p className="text-xl text-gray-600">Couple&apos;s Origin Story: A Comprehensive Analysis</p>
               </div>
               
               <SmartContentRenderer 
