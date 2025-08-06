@@ -56867,3 +56867,4 @@ Import trace for requested module:
 <w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/couplesdna/Desktop/coupledna/.next/cache/webpack/client-development/1.pack.gz_' -> '/Users/couplesdna/Desktop/coupledna/.next/cache/webpack/client-development/1.pack.gz'
  ✓ Compiled in 430ms (526 modules)
  ✓ Compiled in 321ms (526 modules)
+ ✓ Compiled in 275ms (350 modules)
