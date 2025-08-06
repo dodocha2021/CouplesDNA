@@ -16,28 +16,41 @@ export default async function handler(req, res) {
 
     const fileContent = fs.readFileSync(filePath, 'utf8');
     
-    // 提取所有question的内容
+    // 从文件中读取默认的问题总数
     const prompts = {};
+    let totalQuestions = 40; // 默认值
     
-    // 使用正则表达式匹配所有question
-    for (let i = 1; i <= 40; i++) {
-      const questionKey = `"question ${i}"`;
-      const regex = new RegExp(`${questionKey}:\\s*"([^"]*)"`, 'g');
-      const match = regex.exec(fileContent);
-      
-      if (match) {
-        prompts[i] = match[1];
-      } else {
+    // 提取默认问题数
+    const defaultQuestionsMatch = fileContent.match(/const questionsCount = totalQuestions \|\| (\d+);/);
+    if (defaultQuestionsMatch) {
+      totalQuestions = parseInt(defaultQuestionsMatch[1]);
+    }
+    
+    // 查找所有问题设置
+    const questionSetupPattern = /if \(questionsCount >= (\d+)\) questionsObject\["question (\d+)"\] = "([^"]*)";/g;
+    let match;
+    
+    while ((match = questionSetupPattern.exec(fileContent)) !== null) {
+      const questionNumber = parseInt(match[2]);
+      const questionContent = match[3];
+      prompts[questionNumber] = questionContent;
+    }
+    
+    // 确保所有问题都有值（即使是空字符串）
+    for (let i = 1; i <= totalQuestions; i++) {
+      if (!(i in prompts)) {
         prompts[i] = '';
       }
     }
 
     console.log('✅ Retrieved prompts from generate-Finalreport.js');
+    console.log('📊 Total questions:', totalQuestions);
     console.log('📋 Found prompts for questions:', Object.keys(prompts).filter(key => prompts[key] !== ''));
 
     res.status(200).json({ 
       success: true, 
-      prompts: prompts
+      prompts: prompts,
+      totalQuestions: totalQuestions
     });
 
   } catch (error) {

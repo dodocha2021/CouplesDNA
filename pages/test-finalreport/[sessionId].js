@@ -89,31 +89,97 @@ export default function ReportPage() {
 
   // 统计组件
   const StatsBlock = ({ data }) => {
+    if (!data || !data.mainValue) return null;
+
+    // 解析百分比数值
+    const parsePercentage = (value) => {
+      const match = value.match(/(\d+)(?:-(\d+))?%/);
+      if (match) {
+        if (match[2]) {
+          // 范围值，取平均值
+          return Math.round((parseInt(match[1]) + parseInt(match[2])) / 2);
+        } else {
+          return parseInt(match[1]);
+        }
+      }
+      return 0;
+    };
+
+    const mainPercentage = parsePercentage(data.mainValue);
+
+    // 获取进度条颜色
+    const getProgressColor = (percentage) => {
+      if (percentage >= 80) return 'bg-green-500';
+      if (percentage >= 60) return 'bg-yellow-500';
+      return 'bg-red-500';
+    };
+
+    // 获取状态图标
+    const getStatusIcon = (percentage) => {
+      if (percentage >= 80) return '🟢';
+      if (percentage >= 60) return '🟡';
+      return '🔴';
+    };
+
+    // 获取状态文本
+    const getStatusText = (percentage) => {
+      if (percentage >= 80) return 'Excellent';
+      if (percentage >= 60) return 'Good';
+      return 'Needs Improvement';
+    };
+
     return (
-      <div className="text-center mb-8">
-        {data.mainValue && (
-          <div className="text-6xl font-bold text-green-600 mb-2">
-            {data.mainValue}
+      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+        {/* 主标题 */}
+        <div className="text-center mb-8">
+          <h3 className="text-2xl font-bold text-gray-800 mb-2">{data.title}</h3>
+          <p className="text-gray-600">{data.description}</p>
+        </div>
+
+        {/* 主要指标 */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-lg font-semibold text-gray-700">Overall Score</span>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-blue-600">{data.mainValue}</span>
+              <span className="text-sm">{getStatusIcon(mainPercentage)} {getStatusText(mainPercentage)}</span>
+            </div>
           </div>
-        )}
-        {data.title && (
-          <p className="text-2xl text-gray-700">{data.title}</p>
-        )}
-        {data.description && (
-          <p className="text-gray-500 mt-2">{data.description}</p>
-        )}
-        
+          <div className="w-full bg-gray-200 rounded-full h-3">
+            <div 
+              className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(mainPercentage)}`}
+              style={{ width: `${mainPercentage}%` }}
+            ></div>
+          </div>
+        </div>
+
+        {/* 子指标 */}
         {data.subStats && data.subStats.length > 0 && (
-          <div className="grid md:grid-cols-3 gap-6 mt-8">
-            {data.subStats.map((stat, index) => (
-              <div key={index} className="text-center p-6 bg-blue-50 rounded-lg">
-                <div className="text-3xl font-bold text-blue-600 mb-2">
-                  {stat.value}
+          <div className="space-y-4">
+            <h4 className="text-lg font-semibold text-gray-700 mb-4">Detailed Metrics</h4>
+            {data.subStats.map((stat, index) => {
+              const subPercentage = parsePercentage(stat.value);
+              return (
+                <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-gray-700">{stat.label}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-gray-800">{stat.value}</span>
+                      <span className="text-sm">{getStatusIcon(subPercentage)} {getStatusText(subPercentage)}</span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(subPercentage)}`}
+                      style={{ width: `${subPercentage}%` }}
+                    ></div>
+                  </div>
+                  {stat.desc && (
+                    <p className="text-sm text-gray-500">{stat.desc}</p>
+                  )}
                 </div>
-                <p className="font-medium">{stat.label}</p>
-                <p className="text-sm text-gray-600 mt-1">{stat.desc}</p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -313,6 +379,7 @@ export default function ReportPage() {
       let formatted = content;
       
       // 处理标题
+      formatted = formatted.replace(/^#### (.*$)/gim, '</p><h4 class="text-base font-semibold text-gray-800 mb-2 mt-4">$1</h4><p class="text-gray-700 leading-relaxed mb-4">');
       formatted = formatted.replace(/^### (.*$)/gim, '</p><h3 class="text-lg font-semibold text-gray-800 mb-3 mt-6">$1</h3><p class="text-gray-700 leading-relaxed mb-4">');
       formatted = formatted.replace(/^## (.*$)/gim, '</p><h2 class="text-xl font-semibold text-gray-800 mb-4 mt-8 border-b-2 border-pink-200 pb-3">$1</h2><p class="text-gray-700 leading-relaxed mb-4">');
       formatted = formatted.replace(/^# (.*$)/gim, '</p><h1 class="text-2xl font-bold text-gray-800 mb-6 mt-10">$1</h1><p class="text-gray-700 leading-relaxed mb-4">');
@@ -321,9 +388,19 @@ export default function ReportPage() {
       formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-800">$1</strong>');
       formatted = formatted.replace(/\*(.*?)\*/g, '<em class="italic text-gray-600">$1</em>');
       
-      // 处理列表
+      // 处理代码块和内联代码
+      formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-100 p-3 rounded-lg text-sm font-mono mb-4 overflow-x-auto">$1</pre>');
+      formatted = formatted.replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">$1</code>');
+      
+      // 处理链接
+      formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer">$1</a>');
+      
+      // 处理列表 - 改进版本
       formatted = formatted.replace(/^(\*|-|\d+\.) (.*$)/gim, '<li class="text-gray-700 mb-2">$2</li>');
       formatted = formatted.replace(/(<li.*?<\/li>)/gs, '<ul class="list-disc list-inside mb-4 space-y-1">$1</ul>');
+      
+      // 处理引用块
+      formatted = formatted.replace(/^> (.*$)/gim, '</p><blockquote class="border-l-4 border-blue-200 pl-4 py-2 bg-blue-50 text-gray-700 italic mb-4">$1</blockquote><p class="text-gray-700 leading-relaxed mb-4">');
       
       // 处理段落
       formatted = formatted.replace(/\n\n/g, '</p><p class="text-gray-700 leading-relaxed mb-4">');
@@ -596,6 +673,40 @@ export default function ReportPage() {
       subStats: []
     };
     
+    // 智能识别统计类型
+    const contentLower = content.toLowerCase();
+    let statType = 'success_probability'; // 默认类型
+    
+    if (contentLower.includes('compatibility') || contentLower.includes('兼容性')) {
+      statType = 'compatibility';
+    } else if (contentLower.includes('investment') || contentLower.includes('投资')) {
+      statType = 'investment';
+    } else if (contentLower.includes('support') || contentLower.includes('支持')) {
+      statType = 'support';
+    }
+    
+    // 根据类型设置标题和描述
+    const typeConfig = {
+      success_probability: {
+        title: 'Long-term Success Probability',
+        description: 'Based on observed patterns and established relationship research indicators'
+      },
+      compatibility: {
+        title: 'Compatibility Assessment',
+        description: 'Relationship compatibility and alignment indicators'
+      },
+      investment: {
+        title: 'Investment Analysis',
+        description: 'Early relationship investment and commitment indicators'
+      },
+      support: {
+        title: 'Support Indicators',
+        description: 'Mutual support and relationship nurturing patterns'
+      }
+    };
+    
+    const config = typeConfig[statType];
+    
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
@@ -603,8 +714,8 @@ export default function ReportPage() {
       const mainMatch = trimmedLine.match(/(\d+(-\d+)?%)/);
       if (mainMatch && !stats.mainValue) {
         stats.mainValue = mainMatch[1];
-        stats.title = '长期成功概率';
-        stats.description = '基于观察模式和已建立的关系研究指标';
+        stats.title = config.title;
+        stats.description = config.description;
       }
       
       // 匹配子统计
@@ -612,7 +723,7 @@ export default function ReportPage() {
       if (subMatch && stats.subStats.length < 3) {
         stats.subStats.push({
           value: subMatch[1] + '%',
-          label: '兼容性指标',
+          label: 'Compatibility Indicator',
           desc: subMatch[2].trim()
         });
       }
@@ -621,12 +732,12 @@ export default function ReportPage() {
     // 如果没有解析到数据，提供默认值
     if (!stats.mainValue) {
       stats.mainValue = '82-88%';
-      stats.title = '长期成功概率';
-      stats.description = '基于观察模式和已建立的关系研究指标';
+      stats.title = config.title;
+      stats.description = config.description;
       stats.subStats = [
-        { value: '85%', label: '情感兼容性', desc: '高情商和有效情绪调节' },
-        { value: '80%', label: '沟通兼容性', desc: '有效冲突解决' },
-        { value: '90%', label: '身体兼容性', desc: '强烈化学反应和吸引力' }
+        { value: '85%', label: 'Emotional Compatibility', desc: 'High EQ and effective emotion regulation' },
+        { value: '80%', label: 'Communication Compatibility', desc: 'Effective conflict resolution' },
+        { value: '90%', label: 'Physical Compatibility', desc: 'Strong chemistry and attraction' }
       ];
     }
     
@@ -945,7 +1056,7 @@ export default function ReportPage() {
     if (!content || content.trim() === '') {
       return (
         <div className="text-center py-12 text-gray-500">
-          <p>暂无{pageTitle}数据</p>
+          <p>No {pageTitle} data available</p>
         </div>
       );
     }
@@ -1103,7 +1214,7 @@ export default function ReportPage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-xl text-gray-600">正在加载你的关系分析报告...</p>
+          <p className="text-xl text-gray-600">Loading your relationship analysis report...</p>
         </div>
       </div>
     );
@@ -1115,9 +1226,9 @@ export default function ReportPage() {
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
           <div className="text-6xl mb-4">📊</div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">报告数据加载失败</h1>
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">Report Data Loading Failed</h1>
           <p className="text-gray-600 mb-4">Session ID: {sessionId}</p>
-          <p className="text-gray-500">请检查网络连接或联系技术支持</p>
+          <p className="text-gray-500">Please check your network connection or contact technical support</p>
         </div>
       </div>
     );
@@ -1253,7 +1364,7 @@ export default function ReportPage() {
         {/* 左侧导航栏 */}
         <nav className="fixed left-0 top-0 w-80 h-full bg-white shadow-lg z-10 border-r">
           <div className="p-6">
-            <h1 className="text-xl font-bold text-gray-800 mb-6">💕 CouplesDNA 报告</h1>
+            <h1 className="text-xl font-bold text-gray-800 mb-6">💕 CouplesDNA Report</h1>
             <p className="text-sm text-gray-500 mb-8">Session: {sessionId}</p>
             
             <ul className="space-y-2">
@@ -1261,8 +1372,8 @@ export default function ReportPage() {
                 <a href="#page1" className="nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors active">
                   <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center text-white text-sm mr-3">1</div>
                   <div>
-                    <div className="font-medium text-gray-800">关系起源分析</div>
-                    <div className="text-sm text-gray-500">Origin Story Analysis</div>
+                    <div className="font-medium text-gray-800">Origin Story Analysis</div>
+                    <div className="text-sm text-gray-500">Relationship Beginnings</div>
                   </div>
                 </a>
               </li>
@@ -1271,8 +1382,8 @@ export default function ReportPage() {
                 <a href="#page2" className="nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-3">2</div>
                   <div>
-                    <div className="font-medium text-gray-800">支持投资分析</div>
-                    <div className="text-sm text-gray-500">Support & Investment</div>
+                    <div className="font-medium text-gray-800">Support & Investment</div>
+                    <div className="text-sm text-gray-500">Early Relationship Support</div>
                   </div>
                 </a>
               </li>
@@ -1281,8 +1392,8 @@ export default function ReportPage() {
                 <a href="#page3" className="nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm mr-3">3</div>
                   <div>
-                    <div className="font-medium text-gray-800">成功概率分析</div>
-                    <div className="text-sm text-gray-500">Success Probability</div>
+                    <div className="font-medium text-gray-800">Success Probability</div>
+                    <div className="text-sm text-gray-500">Long-term Success Rate</div>
                   </div>
                 </a>
               </li>
@@ -1291,8 +1402,8 @@ export default function ReportPage() {
                 <a href="#page4" className="nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm mr-3">4</div>
                   <div>
-                    <div className="font-medium text-gray-800">发展框架</div>
-                    <div className="text-sm text-gray-500">Development Framework</div>
+                    <div className="font-medium text-gray-800">Development Framework</div>
+                    <div className="text-sm text-gray-500">Growth Strategy</div>
                   </div>
                 </a>
               </li>
@@ -1300,11 +1411,11 @@ export default function ReportPage() {
             
             {/* 进度指示器 */}
             <div className="mt-8 pt-6 border-t">
-              <div className="text-sm text-gray-500 mb-2">阅读进度</div>
+              <div className="text-sm text-gray-500 mb-2">Reading Progress</div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div id="progress-bar" className="bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${(currentPage / 4) * 100}%` }}></div>
               </div>
-              <div className="text-xs text-gray-400 mt-1">第 {currentPage} 页，共 4 页</div>
+              <div className="text-xs text-gray-400 mt-1">Page {currentPage} of 4</div>
             </div>
           </div>
         </nav>
@@ -1316,18 +1427,18 @@ export default function ReportPage() {
             <div className="max-w-5xl mx-auto px-8 py-12">
               <div className="text-center mb-12">
                 <div className="w-16 h-16 bg-pink-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">💕</div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">关系起源分析</h1>
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">Origin Story Analysis</h1>
                 <p className="text-xl text-gray-600">Couple&apos;s Origin Story: A Comprehensive Analysis</p>
               </div>
               
               <SmartContentRenderer 
                 content={contentData.origin_story} 
-                pageTitle="关系起源分析"
+                pageTitle="Origin Story Analysis"
               />
               
               <div className="text-center">
                 <div className="inline-flex items-center text-gray-500">
-                  <span>向下滚动查看支持投资分析</span>
+                  <span>Scroll down to view Support & Investment Analysis</span>
                   <svg className="w-4 h-4 ml-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
                   </svg>
@@ -1341,13 +1452,13 @@ export default function ReportPage() {
             <div className="max-w-4xl mx-auto px-8 py-12">
               <div className="text-center mb-12">
                 <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">🤝</div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">早期支持投资分析</h1>
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">Support & Investment Analysis</h1>
                 <p className="text-xl text-gray-600">Early Relationship Support & Investment Analysis</p>
               </div>
               
               <SmartContentRenderer 
                 content={contentData.support_analysis} 
-                pageTitle="支持投资分析"
+                pageTitle="Support & Investment Analysis"
               />
             </div>
           </section>
@@ -1357,13 +1468,13 @@ export default function ReportPage() {
             <div className="max-w-4xl mx-auto px-8 py-12">
               <div className="text-center mb-12">
                 <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">📊</div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">关系成功概率分析</h1>
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">Success Probability Analysis</h1>
                 <p className="text-xl text-gray-600">Relationship Success Probability Analysis</p>
               </div>
               
               <SmartContentRenderer 
                 content={contentData.success_probability} 
-                pageTitle="成功概率分析"
+                pageTitle="Success Probability Analysis"
               />
             </div>
           </section>
@@ -1373,17 +1484,17 @@ export default function ReportPage() {
             <div className="max-w-4xl mx-auto px-8 py-12">
               <div className="text-center mb-12">
                 <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">🎯</div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">综合关系发展框架</h1>
+                <h1 className="text-4xl font-bold text-gray-800 mb-4">Development Framework</h1>
                 <p className="text-xl text-gray-600">Comprehensive Relationship Development Framework</p>
               </div>
               
               <SmartContentRenderer 
                 content={contentData.development_framework} 
-                pageTitle="发展框架"
+                pageTitle="Development Framework"
               />
               
               <div className="text-center pt-8">
-                <p className="text-gray-600 text-lg">🎉 恭喜！你已经完成了完整的关系分析报告</p>
+                <p className="text-gray-600 text-lg">🎉 Congratulations! You have completed the comprehensive relationship analysis report</p>
               </div>
             </div>
           </section>

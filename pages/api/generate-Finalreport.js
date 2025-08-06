@@ -8,61 +8,46 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { sessionId } = req.body;
+    const { sessionId, totalQuestions } = req.body;
 
     if (!sessionId) {
       return res.status(400).json({ error: 'sessionId is required' });
     }
 
+    const questionsCount = totalQuestions || 1; // 默认40个问题
+
     console.log('🔄 Final Report API: Sending request to n8n webhook...');
     console.log('📋 Session ID:', sessionId);
+    console.log('📊 Total Questions:', questionsCount);
+    
+    // 动态构建问题对象
+    const questionsObject = {
+      "sessionId": sessionId,
+      "totalQuestions": questionsCount // 传递总问题数给n8n
+    };
+    
+    // 动态添加问题
+    for (let i = 1; i <= questionsCount; i++) {
+      questionsObject[`question ${i}`] = "";
+    }
+    
+    // 设置默认的前两个问题
+    if (questionsCount >= 1) questionsObject["question 1"] = `From lalaland script, Analyze the available relationship data to calculate the probability of long-term relationship success based on current patterns and dynamics. Use structured components in your response, not just markdown.
+
+Focus on:
+1) Current success rate estimation based on observable patterns → Use a "rating-bar" block with label and score.
+2) Contributions of different relationship aspects → Use a "table" block for percentage breakdown by factor.
+3) Key success factors identified → Use a "list" or "accordion" block summarizing top factors.
+4) Comprehensive compatibility assessment → Use "stat" cards or "rating-bar" blocks.
+5) Statistical viability analysis → Use a "chart" block if applicable.
+
+Provide percentage probabilities where calculable, support with data, and return as JSON with these blocks.`;
+    if (questionsCount >= 2) questionsObject["question 2"] = `From Lalaland script,Provide practical techniques for balancing emotional investment based on emotional weight disparities in the data. Design gradual implementation of emotional synchronization exercises, establish regular emotional check-in systems, develop shared emotional expression methods, maintain emotional safety boundaries, and implement gradual improvement with safety considerations. Present progressive implementation plans with safety considerations.`;
     
     // 发送请求到 n8n 并等待响应
     try {
       const response = await axios.post(N8N_WEBHOOK, [
-        {
-          "sessionId": sessionId,
-          "question 1": "Analyze the user dataset to identify how this couple first met, their initial emotional connection development, and early attraction factors. Extract timeline data, first interaction details, emotional bonding process, and initial impressions. Present this as a comprehensive origin story with specific dates, key emotional moments, and the progression of their early connection. Include quantitative data about early communication frequency and emotional intensity development.",
-          "question 2": "Analyze the available relationship data to understand early interactions and supportive behaviors between the partners. Look for any information about early dates, thoughtful gestures, caring actions, or romantic behaviors - this could be mentioned in conversations, described in stories, or documented in messages. Examine patterns of who provides support and how it's received. If specific 'Supportive Gestures' scores exist, use them; otherwise, analyze qualitative descriptions to assess contribution levels. Focus on: 1) Key early dating experiences and their emotional impact, 2) Examples of supportive actions and their frequency, 3) How caring behaviors are expressed and received, 4) Early investment patterns and reciprocity. Present your analysis with available evidence, reasonable assessments of contribution levels, and clear distinction between documented facts and inferred patterns.",
-          "question 3": "Analyze the available relationship data to calculate the probability of long-term relationship success based on current patterns and dynamics. Look for compatibility indicators, relationship health signs, and success factors evident in their interactions and behaviors. Assess various relationship aspects by their importance to long-term viability. Focus on: 1) Current success rate estimation based on observable patterns, 2) How different relationship aspects contribute to overall success potential, 3) Key success factors identified from their dynamics, 4) Comprehensive compatibility assessment from available evidence, 5) Statistical viability analysis supported by behavioral data. Present percentage probabilities where calculable with supporting evidence and reasoning for your assessment of their relationship's long-term potential.",
-          "question 4": "Synthesize key learning points from the entire analysis and create a sustainable development framework. Extract and refine key learning points, establish universal principles for future applications, provide long-term growth perspectives for continuous development, create template tools for self-assessment, and develop strategic frameworks for sustainable improvement. Present a comprehensive summary with actionable takeaways and continuous improvement strategies.",
-          "question 5": "",
-          "question 6": "",
-          "question 7": "",
-          "question 8": "",
-          "question 9": "",
-          "question 10": "",
-          "question 11": "",
-          "question 12": "",
-          "question 13": "",
-          "question 14": "",
-          "question 15": "",
-          "question 16": "",
-          "question 17": "",
-          "question 18": "",
-          "question 19": "",
-          "question 20": "",
-          "question 21": "",
-          "question 22": "",
-          "question 23": "",
-          "question 24": "",
-          "question 25": "",
-          "question 26": "",
-          "question 27": "",
-          "question 28": "",
-          "question 29": "",
-          "question 30": "",
-          "question 31": "",
-          "question 32": "",
-          "question 33": "",
-          "question 34": "",
-          "question 35": "",
-          "question 36": "",
-          "question 37": "",
-          "question 38": "",
-          "question 39": "",
-          "question 40": ""
-        }
+        questionsObject
       ], { 
         headers: { 'Content-Type': 'application/json' },
         timeout: 90000 // 90秒超时（Cloudflare限制是100秒）
