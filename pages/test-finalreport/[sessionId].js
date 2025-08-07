@@ -2,11 +2,54 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
 
+// 可交互的Accordion组件
+const AccordionComponent = ({ items }) => {
+  const [openItems, setOpenItems] = useState({});
+
+  const toggleItem = (index) => {
+    setOpenItems(prev => ({
+      ...prev,
+      [index]: !prev[index]
+    }));
+  };
+
+  return (
+    <div className="space-y-4">
+      {items.map((item, itemIndex) => (
+        <div key={itemIndex} className="border border-gray-200 rounded-lg overflow-hidden">
+          <button 
+            onClick={() => toggleItem(itemIndex)}
+            className="w-full px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 font-semibold flex items-center justify-between transition-colors"
+          >
+            <span>{item.title}</span>
+            <svg 
+              className={`w-5 h-5 transition-transform ${openItems[itemIndex] ? 'rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
+            </svg>
+          </button>
+          {openItems[itemIndex] && (
+            <div className="px-6 py-4 border-t border-gray-200 bg-white">
+              <div 
+                className="prose prose-sm max-w-none text-gray-700"
+                dangerouslySetInnerHTML={{ __html: item.content }}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 export default function ReportPage() {
   const router = useRouter();
-  const { sessionId } = router.query;
+  const { sessionId, completed } = router.query;
   
-  const [contentData, setContentData] = useState({});
+  const [contentData, setContentData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -44,7 +87,7 @@ export default function ReportPage() {
           <div key={index} className={`border-l-4 pl-6 ${timelineColors[index % timelineColors.length]}`}>
             <h3 className="text-lg font-semibold text-gray-800 mb-2">{stage.title}</h3>
             {stage.progress && (
-              <p className="text-gray-700 mb-2"><strong>进展：</strong>{stage.progress}</p>
+              <p className="text-gray-700 mb-2"><strong>Progress:</strong>{stage.progress}</p>
             )}
             {stage.details && stage.details.length > 0 && (
               <ul className="text-gray-600 space-y-1">
@@ -252,7 +295,7 @@ export default function ReportPage() {
       <div className="grid md:grid-cols-2 gap-8">
         <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-4 text-green-600">
-            {data.positiveTitle || '健康依恋形成指标'}
+            {data.positiveTitle || 'Healthy Attachment Formation Indicators'}
           </h3>
           <ul className="space-y-2 text-gray-700">
             {data.positiveItems.map((item, index) => (
@@ -263,7 +306,7 @@ export default function ReportPage() {
         
         <div>
           <h3 className="text-lg font-semibold text-gray-800 mb-4 text-blue-600">
-            {data.negativeTitle || '可持续基础元素'}
+            {data.negativeTitle || 'Sustainable Foundation Elements'}
           </h3>
           <ul className="space-y-2 text-gray-700">
             {data.negativeItems.map((item, index) => (
@@ -314,7 +357,7 @@ export default function ReportPage() {
         
         {data.summary && (
           <div className="mt-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-            <h4 className="font-semibold text-blue-800 mb-2">整体评估</h4>
+            <h4 className="font-semibold text-blue-800 mb-2">Overall Assessment</h4>
             <p className="text-blue-700">{data.summary}</p>
           </div>
         )}
@@ -576,13 +619,13 @@ export default function ReportPage() {
         let title, stageNum;
         if (stageMatch) {
           stageNum = stageMatch[1];
-          title = `阶段${stageNum}：${stageMatch[2]}`;
+          title = `Stage ${stageNum}: ${stageMatch[2]}`;
         } else if (phaseMatch) {
           stageNum = phaseMatch[1];
-          title = `阶段${stageNum}：${phaseMatch[2]}`;
+          title = `Stage ${stageNum}: ${phaseMatch[2]}`;
         } else if (stageOnlyMatch) {
           stageNum = stageOnlyMatch[1];
-          title = `阶段${stageNum}`;
+          title = `Stage ${stageNum}`;
         }
         
         currentStage = {
@@ -603,7 +646,7 @@ export default function ReportPage() {
         const detail = trimmedLine.replace(/^[•\-]\s*/, '').trim();
         if (detail) {
           currentStage.details.push({ 
-            label: '要点', 
+            label: 'Key Point', 
             content: detail 
           });
         }
@@ -612,7 +655,7 @@ export default function ReportPage() {
         const detail = trimmedLine.replace(/\*\*/g, '').trim();
         if (detail) {
           currentStage.details.push({ 
-            label: '关键信息', 
+            label: 'Key Information', 
             content: detail 
           });
         }
@@ -639,8 +682,8 @@ export default function ReportPage() {
       const trimmedLine = line.trim();
       if (trimmedLine && !trimmedLine.startsWith('#')) {
         stages.push({
-          title: `阶段${stageIndex}`,
-          details: [{ label: '内容', content: trimmedLine }]
+          title: `Stage ${stageIndex}`,
+          details: [{ label: 'Content', content: trimmedLine }]
         });
         stageIndex++;
       }
@@ -782,7 +825,7 @@ export default function ReportPage() {
             });
           } else {
             currentFeature.items.push({
-              label: '要点',
+              label: 'Key Point',
               content: item
             });
           }
@@ -799,7 +842,7 @@ export default function ReportPage() {
             });
           } else {
             currentFeature.items.push({
-              label: '要点',
+              label: 'Key Point',
               content: item
             });
           }
@@ -883,8 +926,8 @@ export default function ReportPage() {
   const parseSummaryData = (content) => {
     const lines = content.split('\n');
     const summary = {
-      positiveTitle: '健康依恋形成指标',
-      negativeTitle: '可持续基础元素',
+      positiveTitle: 'Healthy Attachment Formation Indicators',
+      negativeTitle: 'Sustainable Foundation Elements',
       positiveItems: [],
       negativeItems: [],
       conclusion: ''
@@ -926,7 +969,7 @@ export default function ReportPage() {
     // 如果没有解析到数据，提供默认值
     if (summary.positiveItems.length === 0) {
       summary.positiveItems = [
-        { label: '最佳节奏', content: '自然进展，不急于情感亲密' },
+        { label: 'Optimal Pacing', content: 'Natural progression without rushing emotional intimacy' },
         { label: '冲突解决', content: '成功从初始紧张导航到连接' },
         { label: '情感调节', content: '兴奋与稳定连接的平衡' },
         { label: '个人完整性', content: '在发展关系中保持个人身份' }
@@ -1049,11 +1092,154 @@ export default function ReportPage() {
     return chart;
   };
 
+  // JSON Block 渲染组件
+  const JsonBlockRenderer = ({ block, index }) => {
+    const blockProps = {
+      key: `block-${index}`,
+      className: "bg-white rounded-xl shadow-lg p-8 mb-8 hover-lift card-hover fade-in-up",
+      style: { animationDelay: `${index * 0.1}s` }
+    };
+
+    switch (block.type) {
+      case 'markdown':
+        // 如果是第一个block，移除已经在页面标题中显示的部分
+        let content = block.content;
+        if (index === 0) {
+          // 先处理转义的换行符，然后移除标题和副标题部分
+          const processedContent = content.replace(/\\n/g, '\n');
+          content = processedContent.replace(/^#\s+.+\n\*[^*]+\*\n\n?/m, '');
+        }
+        
+        return (
+          <div {...blockProps}>
+            <TextBlock content={content} />
+          </div>
+        );
+      
+      case 'table':
+        return (
+          <div {...blockProps}>
+            <div className="overflow-x-auto">
+              <table className="w-full bg-white rounded-lg border border-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {block.data.columns.map((column, colIndex) => (
+                      <th key={colIndex} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                        {column}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {block.data.rows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                      {row.map((cell, cellIndex) => (
+                        <td key={cellIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      
+      case 'rating-bar':
+        return (
+          <div {...blockProps}>
+            <div className="text-center">
+              <h3 className="text-lg font-semibold mb-4">{block.data.label}</h3>
+              <div className="flex items-center justify-center gap-4">
+                <div className="text-3xl font-bold text-blue-600">{block.data.score}/10</div>
+                <div className="flex-1 max-w-md">
+                  <div className="w-full bg-gray-200 rounded-full h-4">
+                    <div 
+                      className="h-4 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
+                      style={{ width: `${(block.data.score / 10) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'stat-card':
+      case 'stat':
+        return (
+          <div {...blockProps}>
+            <div className="text-center bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg">
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">{block.data.label}</h4>
+              <div className="text-4xl font-bold text-blue-600 mb-2">{block.data.value}</div>
+            </div>
+          </div>
+        );
+      
+      case 'accordion':
+        return (
+          <div {...blockProps}>
+            <AccordionComponent items={block.data.items} />
+          </div>
+        );
+      
+      case 'timeline':
+        return (
+          <div {...blockProps}>
+            <TimelineBlock data={{
+              stages: block.data.events.map((event, eventIndex) => ({
+                title: event.title,
+                details: [
+                  { label: 'Time', content: event.date },
+                  { label: 'Description', content: event.description }
+                ]
+              }))
+            }} />
+          </div>
+        );
+      
+      case 'callout':
+        return (
+          <div {...blockProps}>
+            <div className="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg">
+              <div className="flex items-start">
+                <div className="text-2xl mr-4">💡</div>
+                <div className="flex-1">
+                  <TextBlock content={block.content} />
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      
+      case 'quote':
+        return (
+          <div {...blockProps}>
+            <div className="bg-gray-50 border-l-4 border-gray-400 p-6 rounded-lg">
+              <blockquote className="text-lg italic text-gray-700 mb-4">
+                &ldquo;{block.content}&rdquo;
+              </blockquote>
+            </div>
+          </div>
+        );
+      
+      default:
+        console.warn('Unknown block type:', block.type, block);
+        return (
+          <div {...blockProps}>
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <p className="text-gray-600">Unknown block type: {block.type}</p>
+              <pre className="mt-2 text-xs text-gray-500 overflow-auto">{JSON.stringify(block, null, 2)}</pre>
+            </div>
+          </div>
+        );
+    }
+  };
+
   // 智能内容渲染组件
   const SmartContentRenderer = ({ content, pageTitle }) => {
-    const sections = useMemo(() => parseContentIntoSections(content), [content]);
-
-    if (!content || content.trim() === '') {
+    if (!content) {
       return (
         <div className="text-center py-12 text-gray-500">
           <p>No {pageTitle} data available</p>
@@ -1061,29 +1247,63 @@ export default function ReportPage() {
       );
     }
 
+    // 如果content是字符串，按原来的逻辑处理
+    if (typeof content === 'string') {
+      const sections = parseContentIntoSections(content);
+      return (
+        <div className="space-y-8">
+          {sections.map((section, index) => {
+            const processedData = processDataForComponent(section);
+            
+            return (
+              <div 
+                key={`${section.type}-${index}`} 
+                className="bg-white rounded-xl shadow-lg p-8 mb-8 hover-lift card-hover fade-in-up"
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
+                {section.type === 'timeline' && <TimelineBlock data={processedData} />}
+                {section.type === 'table' && <DataTable data={processedData} />}
+                {section.type === 'stats' && <StatsBlock data={processedData} />}
+                {section.type === 'cards' && <FeatureCards data={processedData} />}
+                {section.type === 'quote' && <QuoteBlock data={processedData} />}
+                {section.type === 'summary' && <SummaryBlock data={processedData} />}
+                {section.type === 'progress' && <ProgressIndicator data={processedData} />}
+                {section.type === 'chart' && <ChartBlock data={processedData} />}
+                {section.type === 'text' && <TextBlock content={processedData} />}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    // 如果content是对象且包含output.blocks，处理JSON结构
+    if (content && typeof content === 'object' && content.output && content.output.blocks) {
+      const blocks = content.output.blocks;
+      return (
+        <div className="space-y-8">
+          {blocks.map((block, index) => (
+            <JsonBlockRenderer key={index} block={block} index={index} />
+          ))}
+        </div>
+      );
+    }
+
+    // 如果content是其他对象格式，尝试显示
+    if (typeof content === 'object') {
+      return (
+        <div className="space-y-8">
+          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
+            <h3 className="text-lg font-semibold mb-4">Raw Data</h3>
+            <pre className="bg-gray-100 p-4 rounded-lg text-sm overflow-auto">{JSON.stringify(content, null, 2)}</pre>
+          </div>
+        </div>
+      );
+    }
+
     return (
-      <div className="space-y-8">
-        {sections.map((section, index) => {
-          const processedData = processDataForComponent(section);
-          
-          return (
-            <div 
-              key={`${section.type}-${index}`} 
-              className="bg-white rounded-xl shadow-lg p-8 mb-8 hover-lift card-hover fade-in-up"
-              style={{ animationDelay: `${index * 0.1}s` }}
-            >
-              {section.type === 'timeline' && <TimelineBlock data={processedData} />}
-              {section.type === 'table' && <DataTable data={processedData} />}
-              {section.type === 'stats' && <StatsBlock data={processedData} />}
-              {section.type === 'cards' && <FeatureCards data={processedData} />}
-              {section.type === 'quote' && <QuoteBlock data={processedData} />}
-              {section.type === 'summary' && <SummaryBlock data={processedData} />}
-              {section.type === 'progress' && <ProgressIndicator data={processedData} />}
-              {section.type === 'chart' && <ChartBlock data={processedData} />}
-              {section.type === 'text' && <TextBlock content={processedData} />}
-            </div>
-          );
-        })}
+      <div className="text-center py-12 text-gray-500">
+        <p>Unable to render {pageTitle} data</p>
       </div>
     );
   };
@@ -1101,36 +1321,98 @@ export default function ReportPage() {
 
       if (error) {
         console.error('❌ Supabase error:', error);
-        return {};
+        return [];
       }
 
       console.log('✅ Fetched data:', data);
       console.log('📊 Number of records:', data?.length || 0);
 
-      // 按对处理数据 (human + ai)
-      const categorized = {};
+      // 处理AI消息并解析JSON结构 - 动态处理所有AI回答
+      const aiResponses = [];
       
       data.forEach((item, index) => {
-        const content = item.message?.content || '';
-        const type = item.message?.type || '';
-        
-        console.log(`📝 Processing item ${index + 1} (${type}):`, content.substring(0, 100) + '...');
+        const message = item.message;
+        const type = message?.type || '';
         
         if (type === 'ai') {
-          // 根据AI响应的顺序分配
-          const categories = ['origin_story', 'support_analysis', 'success_probability', 'development_framework'];
-          const aiIndex = Math.floor(index / 2); // 每2条记录中有1条AI响应
-          const category = categories[aiIndex];
-          categorized[category] = content;
-          console.log(`📝 AI content assigned to: ${category}`);
+          console.log(`📝 Processing AI item ${aiResponses.length + 1}:`);
+          
+          // 尝试解析content中的JSON结构
+          let content = message.content;
+          if (typeof content === 'string') {
+            try {
+              content = JSON.parse(content);
+            } catch (e) {
+              console.log('Content is not JSON, treating as text:', content.substring(0, 100) + '...');
+            }
+          }
+          
+          // 从content中提取标题和副标题
+          const extractTitlesFromContent = (content) => {
+            let title = `Analysis ${aiResponses.length + 1}`;
+            let subtitle = `Report Section ${aiResponses.length + 1}`;
+            
+            try {
+              // 检查是否有blocks结构
+              if (content && content.output && content.output.blocks) {
+                const blocks = content.output.blocks;
+                
+                // 查找markdown类型的block
+                const markdownBlock = blocks.find(block => block.type === 'markdown');
+                if (markdownBlock && markdownBlock.content) {
+                  const markdownContent = markdownBlock.content;
+                  
+                  console.log('📝 Parsing markdown content:', markdownContent);
+                  
+                  // 先将转义的\n转换为真正的换行符
+                  const processedContent = markdownContent.replace(/\\n/g, '\n');
+                  
+                  // 提取第一个 # 标题作为主标题
+                  const h1Match = processedContent.match(/^#\s+(.+)$/m);
+                  if (h1Match) {
+                    title = h1Match[1].trim();
+                    console.log('📝 Found title:', title);
+                  }
+                  
+                  // 提取紧跟在主标题后面的斜体文本作为副标题
+                  const italicMatch = processedContent.match(/^#\s+.+\n\*([^*]+)\*/m);
+                  if (italicMatch) {
+                    subtitle = italicMatch[1].trim();
+                    console.log('📝 Found subtitle:', subtitle);
+                  } else {
+                    console.log('📝 No subtitle found, processed content:', processedContent.substring(0, 200));
+                  }
+                }
+              }
+            } catch (error) {
+              console.log('Error extracting titles:', error);
+              // 保持默认值
+            }
+            
+            return { title, subtitle };
+          };
+          
+          const { title, subtitle } = extractTitlesFromContent(content);
+          
+          // 动态生成页面信息
+          const pageInfo = {
+            id: `page_${aiResponses.length + 1}`,
+            title: title,
+            subtitle: subtitle,
+            content: content,
+            index: aiResponses.length
+          };
+          
+          aiResponses.push(pageInfo);
+          console.log(`📝 AI content processed as page: ${pageInfo.id}`);
         }
       });
 
-      console.log('🎯 Final categorized data:', Object.keys(categorized));
-      return categorized;
+      console.log('🎯 Final dynamic pages:', aiResponses.length);
+      return aiResponses;
     } catch (error) {
       console.error('Error:', error);
-      return {};
+      return [];
     }
   };
 
@@ -1142,10 +1424,19 @@ export default function ReportPage() {
         setContentData(data);
         setIsLoading(false);
         setHasInitialized(true);
+        
+        // 如果URL参数中没有completed=true，说明是进行中的会话，可能需要轮询
+        // 如果有completed=true，说明是查看已完成的报告，不需要轮询
+        if (!completed || completed !== 'true') {
+          console.log('📋 Session is in progress, may need polling logic here');
+          // TODO: 添加轮询逻辑（如果需要的话）
+        } else {
+          console.log('📋 Viewing completed report, no polling needed');
+        }
       };
       loadData();
     }
-  }, [sessionId, hasInitialized]); // 添加hasInitialized依赖，确保只执行一次
+  }, [sessionId, hasInitialized, completed]); // 添加completed依赖
 
   // 滚动导航功能
   useEffect(() => {
@@ -1178,7 +1469,7 @@ export default function ReportPage() {
             }
             
             // 更新进度条
-            const progress = ((index + 1) / sections.length) * 100;
+            const progress = ((index + 1) / contentData.length) * 100;
             if (progressBar) {
               progressBar.style.width = progress + '%';
             }
@@ -1207,7 +1498,7 @@ export default function ReportPage() {
       window.removeEventListener('scroll', updateNavigation);
       clearTimeout(scrollTimeout);
     };
-  }, [isLoading, hasInitialized]); // 依赖加载状态
+  }, [isLoading, hasInitialized, contentData.length]); // 依赖加载状态和页面数量
 
   if (isLoading) {
     return (
@@ -1221,7 +1512,7 @@ export default function ReportPage() {
   }
 
   // 错误处理
-  if (!contentData || Object.keys(contentData).length === 0) {
+  if (!contentData || contentData.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
         <div className="text-center">
@@ -1240,7 +1531,7 @@ export default function ReportPage() {
       {process.env.NODE_ENV === 'development' && (
         <div className="fixed top-4 right-4 bg-black bg-opacity-75 text-white p-3 rounded text-xs z-50">
           <div>Session: {sessionId}</div>
-          <div>Pages: {Object.keys(contentData).length}</div>
+          <div>Pages: {contentData.length}</div>
           <div>Current: {currentPage}</div>
           <div>Status: {isLoading ? 'Loading' : 'Ready'}</div>
         </div>
@@ -1368,136 +1659,93 @@ export default function ReportPage() {
             <p className="text-sm text-gray-500 mb-8">Session: {sessionId}</p>
             
             <ul className="space-y-2">
-              <li>
-                <a href="#page1" className="nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors active">
-                  <div className="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center text-white text-sm mr-3">1</div>
-                  <div>
-                    <div className="font-medium text-gray-800">Origin Story Analysis</div>
-                    <div className="text-sm text-gray-500">Relationship Beginnings</div>
-                  </div>
-                </a>
-              </li>
-              
-              <li>
-                <a href="#page2" className="nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-3">2</div>
-                  <div>
-                    <div className="font-medium text-gray-800">Support & Investment</div>
-                    <div className="text-sm text-gray-500">Early Relationship Support</div>
-                  </div>
-                </a>
-              </li>
-              
-              <li>
-                <a href="#page3" className="nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm mr-3">3</div>
-                  <div>
-                    <div className="font-medium text-gray-800">Success Probability</div>
-                    <div className="text-sm text-gray-500">Long-term Success Rate</div>
-                  </div>
-                </a>
-              </li>
-              
-              <li>
-                <a href="#page4" className="nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm mr-3">4</div>
-                  <div>
-                    <div className="font-medium text-gray-800">Development Framework</div>
-                    <div className="text-sm text-gray-500">Growth Strategy</div>
-                  </div>
-                </a>
-              </li>
+              {contentData.map((page, index) => {
+                const colors = ['bg-pink-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-indigo-500', 'bg-red-500', 'bg-yellow-500', 'bg-teal-500'];
+                const bgColor = colors[index % colors.length];
+                const isActive = index === 0 ? 'active' : '';
+                
+                return (
+                  <li key={page.id}>
+                    <a href={`#${page.id}`} className={`nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors ${isActive}`}>
+                      <div className={`w-8 h-8 ${bgColor} rounded-full flex items-center justify-center text-white text-sm mr-3`}>
+                        {index + 1}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-800">{page.title}</div>
+                        <div className="text-sm text-gray-500">{page.subtitle}</div>
+                      </div>
+                    </a>
+                  </li>
+                );
+              })}
             </ul>
             
             {/* 进度指示器 */}
             <div className="mt-8 pt-6 border-t">
               <div className="text-sm text-gray-500 mb-2">Reading Progress</div>
               <div className="w-full bg-gray-200 rounded-full h-2">
-                <div id="progress-bar" className="bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${(currentPage / 4) * 100}%` }}></div>
+                <div id="progress-bar" className="bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${(currentPage / contentData.length) * 100}%` }}></div>
               </div>
-              <div className="text-xs text-gray-400 mt-1">Page {currentPage} of 4</div>
+              <div className="text-xs text-gray-400 mt-1">Page {currentPage} of {contentData.length}</div>
             </div>
           </div>
         </nav>
 
         {/* 主要内容区域 */}
         <main className="ml-80" ref={mainRef}>
-          {/* 第一页：关系起源分析 */}
-          <section id="page1" className="page-section bg-gradient-to-br from-pink-50 to-rose-50">
-            <div className="max-w-5xl mx-auto px-8 py-12">
-              <div className="text-center mb-12">
-                <div className="w-16 h-16 bg-pink-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">💕</div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">Origin Story Analysis</h1>
-                <p className="text-xl text-gray-600">Couple&apos;s Origin Story: A Comprehensive Analysis</p>
-              </div>
-              
-              <SmartContentRenderer 
-                content={contentData.origin_story} 
-                pageTitle="Origin Story Analysis"
-              />
-              
-              <div className="text-center">
-                <div className="inline-flex items-center text-gray-500">
-                  <span>Scroll down to view Support & Investment Analysis</span>
-                  <svg className="w-4 h-4 ml-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-                  </svg>
+          {contentData.map((page, index) => {
+            const gradients = [
+              'bg-gradient-to-br from-pink-50 to-rose-50',
+              'bg-gradient-to-br from-blue-50 to-indigo-50', 
+              'bg-gradient-to-br from-green-50 to-emerald-50',
+              'bg-gradient-to-br from-purple-50 to-indigo-50',
+              'bg-gradient-to-br from-yellow-50 to-orange-50',
+              'bg-gradient-to-br from-red-50 to-pink-50',
+              'bg-gradient-to-br from-teal-50 to-cyan-50',
+              'bg-gradient-to-br from-indigo-50 to-purple-50'
+            ];
+            const icons = ['💕', '🤝', '📊', '🎯', '✨', '💎', '🌟', '🚀'];
+            const colors = ['bg-pink-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-yellow-500', 'bg-red-500', 'bg-teal-500', 'bg-indigo-500'];
+            
+            const gradient = gradients[index % gradients.length];
+            const icon = icons[index % icons.length];
+            const iconBg = colors[index % colors.length];
+            const isLastPage = index === contentData.length - 1;
+            
+            return (
+              <section key={page.id} id={page.id} className={`page-section ${gradient}`}>
+                <div className="max-w-5xl mx-auto px-8 py-12">
+                  <div className="text-center mb-12">
+                    <div className={`w-16 h-16 ${iconBg} rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4`}>
+                      {icon}
+                    </div>
+                    <h1 className="text-4xl font-bold text-gray-800 mb-4">{page.title}</h1>
+                    <p className="text-xl text-gray-600">{page.subtitle}</p>
+                  </div>
+                  
+                  <SmartContentRenderer 
+                    content={page.content} 
+                    pageTitle={page.title}
+                  />
+                  
+                  {!isLastPage ? (
+                    <div className="text-center">
+                      <div className="inline-flex items-center text-gray-500">
+                        <span>Scroll down to view next section</span>
+                        <svg className="w-4 h-4 ml-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
+                        </svg>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center pt-8">
+                      <p className="text-gray-600 text-lg">🎉 Congratulations! You have completed the comprehensive relationship analysis report</p>
+                    </div>
+                  )}
                 </div>
-              </div>
-            </div>
-          </section>
-
-          {/* 第二页：支持投资分析 */}
-          <section id="page2" className="page-section bg-gradient-to-br from-blue-50 to-indigo-50">
-            <div className="max-w-4xl mx-auto px-8 py-12">
-              <div className="text-center mb-12">
-                <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">🤝</div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">Support & Investment Analysis</h1>
-                <p className="text-xl text-gray-600">Early Relationship Support & Investment Analysis</p>
-              </div>
-              
-              <SmartContentRenderer 
-                content={contentData.support_analysis} 
-                pageTitle="Support & Investment Analysis"
-              />
-            </div>
-          </section>
-
-          {/* 第三页：成功概率分析 */}
-          <section id="page3" className="page-section bg-gradient-to-br from-green-50 to-emerald-50">
-            <div className="max-w-4xl mx-auto px-8 py-12">
-              <div className="text-center mb-12">
-                <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">📊</div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">Success Probability Analysis</h1>
-                <p className="text-xl text-gray-600">Relationship Success Probability Analysis</p>
-              </div>
-              
-              <SmartContentRenderer 
-                content={contentData.success_probability} 
-                pageTitle="Success Probability Analysis"
-              />
-            </div>
-          </section>
-
-          {/* 第四页：发展框架 */}
-          <section id="page4" className="page-section bg-gradient-to-br from-purple-50 to-indigo-50">
-            <div className="max-w-4xl mx-auto px-8 py-12">
-              <div className="text-center mb-12">
-                <div className="w-16 h-16 bg-purple-500 rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4">🎯</div>
-                <h1 className="text-4xl font-bold text-gray-800 mb-4">Development Framework</h1>
-                <p className="text-xl text-gray-600">Comprehensive Relationship Development Framework</p>
-              </div>
-              
-              <SmartContentRenderer 
-                content={contentData.development_framework} 
-                pageTitle="Development Framework"
-              />
-              
-              <div className="text-center pt-8">
-                <p className="text-gray-600 text-lg">🎉 Congratulations! You have completed the comprehensive relationship analysis report</p>
-              </div>
-            </div>
-          </section>
+              </section>
+            );
+          })}
         </main>
       </div>
     </>

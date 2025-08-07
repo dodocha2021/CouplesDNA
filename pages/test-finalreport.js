@@ -3,6 +3,7 @@ import axios from 'axios';
 import { supabase } from '../lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { ArrowUpRightFromSquare } from 'lucide-react';
 
 export default function TestFinalReport() {
   const [isLoading, setIsLoading] = useState(false);
@@ -24,11 +25,15 @@ export default function TestFinalReport() {
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   
-  // 轮询相关
-  const [pollingIntervals, setPollingIntervals] = useState({
-    progress: null,
-    history: null,
-    starting: null // 添加starting轮询追踪
+  // 集中化轮询状态管理
+  const [pollingState, setPollingState] = useState({
+    isPolling: false,
+    intervals: {
+      workflowStatus: null,
+      sessionHistory: null,
+      starting: null
+    },
+    currentWorkflow: null
   });
   const [workflowState, setWorkflowState] = useState('idle'); // 'idle', 'starting', 'processing', 'completed', 'error', 'timeout'
   const [startingTimeout, setStartingTimeout] = useState(null);
@@ -45,7 +50,7 @@ export default function TestFinalReport() {
     setError(null);
     setResult(null);
     setWorkflowState('idle');
-    clearPolling(); // 清理现有轮询
+    stopPolling(); // 停止所有轮询
 
     try {
       // 生成一个测试sessionId
@@ -71,8 +76,8 @@ export default function TestFinalReport() {
       setWorkflowState('starting');
       setIsLoading(false);
       
-      // 开始starting状态的密集轮询，同时停止常规轮询避免冲突
-      startStartingPolling(testSessionId);
+      // 开始starting状态的密集轮询
+      startPolling(testSessionId, true);
 
     } catch (err) {
       console.error('❌ API Error:', err);
@@ -95,7 +100,7 @@ export default function TestFinalReport() {
       setWorkflowState('error');
       setIsLoading(false);
       
-      // 重新开始常规轮询
+      // 开始常规轮询
       startPolling();
     }
   };
@@ -318,21 +323,34 @@ export default function TestFinalReport() {
     }
   };
 
-  // 清理轮询
-  const clearPolling = () => {
-    if (pollingIntervals.progress) {
-      clearInterval(pollingIntervals.progress);
+  // 停止所有轮询
+  const stopPolling = () => {
+    console.log('🛑 Stopping all polling intervals');
+    
+    // 清理所有间隔
+    if (pollingState.intervals.workflowStatus) {
+      clearInterval(pollingState.intervals.workflowStatus);
     }
-    if (pollingIntervals.history) {
-      clearInterval(pollingIntervals.history);
+    if (pollingState.intervals.sessionHistory) {
+      clearInterval(pollingState.intervals.sessionHistory);
     }
-    if (pollingIntervals.starting) {
-      clearInterval(pollingIntervals.starting);
+    if (pollingState.intervals.starting) {
+      clearInterval(pollingState.intervals.starting);
     }
     if (startingTimeout) {
       clearTimeout(startingTimeout);
     }
-    setPollingIntervals({ progress: null, history: null, starting: null });
+    
+    // 重置轮询状态
+    setPollingState({
+      isPolling: false,
+      intervals: {
+        workflowStatus: null,
+        sessionHistory: null,
+        starting: null
+      },
+      currentWorkflow: null
+    });
     setStartingTimeout(null);
   };
 
@@ -346,36 +364,35 @@ export default function TestFinalReport() {
       if (response.data.success) {
         setWorkflowProgress(response.data.data);
         
-        // 如果是starting状态且找到了记录，切换到processing并清理starting轮询
+        // 如果是starting状态且找到了记录，切换到processing
         if (workflowState === 'starting') {
           console.log('✅ Found workflow record, switching from starting to processing');
           setWorkflowState('processing');
           
-          // 清理starting状态的轮询和超时
-          if (pollingIntervals.starting) {
-            clearInterval(pollingIntervals.starting);
+          // 清理starting间隔，切换到常规轮询
+          if (pollingState.intervals.starting) {
+            clearInterval(pollingState.intervals.starting);
           }
           if (startingTimeout) {
             clearTimeout(startingTimeout);
           }
-          setPollingIntervals(prev => ({ ...prev, starting: null }));
           setStartingTimeout(null);
           
           // 重新启动常规轮询
           setTimeout(() => {
-            startPolling();
+            startPolling(currentSessionId, false);
           }, 100);
         }
         
         // 根据状态更新workflowState
         if (response.data.data.status === 'completed') {
+          console.log('✅ Workflow completed, stopping all polling');
           setWorkflowState('completed');
-          // 清理所有轮询，工作流已完成
-          clearPolling();
+          stopPolling();
         } else if (response.data.data.status === 'error') {
+          console.log('❌ Workflow error, stopping all polling');
           setWorkflowState('error');
-          // 清理所有轮询，工作流出错
-          clearPolling();
+          stopPolling();
         } else if (response.data.data.status === 'processing' && workflowState !== 'starting') {
           setWorkflowState('processing');
         }
@@ -383,11 +400,18 @@ export default function TestFinalReport() {
         return true; // 找到记录
       }
     } catch (error) {
-      if (error.response?.status === 404 && workflowState === 'starting') {
-        // starting状态下404是正常的，继续等待
-        return false;
+      if (error.response?.status === 404) {
+        if (workflowState === 'starting') {
+          // starting状态下404是正常的，继续等待
+          console.log('🔍 Session not found yet, continuing to poll...');
+          return false;
+        } else {
+          // 非starting状态下的404，可能是session真的不存在
+          console.log('❌ Session not found in database');
+          return false;
+        }
       }
-      console.error('Error loading workflow progress:', error);
+      console.error('❌ Error loading workflow progress:', error);
     } finally {
       if (!silent) setIsLoadingProgress(false);
     }
@@ -410,89 +434,145 @@ export default function TestFinalReport() {
   };
 
   // 开始轮询
-  const startPolling = () => {
-    // 只清理常规轮询，不清理starting轮询
-    if (pollingIntervals.progress) {
-      clearInterval(pollingIntervals.progress);
-    }
-    if (pollingIntervals.history) {
-      clearInterval(pollingIntervals.history);
-    }
+  const startPolling = (sessionId = null, isStarting = false) => {
+    console.log('🔄 Starting polling', { sessionId, isStarting, workflowState });
     
-    // 轮询session history
+    // 先清理现有轮询
+    stopPolling();
+    
+    const targetSessionId = sessionId || currentSessionId;
+    
+    // 设置Session History轮询
     const historyInterval = setInterval(() => {
+      console.log('📊 Polling session history');
       loadSessionHistory(true);
-    }, 5000); // 每5秒
+    }, 5000);
     
-    // 如果有当前session且不在starting状态，轮询其进度
-    if (currentSessionId && currentSessionId.trim() && workflowState !== 'starting') {
-      const progressInterval = setInterval(() => {
-        loadWorkflowProgress(currentSessionId, true);
-      }, 3000); // 每3秒
+    let workflowInterval = null;
+    let startingInterval = null;
+    
+    if (isStarting && targetSessionId) {
+      // Starting状态的密集轮询
+      startingInterval = setInterval(async () => {
+        console.log('🔍 Starting state polling for session:', targetSessionId);
+        const found = await loadWorkflowProgress(targetSessionId, true);
+        if (found && workflowState === 'starting') {
+          console.log('✅ Found record during starting, will switch to regular polling');
+        }
+      }, 2000);
       
-      setPollingIntervals(prev => ({
-        ...prev,
-        progress: progressInterval,
-        history: historyInterval
-      }));
-    } else {
-      setPollingIntervals(prev => ({
-        ...prev,
-        progress: null,
-        history: historyInterval
-      }));
+      // 3分钟超时
+      const timeout = setTimeout(() => {
+        console.log('⏰ Starting timeout reached');
+        if (startingInterval) clearInterval(startingInterval);
+        setStartingTimeout(null);
+        
+        if (workflowState === 'starting') {
+          setWorkflowState('timeout');
+          setError({
+            message: 'Workflow initialization timeout',
+            details: 'No workflow record was created within 3 minutes.'
+          });
+          stopPolling();
+        }
+      }, 180000);
+      
+      setStartingTimeout(timeout);
+    } else if (targetSessionId && workflowState !== 'starting') {
+      // 常规workflow状态轮询
+      workflowInterval = setInterval(() => {
+        console.log('📈 Regular workflow polling for session:', targetSessionId);
+        loadWorkflowProgress(targetSessionId, true);
+      }, 3000);
     }
+    
+    // 更新轮询状态
+    setPollingState({
+      isPolling: true,
+      intervals: {
+        workflowStatus: workflowInterval,
+        sessionHistory: historyInterval,
+        starting: startingInterval
+      },
+      currentWorkflow: targetSessionId
+    });
   };
 
-  // 开始starting状态的密集轮询
-  const startStartingPolling = (sessionId) => {
-    console.log('🔄 Starting intensive polling for session:', sessionId);
-    
-    const startingInterval = setInterval(async () => {
-      const found = await loadWorkflowProgress(sessionId, true);
-      if (found) {
-        console.log('✅ Found record, stopping starting interval');
-        clearInterval(startingInterval);
-        setPollingIntervals(prev => ({ ...prev, starting: null }));
+
+  // 检查并恢复进行中的workflow状态
+  const checkAndRestoreWorkflowState = async () => {
+    try {
+      const response = await axios.get('/api/get-session-history');
+      if (response.data.success && response.data.data.length > 0) {
+        // 查找最新的进行中workflow
+        const activeWorkflow = response.data.data.find(session => 
+          session.status === 'processing' || session.status === 'starting'
+        );
+        
+        if (activeWorkflow) {
+          console.log('🔄 Found active workflow on page load:', activeWorkflow.session_id);
+          
+          // 恢复API Testing状态
+          setCurrentSessionId(activeWorkflow.session_id);
+          setResult({
+            sessionId: activeWorkflow.session_id,
+            status: activeWorkflow.status,
+            message: 'Workflow restored from previous session'
+          });
+          
+          // 设置workflow状态
+          if (activeWorkflow.status === 'processing') {
+            setWorkflowState('processing');
+          } else if (activeWorkflow.status === 'starting') {
+            setWorkflowState('starting');
+          }
+          
+          // 开始轮询这个workflow
+          startPolling(activeWorkflow.session_id, activeWorkflow.status === 'starting');
+          return true;
+        }
       }
-    }, 2000); // 每2秒
-    
-    // 3分钟超时
-    const timeout = setTimeout(() => {
-      console.log('⏰ Starting timeout reached');
-      clearInterval(startingInterval);
-      setPollingIntervals(prev => ({ ...prev, starting: null }));
-      setStartingTimeout(null);
-      
-      // 只有在仍然是starting状态时才显示超时
-      if (workflowState === 'starting') {
-        setWorkflowState('timeout');
-        setError({
-          message: 'Workflow initialization timeout',
-          details: 'No workflow record was created within 3 minutes. Please check if the n8n workflow is properly configured.'
-        });
-      }
-    }, 180000); // 3分钟
-    
-    setPollingIntervals(prev => ({ ...prev, starting: startingInterval }));
-    setStartingTimeout(timeout);
+    } catch (error) {
+      console.error('Error checking for active workflows:', error);
+    }
+    return false;
   };
 
-  // 页面加载时自动获取prompts和历史
+  // 页面加载时自动获取prompts、历史和恢复workflow状态
   useEffect(() => {
-    loadPromptsFromFile();
-    loadSessionHistory();
+    const initializePage = async () => {
+      loadPromptsFromFile();
+      loadSessionHistory();
+      
+      // 尝试恢复进行中的workflow
+      const hasActiveWorkflow = await checkAndRestoreWorkflowState();
+      
+      if (!hasActiveWorkflow) {
+        // 没有进行中的workflow，开始基础轮询（仅Session History）
+        startPolling();
+      }
+    };
+    
+    initializePage();
     
     // 清理函数
     return () => {
-      clearPolling();
+      stopPolling();
     };
   }, []);
+  
+  // 监听workflow状态变化，更新Session History
+  useEffect(() => {
+    if (workflowState) {
+      console.log('🔄 Workflow state changed to:', workflowState, '- updating session history');
+      loadSessionHistory(true);
+    }
+  }, [workflowState]);
 
   // 当currentSessionId变化时重新设置轮询
   useEffect(() => {
-    if (currentSessionId && currentSessionId.trim()) {
-      startPolling();
+    if (currentSessionId && currentSessionId.trim() && workflowState !== 'starting') {
+      startPolling(currentSessionId, false);
     }
   }, [currentSessionId]);
 
@@ -500,9 +580,15 @@ export default function TestFinalReport() {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        clearPolling();
-      } else if (currentSessionId && currentSessionId.trim()) {
-        startPolling();
+        console.log('📱 Page hidden, stopping polling');
+        stopPolling();
+      } else {
+        console.log('📱 Page visible, restarting polling');
+        if (currentSessionId && currentSessionId.trim()) {
+          startPolling(currentSessionId, false);
+        } else {
+          startPolling();
+        }
       }
     };
 
@@ -570,9 +656,9 @@ export default function TestFinalReport() {
             
             <button
               onClick={handleGenerateReport}
-              disabled={isLoading}
+              disabled={isLoading || workflowState === 'processing' || workflowState === 'starting'}
               className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
-                isLoading
+                isLoading || workflowState === 'processing' || workflowState === 'starting'
                   ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
               }`}
@@ -616,7 +702,7 @@ export default function TestFinalReport() {
               <h3 className="text-lg font-semibold text-gray-900">Workflow Status</h3>
               <div className="flex items-center space-x-2">
                 <div className={`w-2 h-2 rounded-full ${
-                  pollingIntervals.progress || pollingIntervals.history ? 'bg-green-400 animate-pulse' : 'bg-gray-300'
+                  pollingState.isPolling ? 'bg-green-400 animate-pulse' : 'bg-gray-300'
                 }`}></div>
                 <span className="text-xs text-gray-500">Auto-sync</span>
               </div>
@@ -706,7 +792,7 @@ export default function TestFinalReport() {
             <h3 className="text-lg font-semibold text-gray-900">Session History</h3>
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${
-                pollingIntervals.history ? 'bg-green-400 animate-pulse' : 'bg-gray-300'
+                pollingState.intervals.sessionHistory ? 'bg-green-400 animate-pulse' : 'bg-gray-300'
               }`}></div>
               <span className="text-xs text-gray-500">Auto-updating</span>
             </div>
@@ -738,11 +824,12 @@ export default function TestFinalReport() {
                   </div>
                   <button
                     onClick={() => {
+                      // 将sessionId传递给Report Browser模块并自动加载报告
                       setSessionId(session.session_id);
-                      setCurrentSessionId(session.session_id);
-                      setWorkflowProgress(null);
-                      // 立即加载一次，然后轮询会自动接管
-                      loadWorkflowProgress(session.session_id);
+                      // 自动触发加载报告
+                      setTimeout(() => {
+                        handleLoadReports();
+                      }, 100);
                     }}
                     className="mt-2 w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
                   >
@@ -904,87 +991,38 @@ export default function TestFinalReport() {
 
           {/* 右侧：报告显示区域 */}
           <div className="bg-white rounded-lg shadow-md p-6 lg:col-span-2">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Report Content</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">Report Content</h2>
+              {sessionId.trim() && (
+                <button
+                  onClick={() => window.open(`/test-finalreport/${sessionId}?completed=true`, '_blank')}
+                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="在新标签页中打开报告"
+                >
+                  <ArrowUpRightFromSquare className="h-5 w-5" />
+                </button>
+              )}
+            </div>
             
-            {reports.length === 0 ? (
+            {!sessionId.trim() ? (
               <div className="text-center py-12 text-gray-500">
-                <p>Please enter SessionId and load reports</p>
+                <p>Please enter SessionId and load reports to view content</p>
               </div>
             ) : (
               <div className="space-y-4">
-                {/* 翻页控制 */}
-                <div className="flex items-center justify-between">
-                  <button
-                    onClick={goToPrevious}
-                    disabled={currentQuestionIndex === 0}
-                    className={`px-3 py-1 rounded ${
-                      currentQuestionIndex === 0
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-blue-600 hover:bg-blue-50'
-                    }`}
-                  >
-                    ← Previous
-                  </button>
-                  
-                  <span className="text-sm text-gray-600">
-                    Page {currentQuestionIndex + 1} / {reports.length}
-                  </span>
-                  
-                  <button
-                    onClick={goToNext}
-                    disabled={currentQuestionIndex === reports.length - 1}
-                    className={`px-3 py-1 rounded ${
-                      currentQuestionIndex === reports.length - 1
-                        ? 'text-gray-400 cursor-not-allowed'
-                        : 'text-blue-600 hover:bg-blue-50'
-                    }`}
-                  >
-                    Next →
-                  </button>
+                {/* iframe显示独立报告页面 */}
+                <div className="border border-gray-200 rounded-lg bg-white min-h-[600px] max-h-[800px] overflow-hidden">
+                  <iframe
+                    src={`/test-finalreport/${sessionId}`}
+                    className="w-full h-[800px] border-0 rounded-lg"
+                    title="Report Content"
+                    sandbox="allow-scripts allow-same-origin allow-forms"
+                  />
                 </div>
-
-                {/* 报告内容 */}
-                <div className="border border-gray-200 rounded-lg p-6 min-h-[600px] max-h-[800px] overflow-y-auto bg-white resize">
-                  <div className="prose prose-lg max-w-none">
-                    {getCurrentReportContent() ? (
-                      <div className="markdown-content">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          components={{
-                            h1: ({node, ...props}) => <h1 className="text-2xl font-bold text-gray-900 mb-4 border-b border-gray-200 pb-2" {...props} />,
-                            h2: ({node, ...props}) => <h2 className="text-xl font-semibold text-gray-800 mb-3 mt-6" {...props} />,
-                            h3: ({node, ...props}) => <h3 className="text-lg font-medium text-gray-700 mb-2 mt-4" {...props} />,
-                            p: ({node, ...props}) => <p className="text-gray-700 leading-relaxed mb-3" {...props} />,
-                            ul: ({node, ...props}) => <ul className="list-disc list-inside text-gray-700 mb-3 space-y-1" {...props} />,
-                            ol: ({node, ...props}) => <ol className="list-decimal list-inside text-gray-700 mb-3 space-y-1" {...props} />,
-                            li: ({node, ...props}) => <li className="text-gray-700" {...props} />,
-                            strong: ({node, ...props}) => <strong className="font-semibold text-gray-800" {...props} />,
-                            em: ({node, ...props}) => <em className="italic text-gray-700" {...props} />,
-                            code: ({node, ...props}) => <code className="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono text-gray-800" {...props} />,
-                            pre: ({node, ...props}) => <pre className="bg-gray-100 p-3 rounded-lg overflow-x-auto text-sm font-mono text-gray-800 mb-3" {...props} />,
-                            blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-500 pl-4 italic text-gray-600 mb-3" {...props} />,
-                            table: ({node, ...props}) => <table className="min-w-full divide-y divide-gray-300 border border-gray-300 mb-4" {...props} />,
-                            thead: ({node, ...props}) => <thead className="bg-gray-50" {...props} />,
-                            tbody: ({node, ...props}) => <tbody className="bg-white divide-y divide-gray-200" {...props} />,
-                            tr: ({node, ...props}) => <tr {...props} />,
-                            th: ({node, ...props}) => <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-300" {...props} />,
-                            td: ({node, ...props}) => <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-900 border-r border-gray-300" {...props} />
-                          }}
-                        >
-                          {getCurrentReportContent()}
-                        </ReactMarkdown>
-                      </div>
-                    ) : (
-                      <div className="text-gray-500 text-center py-8">
-                        No content to display
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 键盘提示 */}
+                
+                {/* 提示信息 */}
                 <div className="text-xs text-gray-500 text-center">
-                  Use ← → arrow keys or click buttons to navigate
+                  Report content loaded from /test-finalreport/{sessionId}
                 </div>
               </div>
             )}

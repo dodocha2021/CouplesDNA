@@ -31,18 +31,18 @@ export default async function handler(req, res) {
       fileContent = fileContent.replace(defaultQuestionsRegex, newDefaultQuestions);
     }
 
-    // 更新默认的前两个问题设置
+    // 更新默认的前两个问题设置（支持双引号和多行模板字符串）
     if (prompts[1]) {
-      const question1Regex = /if \(questionsCount >= 1\) questionsObject\["question 1"\] = "[^"]*";/;
-      const newQuestion1 = `if (questionsCount >= 1) questionsObject["question 1"] = "${prompts[1].replace(/"/g, '\\"')}";`;
+      const question1Regex = /(if \(questionsCount >= 1\) questionsObject\["question 1"\] = )["`]([\s\S]*?)["`];/;
+      const newQuestion1 = `$1\`${prompts[1]}\`;`;
       if (question1Regex.test(fileContent)) {
         fileContent = fileContent.replace(question1Regex, newQuestion1);
       }
     }
     
     if (prompts[2]) {
-      const question2Regex = /if \(questionsCount >= 2\) questionsObject\["question 2"\] = "[^"]*";/;
-      const newQuestion2 = `if (questionsCount >= 2) questionsObject["question 2"] = "${prompts[2].replace(/"/g, '\\"')}";`;
+      const question2Regex = /(if \(questionsCount >= 2\) questionsObject\["question 2"\] = )["`]([\s\S]*?)["`];/;
+      const newQuestion2 = `$1\`${prompts[2]}\`;`;
       if (question2Regex.test(fileContent)) {
         fileContent = fileContent.replace(question2Regex, newQuestion2);
       }
@@ -52,16 +52,16 @@ export default async function handler(req, res) {
     const additionalSettings = [];
     for (let i = 3; i <= totalQuestionsCount; i++) {
       if (prompts[i] && prompts[i].trim() !== '') {
-        additionalSettings.push(`    if (questionsCount >= ${i}) questionsObject["question ${i}"] = "${prompts[i].replace(/"/g, '\\"')}";`);
+        additionalSettings.push(`    if (questionsCount >= ${i}) questionsObject["question ${i}"] = \`${prompts[i]}\`;`);
       }
     }
     
-    // 移除现有的额外问题设置（question 3及以上）
-    fileContent = fileContent.replace(/\n    if \(questionsCount >= [3-9]\d*\) questionsObject\["question [3-9]\d*"\] = "[^"]*";/g, '');
+    // 移除现有的额外问题设置（question 3及以上）支持多行内容
+    fileContent = fileContent.replace(/\n    if \(questionsCount >= [3-9]\d*\) questionsObject\["question [3-9]\d*"\] = [`"]([\s\S]*?)[`"];/g, '');
     
     if (additionalSettings.length > 0) {
-      // 在question 2设置后插入新的问题设置
-      const insertPoint = /if \(questionsCount >= 2\) questionsObject\["question 2"\] = "[^"]*";/;
+      // 在question 2设置后插入新的问题设置（支持多行内容）
+      const insertPoint = /(if \(questionsCount >= 2\) questionsObject\["question 2"\] = [`"]([\s\S]*?)[`"];)/;
       const match = fileContent.match(insertPoint);
       if (match) {
         const replacement = match[0] + '\n' + additionalSettings.join('\n');

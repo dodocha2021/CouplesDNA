@@ -14,7 +14,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'sessionId is required' });
     }
 
-    const questionsCount = totalQuestions || 1; // 默认40个问题
+    const questionsCount = totalQuestions || 2; // 默认40个问题
 
     console.log('🔄 Final Report API: Sending request to n8n webhook...');
     console.log('📋 Session ID:', sessionId);
@@ -32,17 +32,8 @@ export default async function handler(req, res) {
     }
     
     // 设置默认的前两个问题
-    if (questionsCount >= 1) questionsObject["question 1"] = `From lalaland script, Analyze the available relationship data to calculate the probability of long-term relationship success based on current patterns and dynamics. Use structured components in your response, not just markdown.
-
-Focus on:
-1) Current success rate estimation based on observable patterns → Use a "rating-bar" block with label and score.
-2) Contributions of different relationship aspects → Use a "table" block for percentage breakdown by factor.
-3) Key success factors identified → Use a "list" or "accordion" block summarizing top factors.
-4) Comprehensive compatibility assessment → Use "stat" cards or "rating-bar" blocks.
-5) Statistical viability analysis → Use a "chart" block if applicable.
-
-Provide percentage probabilities where calculable, support with data, and return as JSON with these blocks.`;
-    if (questionsCount >= 2) questionsObject["question 2"] = `From Lalaland script,Provide practical techniques for balancing emotional investment based on emotional weight disparities in the data. Design gradual implementation of emotional synchronization exercises, establish regular emotional check-in systems, develop shared emotional expression methods, maintain emotional safety boundaries, and implement gradual improvement with safety considerations. Present progressive implementation plans with safety considerations.`;
+    if (questionsCount >= 1) questionsObject["question 1"] = `according conversation, Analyze the available relationship data to understand behavioral patterns and consistency between actions and emotions for both partners. Look for evidence of how each person's contributions align with their emotional investment, and examine different behavioral approaches (high effort/high emotion vs other combinations). Focus on: 1) How contribution levels correlate with emotional investment for each partner, 2) Different behavioral pattern categories and their implications, 3) Consistency and change trends in behavioral patterns, 4) How partner behavioral patterns coordinate or conflict, 5) Possibilities and resistance factors for behavioral adjustment. Present your analysis with evidence about behavioral consistency and insights about potential for positive change in relationship dynamics.`;
+    if (questionsCount >= 2) questionsObject["question 2"] = `according conversation, Analyze the available relationship data to calculate the probability of long-term relationship success based on current patterns and dynamics. Look for compatibility indicators, relationship health signs, and success factors evident in their interactions and behaviors. Assess various relationship aspects by their importance to long-term viability. Focus on: 1) Current success rate estimation based on observable patterns, 2) How different relationship aspects contribute to overall success potential, 3) Key success factors identified from their dynamics, 4) Comprehensive compatibility assessment from available evidence, 5) Statistical viability analysis supported by behavioral data. Present percentage probabilities where calculable with supporting evidence and reasoning for your assessment of their relationship's long-term potential.`;
     
     // 发送请求到 n8n 并等待响应
     try {

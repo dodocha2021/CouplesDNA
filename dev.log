@@ -56868,3 +56868,228 @@ Import trace for requested module:
  ✓ Compiled in 430ms (526 modules)
  ✓ Compiled in 321ms (526 modules)
  ✓ Compiled in 275ms (350 modules)
+ ✓ Compiled in 119ms (350 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/couplesdna/Desktop/coupledna/.next/cache/webpack/client-development/1.pack.gz_' -> '/Users/couplesdna/Desktop/coupledna/.next/cache/webpack/client-development/1.pack.gz'
+ ✓ Compiled in 1203ms (526 modules)
+ ✓ Compiled /api/get-workflow-progress in 112ms (191 modules)
+ GET /api/get-workflow-progress?sessionId=test-123 404 in 397ms
+ ✓ Compiled in 189ms (541 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename '/Users/couplesdna/Desktop/coupledna/.next/cache/webpack/server-development/14.pack.gz_' -> '/Users/couplesdna/Desktop/coupledna/.next/cache/webpack/server-development/14.pack.gz'
+ ✓ Compiled in 88ms (350 modules)
+ ✓ Compiled in 204ms (526 modules)
+ ✓ Compiled in 104ms (350 modules)
+ ✓ Compiled in 225ms (526 modules)
+ ✓ Compiled in 129ms (350 modules)
+ ✓ Compiled in 91ms (350 modules)
+ ✓ Compiled in 306ms (350 modules)
+ ✓ Compiled in 127ms (350 modules)
+ ✓ Compiled in 94ms (350 modules)
+ ✓ Compiled in 113ms (350 modules)
+ ✓ Compiled in 127ms (350 modules)
+ ✓ Compiled in 161ms (350 modules)
+ ✓ Compiled in 171ms (350 modules)
+ ✓ Compiled in 170ms (350 modules)
+ ✓ Compiled in 172ms (350 modules)
+ ✓ Compiled in 216ms (350 modules)
+ ✓ Compiled in 154ms (350 modules)
+ ✓ Compiled in 125ms (350 modules)
+ ✓ Compiled in 255ms (350 modules)
+ ✓ Compiled in 259ms (350 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack failed from /Users/couplesdna/Desktop/coupledna/.next/cache/webpack/client-development.pack.gz: Error: incorrect header check
+ ✓ Compiled in 408ms (526 modules)
+ ✓ Compiled in 665ms (526 modules)
+ ✓ Compiled in 645ms (526 modules)
+ ✓ Compiled in 604ms (526 modules)
+ ✓ Compiled in 239ms (526 modules)
+ ✓ Compiled in 592ms (526 modules)
+ ✓ Compiled in 556ms (526 modules)
+ ✓ Compiled in 262ms (526 modules)
+ ✓ Compiled in 656ms (532 modules)
+ ✓ Compiled in 237ms (532 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 1134ms (1241 modules)
+ GET / 200 in 1413ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 215ms
+ ✓ Compiled in 1054ms (1236 modules)
+ ✓ Compiled /api/generate-report in 172ms (216 modules)
+🔄 API Route: Sending request to n8n webhook...
+ POST /api/generate-report 200 in 205ms
+ ✓ Compiled in 433ms (1245 modules)
+ ✓ Compiled in 495ms (1230 modules)
+ ✓ Compiled in 266ms (1230 modules)
+✅ API Route: n8n response received: {
+  output: {
+    reportTitle: 'Comprehensive Relationship Analysis: Sebastian & Mia/Laura from La La Land',
+    overallScore: 7.8,
+    relationshipHealth: 'Good',
+    keyStrengths: [
+      'Strong emotional intimacy through vulnerable sharing (Sebastian explaining jazz music)',
+      'Healthy assertiveness without criticism (name correction handled maturely)',
+      'Playful conflict resolution using humor to maintain physiological calm',
+      'Mutual caregiving and nurturing behaviors creating secure attachment',
+      'Effective future planning discussions showing shared vision building',
+      'Physical affection expressing multiple languages of intimacy'
+    ],
+    keyConcerns: [
+      'Potential career-related stress with moves to New York/Boston requiring careful navigation',
+      'Need to maintain individual identity while building couple identity',
+      'Communication patterns need monitoring to prevent drift during life transitions'
+    ],
+    charts: {
+      scoreBreakdown: [Object],
+      progressOverTime: [Object],
+      relationshipDimensions: [Object],
+      communicationPatterns: [Object]
+    },
+    analysisPoints: [ [Object], [Object], [Object], [Object], [Object], [Object] ],
+    recommendations: [
+      'Develop specific strategies for maintaining emotional connection during career transitions and potential long-distance periods',
+      "Practice the Gottman technique of 'Love Maps' to stay updated on each other's inner worlds, dreams, and stresses",
+      'Establish regular check-ins about relationship satisfaction and individual growth goals',
+      "Continue building conflict resolution skills by learning repair attempts for when playful approaches aren't sufficient",
+      'Create rituals of connection that can be maintained regardless of geographical location or career demands'
+    ],
+    riskLevel: 'Low',
+    nextSteps: 'Focus on maintaining current positive patterns while developing tools for navigating upcoming life transitions. Prioritize communication about career moves to ensure both partners feel heard and valued.'
+  }
+}
+ ✓ Compiled in 233ms (1230 modules)
+ ✓ Compiled in 354ms (1230 modules)
+ ○ Compiling /report/[sessionId] ...
+ ✓ Compiled /report/[sessionId] in 1222ms (1890 modules)
+ GET /report/vcvmg4fuvc9me1l6r74 200 in 1624ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 209ms
+ ✓ Compiled in 1228ms (1890 modules)
+ ✓ Compiled in 583ms (1887 modules)
+ ✓ Compiled in 524ms (1574 modules)
+ ✓ Compiled in 622ms (1574 modules)
+ ✓ Compiled in 507ms (1574 modules)
+ ✓ Compiled in 204ms (1574 modules)
+ ✓ Compiled in 632ms (1574 modules)
+ ✓ Compiled in 671ms (1574 modules)
+ ✓ Compiled in 547ms (1574 modules)
+ ✓ Compiled in 536ms (1574 modules)
+ ✓ Compiled in 345ms (1574 modules)
+ ✓ Compiled in 551ms (1574 modules)
+ ✓ Compiled in 371ms (1574 modules)
+ ✓ Compiled in 309ms (1574 modules)
+ ✓ Compiled in 516ms (1574 modules)
+ ✓ Compiled in 238ms (1574 modules)
+ ✓ Compiled in 217ms (1574 modules)
+ ✓ Compiled in 260ms (1574 modules)
+ ✓ Compiled in 257ms (1574 modules)
+ ✓ Compiled in 551ms (1574 modules)
+ ✓ Compiled /test-finalreport/[sessionId] in 371ms (1891 modules)
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js',
+  page: '/test-finalreport/test-1754433603481'
+}
+ ✓ Compiled /_error in 101ms (1892 modules)
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ GET /test-finalreport/test-1754433603481 500 in 501ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ GET /_next/static/chunks/fallback/webpack.js 500 in 8ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ GET /_next/static/chunks/fallback/main.js 500 in 15ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 14ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 10ms
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 11ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ GET / 500 in 12ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js',
+  page: '/'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ GET / 500 in 9ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ GET /_next/static/chunks/fallback/webpack.js 500 in 23ms
+ GET /_next/static/chunks/fallback/main.js 500 in 22ms
+ GET /_next/static/chunks/fallback/react-refresh.js 500 in 23ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/Users/couplesdna/Desktop/coupledna/.next/server/pages/_document.js'
+}
+ GET /_next/static/chunks/fallback/pages/_app.js 500 in 10ms
+ GET /_next/static/chunks/fallback/pages/_error.js 500 in 11ms

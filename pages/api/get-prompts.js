@@ -26,8 +26,8 @@ export default async function handler(req, res) {
       totalQuestions = parseInt(defaultQuestionsMatch[1]);
     }
     
-    // 查找所有问题设置
-    const questionSetupPattern = /if \(questionsCount >= (\d+)\) questionsObject\["question (\d+)"\] = "([^"]*)";/g;
+    // 查找所有问题设置（支持双引号和模板字符串）
+    const questionSetupPattern = /if \(questionsCount >= (\d+)\) questionsObject\["question (\d+)"\] = [`"]([\s\S]*?)[`"];/g;
     let match;
     
     while ((match = questionSetupPattern.exec(fileContent)) !== null) {
