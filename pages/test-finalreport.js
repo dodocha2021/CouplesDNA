@@ -44,11 +44,31 @@ export default function TestFinalReport() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
   const [totalQuestions, setTotalQuestions] = useState(40); // 动态问题数量
+  const [apiError, setApiError] = useState(null); // API测试区域错误显示
+
+  // 验证prompts连续性和完整性
+  const validatePrompts = () => {
+    // 清除之前的错误
+    setApiError(null);
+    
+    // 检查从1到totalQuestions的连续性
+    for (let i = 1; i <= totalQuestions; i++) {
+      const promptContent = prompts[i];
+      
+      // 检查是否存在且非空
+      if (!promptContent || promptContent.trim() === '') {
+        return `Question ${i} is empty. Please fill in all questions from 1 to ${totalQuestions}.`;
+      }
+    }
+    
+    return null; // 验证通过
+  };
 
   const handleGenerateReport = async () => {
     setIsLoading(true);
     setError(null);
     setResult(null);
+    setApiError(null);
     setWorkflowState('idle');
     stopPolling(); // 停止所有轮询
 
@@ -97,6 +117,10 @@ export default function TestFinalReport() {
         status: err.response?.status,
         details: errorDetails
       });
+      
+      // 同时设置apiError以在API Testing区域显示
+      setApiError(displayMessage);
+      
       setWorkflowState('error');
       setIsLoading(false);
       
@@ -257,11 +281,11 @@ export default function TestFinalReport() {
       });
 
       console.log('✅ Clear response:', response.data);
-      alert('Successfully cleared all prompts from generate-Finalreport.js');
+      // 成功时不显示弹窗，静默清空
       
     } catch (error) {
       console.error('Error clearing prompts:', error);
-      alert(`Failed to clear prompts: ${error.response?.data?.error || error.message}`);
+      alert(`Failed to clear prompts from database: ${error.response?.data?.error || error.message}`);
     }
   };
 
@@ -317,7 +341,7 @@ export default function TestFinalReport() {
       
     } catch (error) {
       console.error('Error loading prompts:', error);
-      alert(`Failed to load prompts: ${error.response?.data?.error || error.message}`);
+      alert(`Failed to load prompts from database: ${error.response?.data?.error || error.message}`);
     } finally {
       setIsLoadingPrompts(false);
     }
@@ -604,6 +628,13 @@ export default function TestFinalReport() {
       return;
     }
 
+    // 验证问题连续性和完整性
+    const validationError = validatePrompts();
+    if (validationError) {
+      setApiError(validationError);
+      return;
+    }
+
     setIsSaving(true);
     try {
       console.log('Saving prompts:', prompts);
@@ -618,18 +649,19 @@ export default function TestFinalReport() {
       });
 
       console.log('✅ Save response:', response.data);
-      alert(`Successfully saved ${response.data.updatedQuestions.length} prompts to generate-Finalreport.js`);
+      // 成功时不显示弹窗，静默保存，并清除错误状态
+      setApiError(null);
       
     } catch (error) {
       console.error('Error saving prompts:', error);
-      alert(`Failed to save prompts: ${error.response?.data?.error || error.message}`);
+      alert(`Failed to save prompts to database: ${error.response?.data?.error || error.message}`);
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-white p-4">
                       <style jsx>{`
                   .resize {
                     resize: both;
@@ -642,25 +674,27 @@ export default function TestFinalReport() {
                 `}</style>
       <div className="max-w-7xl mx-auto">
         {/* 标题 */}
-        <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">
-          Test Final Report API
-        </h1>
+        <div className="border border-black bg-white p-8 mb-8 text-center">
+          <h1 className="text-3xl font-medium text-black">
+            Test Final Report API
+          </h1>
+        </div>
         
 
 
         {/* API测试和Workflow状态 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* API Testing */}
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">API Testing</h2>
+          <div className="bg-white border border-black p-6">
+            <h2 className="text-xl font-medium text-black mb-4">API Testing</h2>
             
             <button
               onClick={handleGenerateReport}
               disabled={isLoading || workflowState === 'processing' || workflowState === 'starting'}
-              className={`w-full py-3 px-4 rounded-lg font-medium transition-colors ${
+              className={`w-full py-3 px-4 border border-black font-medium transition-colors ${
                 isLoading || workflowState === 'processing' || workflowState === 'starting'
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800'
+                  ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                  : 'bg-black text-white hover:bg-gray-800'
               }`}
             >
               {isLoading ? (
@@ -673,33 +707,40 @@ export default function TestFinalReport() {
               )}
             </button>
 
+            {apiError && (
+              <div className="bg-white border border-black p-4 mt-4">
+                <h3 className="text-black font-medium mb-2">Validation Error</h3>
+                <p className="text-black">{apiError}</p>
+              </div>
+            )}
+
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
-                <h3 className="text-red-800 font-medium mb-2">Error</h3>
-                <p className="text-red-700 text-sm">{error.message}</p>
+              <div className="bg-white border border-black p-4 mt-4">
+                <h3 className="text-black font-medium mb-2">Error</h3>
+                <p className="text-black text-sm">{error.message}</p>
                 {error.details && (
-                  <div className="mt-2 p-2 bg-red-100 rounded text-xs">
+                  <div className="mt-2 p-2 bg-gray-100 border border-black text-xs">
                     <p className="font-medium">Details:</p>
-                    <pre className="text-red-600 overflow-x-auto">{JSON.stringify(error.details, null, 2)}</pre>
+                    <pre className="text-black overflow-x-auto">{JSON.stringify(error.details, null, 2)}</pre>
                   </div>
                 )}
               </div>
             )}
 
             {result && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mt-4">
-                <h3 className="text-green-800 font-medium mb-2">Webhook Response Success</h3>
-                <p className="text-green-700 text-sm">SessionId: {result.sessionId}</p>
-                <p className="text-green-700 text-sm">Status: {result.status}</p>
-                <p className="text-green-600 text-xs mt-2">→ Workflow is now being monitored automatically</p>
+              <div className="bg-white border border-black p-4 mt-4">
+                <h3 className="text-black font-medium mb-2">Webhook Response Success</h3>
+                <p className="text-black text-sm">SessionId: {result.sessionId}</p>
+                <p className="text-black text-sm">Status: {result.status}</p>
+                <p className="text-black text-xs mt-2">→ Workflow is now being monitored automatically</p>
               </div>
             )}
           </div>
           
           {/* Workflow Status */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white border border-black p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Workflow Status</h3>
+              <h3 className="text-lg font-medium text-black">Workflow Status</h3>
               <div className="flex items-center space-x-2">
                 <div className={`w-2 h-2 rounded-full ${
                   pollingState.isPolling ? 'bg-green-400 animate-pulse' : 'bg-gray-300'
@@ -787,9 +828,9 @@ export default function TestFinalReport() {
         </div>
         
         {/* Session History */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="bg-white border border-black p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Session History</h3>
+            <h3 className="text-lg font-medium text-black">Session History</h3>
             <div className="flex items-center space-x-2">
               <div className={`w-2 h-2 rounded-full ${
                 pollingState.intervals.sessionHistory ? 'bg-green-400 animate-pulse' : 'bg-gray-300'
@@ -801,21 +842,21 @@ export default function TestFinalReport() {
           {sessionHistory.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-60 overflow-y-auto">
               {sessionHistory.map((session, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50">
+                <div key={index} className="border border-black bg-white p-3 hover:bg-gray-100">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-900 truncate">
+                    <span className="text-sm font-medium text-black truncate">
                       {session.session_id}
                     </span>
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      session.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      session.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                      session.status === 'error' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
+                    <span className={`px-2 py-1 border border-black text-xs font-medium ${
+                      session.status === 'completed' ? 'bg-white text-black' :
+                      session.status === 'processing' ? 'bg-black text-white' :
+                      session.status === 'error' ? 'bg-gray-100 text-black' :
+                      'bg-white text-black'
                     }`}>
                       {session.status}
                     </span>
                   </div>
-                  <div className="text-xs text-gray-600 space-y-1">
+                  <div className="text-xs text-black space-y-1">
                     <p>Steps: {session.current_step}/{session.total_steps}</p>
                     <p>Started: {new Date(session.started_at).toLocaleDateString()}</p>
                     {session.completed_at && (
@@ -831,7 +872,7 @@ export default function TestFinalReport() {
                         handleLoadReports();
                       }, 100);
                     }}
-                    className="mt-2 w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                    className="mt-2 w-full px-2 py-1 bg-black border border-black text-white text-xs hover:bg-gray-800"
                   >
                     View Details
                   </button>
@@ -839,19 +880,19 @@ export default function TestFinalReport() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-black">
               <p className="text-sm">No session history found</p>
             </div>
           )}
         </div>
         
         {/* 报告浏览区域 */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Report Browser</h2>
+        <div className="bg-white border border-black p-6 mb-8">
+          <h2 className="text-xl font-medium text-black mb-4">Report Browser</h2>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-black mb-2">
                 SessionId
               </label>
               <input
@@ -859,17 +900,17 @@ export default function TestFinalReport() {
                 value={sessionId}
                 onChange={(e) => setSessionId(e.target.value)}
                 placeholder="Enter SessionId"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-black bg-white focus:outline-none"
               />
             </div>
             
             <button
               onClick={handleLoadReports}
               disabled={isLoadingReports || !sessionId.trim()}
-              className={`w-full py-2 px-4 rounded-lg font-medium transition-colors ${
+              className={`w-full py-2 px-4 border border-black font-medium transition-colors ${
                 isLoadingReports || !sessionId.trim()
-                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  : 'bg-green-600 text-white hover:bg-green-700 active:bg-green-800'
+                  ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                  : 'bg-black text-white hover:bg-gray-800'
               }`}
             >
               {isLoadingReports ? (
@@ -883,8 +924,8 @@ export default function TestFinalReport() {
             </button>
 
             {reportsError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <p className="text-red-700 text-sm">{reportsError}</p>
+              <div className="bg-white border border-black p-3">
+                <p className="text-black text-sm">{reportsError}</p>
               </div>
             )}
           </div>
@@ -893,17 +934,17 @@ export default function TestFinalReport() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
           {/* 中间：报告页面prompt区域 */}
-          <div className="bg-white rounded-lg shadow-md p-6 lg:col-span-1">
+          <div className="bg-white border border-black p-6 lg:col-span-1">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-gray-900">Report Page Prompts</h2>
+              <h2 className="text-2xl font-medium text-black">Report Page Prompts</h2>
               <div className="flex space-x-2">
                 <button
                   onClick={loadPromptsFromFile}
                   disabled={isLoadingPrompts}
-                  className={`w-16 h-8 rounded-md font-medium text-xs transition-all duration-200 ${
+                  className={`w-16 h-8 border border-black font-medium text-xs transition-all duration-200 ${
                     isLoadingPrompts
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-green-500 text-white hover:bg-green-600 active:bg-green-700 shadow-sm hover:shadow-md'
+                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                      : 'bg-white text-black hover:bg-gray-100'
                   }`}
                 >
                   {isLoadingPrompts ? 'Loading...' : 'Reload'}
@@ -911,17 +952,17 @@ export default function TestFinalReport() {
                 <button
                   onClick={savePrompts}
                   disabled={isSaving}
-                  className={`w-16 h-8 rounded-md font-medium text-xs transition-all duration-200 ${
+                  className={`w-16 h-8 border border-black font-medium text-xs transition-all duration-200 ${
                     isSaving
-                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 shadow-sm hover:shadow-md'
+                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                      : 'bg-black text-white hover:bg-gray-800'
                   }`}
                 >
                   {isSaving ? 'Saving...' : 'Save'}
                 </button>
                 <button
                   onClick={cleanAllPrompts}
-                  className="w-16 h-8 rounded-md font-medium text-xs bg-gray-500 text-white hover:bg-gray-600 active:bg-gray-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="w-16 h-8 border border-black font-medium text-xs bg-white text-black hover:bg-gray-100 transition-all duration-200"
                 >
                   Clear
                 </button>
@@ -929,17 +970,17 @@ export default function TestFinalReport() {
             </div>
             
             {/* 问题数量管理 */}
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <div className="mb-4 p-3 bg-white border border-black">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700">Total Questions: {totalQuestions}</span>
+                <span className="text-sm font-medium text-black">Total Questions: {totalQuestions}</span>
                 <div className="flex space-x-2">
                   <button
                     onClick={removeQuestion}
                     disabled={totalQuestions <= 1}
-                    className={`w-8 h-8 rounded-md font-medium text-sm transition-all duration-200 ${
+                    className={`w-8 h-8 border border-black font-medium text-sm transition-all duration-200 ${
                       totalQuestions <= 1
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700 shadow-sm hover:shadow-md'
+                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                        : 'bg-white text-black hover:bg-gray-100'
                     }`}
                     title="Remove last question"
                   >
@@ -947,7 +988,7 @@ export default function TestFinalReport() {
                   </button>
                   <button
                     onClick={addQuestion}
-                    className="w-8 h-8 rounded-md font-medium text-sm bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+                    className="w-8 h-8 border border-black font-medium text-sm bg-black text-white hover:bg-gray-800 transition-all duration-200"
                     title="Add new question"
                   >
                     +
@@ -958,18 +999,18 @@ export default function TestFinalReport() {
             
             <div className="space-y-2 max-h-[800px] overflow-y-auto">
               {Array.from({ length: totalQuestions }, (_, i) => i + 1).map((questionNumber) => (
-                <div key={questionNumber} className="border border-gray-200 rounded-lg">
+                <div key={questionNumber} className="border border-black bg-white">
                   <button
                     onClick={() => toggleQuestion(questionNumber)}
                     className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900">Question {questionNumber}</span>
+                      <span className="font-medium text-black">Question {questionNumber}</span>
                       {prompts[questionNumber] && prompts[questionNumber].trim() !== '' && (
                         <span className="w-2 h-2 bg-green-500 rounded-full"></span>
                       )}
                     </div>
-                    <span className="text-gray-500">
+                    <span className="text-black">
                       {expandedQuestions[questionNumber] ? '−' : '+'}
                     </span>
                   </button>
@@ -980,7 +1021,7 @@ export default function TestFinalReport() {
                         value={prompts[questionNumber] || ''}
                         onChange={(e) => updatePrompt(questionNumber, e.target.value)}
                         placeholder={`Enter prompt for question ${questionNumber}...`}
-                        className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        className="w-full h-32 px-3 py-2 border border-black bg-white focus:outline-none resize-none"
                       />
                     </div>
                   )}
@@ -990,9 +1031,9 @@ export default function TestFinalReport() {
           </div>
 
           {/* 右侧：报告显示区域 */}
-          <div className="bg-white rounded-lg shadow-md p-6 lg:col-span-2">
+          <div className="bg-white border border-black p-6 lg:col-span-2">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Report Content</h2>
+              <h2 className="text-xl font-medium text-black">Report Content</h2>
               {sessionId.trim() && (
                 <button
                   onClick={() => window.open(`/test-finalreport/${sessionId}?completed=true`, '_blank')}
@@ -1011,10 +1052,10 @@ export default function TestFinalReport() {
             ) : (
               <div className="space-y-4">
                 {/* iframe显示独立报告页面 */}
-                <div className="border border-gray-200 rounded-lg bg-white min-h-[600px] max-h-[800px] overflow-hidden">
+                <div className="border border-black bg-white min-h-[600px] max-h-[800px] overflow-hidden">
                   <iframe
                     src={`/test-finalreport/${sessionId}`}
-                    className="w-full h-[800px] border-0 rounded-lg"
+                    className="w-full h-[800px] border-0"
                     title="Report Content"
                     sandbox="allow-scripts allow-same-origin allow-forms"
                   />

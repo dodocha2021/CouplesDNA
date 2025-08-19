@@ -1,0 +1,74 @@
+{
+  "componentMapping": {
+    "description": "映射旧UI组件到新shadcn/ui组件的对照表",
+    "replacements": {
+      "Button.js": {
+        "newComponent": "button.tsx",
+        "importPath": "@/components/ui/button",
+        "exportName": "Button",
+        "status": "ready_to_replace",
+        "notes": "shadcn/ui Button有更多variants和更好的TypeScript支持"
+      },
+      "Input.js": {
+        "newComponent": "input.tsx", 
+        "importPath": "@/components/ui/input",
+        "exportName": "Input",
+        "status": "ready_to_replace",
+        "notes": "shadcn/ui Input更简洁，样式统一"
+      },
+      "Avatar.js": {
+        "newComponent": "avatar.tsx",
+        "importPath": "@/components/ui/avatar", 
+        "exportName": "Avatar, AvatarImage, AvatarFallback",
+        "status": "ready_to_replace",
+        "notes": "shadcn/ui Avatar支持fallback，API更完整"
+      },
+      "LoadingSpinner.js": {
+        "newComponent": "skeleton.tsx",
+        "importPath": "@/components/ui/skeleton",
+        "exportName": "Skeleton", 
+        "status": "needs_adaptation",
+        "notes": "需要将LoadingSpinner的动画效果适配到Skeleton组件"
+      },
+      "dialog.jsx": {
+        "newComponent": "dialog.tsx",
+        "importPath": "@/components/ui/dialog",
+        "exportName": "Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle, DialogDescription",
+        "status": "ready_to_replace", 
+        "notes": "shadcn/ui Dialog功能更完整，支持更多子组件"
+      }
+    },
+    "preserved": {
+      "SimpleChatInterface.jsx": {
+        "reason": "高度定制的聊天界面，保持黑白极简风格",
+        "status": "keep_unchanged",
+        "dependencies": ["MarkdownMessage.jsx", "useAutoScroll.js"]
+      },
+      "ChatComponents.js": {
+        "reason": "可能与SimpleChatInterface相关，需要检查依赖关系后决定",
+        "status": "review_needed"
+      },
+      "MarkdownMessage.jsx": {
+        "reason": "SimpleChatInterface的依赖组件",
+        "status": "keep_unchanged"
+      }
+    },
+    "affectedFiles": [
+      "pages/index.js",
+      "pages/report.js", 
+      "pages/test-chat.js",
+      "components/Hero.js",
+      "components/Navigation.js",
+      "hooks/useTeamChat.js",
+      "hooks/useFileUpload.js"
+    ]
+  },
+  "migrationPlan": {
+    "phase1": "替换基础组件 (Button, Input, Avatar)",
+    "phase2": "替换Dialog相关组件", 
+    "phase3": "处理LoadingSpinner到Skeleton的迁移",
+    "phase4": "更新所有import路径",
+    "phase5": "删除旧组件文件",
+    "phase6": "测试功能完整性"
+  }
+}

@@ -1,5 +1,4 @@
 import '../styles/globals.css';
-import '../styles/animations.css';
 import VersionTag from '../components/VersionTag';
 import { useEffect } from 'react';
 

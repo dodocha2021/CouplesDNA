@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '../../lib/supabase';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -15,72 +14,80 @@ export default async function handler(req, res) {
 
     const totalQuestionsCount = totalQuestions || Object.keys(prompts).length || 40;
 
-    // 读取当前的generate-Finalreport.js文件
-    const filePath = path.join(process.cwd(), 'pages', 'api', 'generate-Finalreport.js');
-    
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'generate-Finalreport.js file not found' });
+    // 更新总问题数设置
+    const { error: settingsError } = await supabase
+      .from('prompts_settings')
+      .upsert({
+        setting_key: 'total_questions',
+        setting_value: totalQuestionsCount,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'setting_key'
+      });
+
+    if (settingsError) {
+      console.error('❌ Error updating settings:', settingsError);
+      return res.status(500).json({ error: 'Failed to update settings' });
     }
 
-    let fileContent = fs.readFileSync(filePath, 'utf8');
-    
-    // 更新默认的问题总数
-    const defaultQuestionsRegex = /const questionsCount = totalQuestions \|\| \d+;/;
-    const newDefaultQuestions = `const questionsCount = totalQuestions || ${totalQuestionsCount};`;
-    if (defaultQuestionsRegex.test(fileContent)) {
-      fileContent = fileContent.replace(defaultQuestionsRegex, newDefaultQuestions);
-    }
+    // 准备prompts数据进行批量插入/更新
+    const promptsToUpsert = [];
+    const updatedQuestions = [];
 
-    // 更新默认的前两个问题设置（支持双引号和多行模板字符串）
-    if (prompts[1]) {
-      const question1Regex = /(if \(questionsCount >= 1\) questionsObject\["question 1"\] = )["`]([\s\S]*?)["`];/;
-      const newQuestion1 = `$1\`${prompts[1]}\`;`;
-      if (question1Regex.test(fileContent)) {
-        fileContent = fileContent.replace(question1Regex, newQuestion1);
-      }
-    }
-    
-    if (prompts[2]) {
-      const question2Regex = /(if \(questionsCount >= 2\) questionsObject\["question 2"\] = )["`]([\s\S]*?)["`];/;
-      const newQuestion2 = `$1\`${prompts[2]}\`;`;
-      if (question2Regex.test(fileContent)) {
-        fileContent = fileContent.replace(question2Regex, newQuestion2);
-      }
-    }
-    
-    // 处理其他问题 - 在现有的question 2设置后添加额外的问题设置
-    const additionalSettings = [];
-    for (let i = 3; i <= totalQuestionsCount; i++) {
-      if (prompts[i] && prompts[i].trim() !== '') {
-        additionalSettings.push(`    if (questionsCount >= ${i}) questionsObject["question ${i}"] = \`${prompts[i]}\`;`);
-      }
-    }
-    
-    // 移除现有的额外问题设置（question 3及以上）支持多行内容
-    fileContent = fileContent.replace(/\n    if \(questionsCount >= [3-9]\d*\) questionsObject\["question [3-9]\d*"\] = [`"]([\s\S]*?)[`"];/g, '');
-    
-    if (additionalSettings.length > 0) {
-      // 在question 2设置后插入新的问题设置（支持多行内容）
-      const insertPoint = /(if \(questionsCount >= 2\) questionsObject\["question 2"\] = [`"]([\s\S]*?)[`"];)/;
-      const match = fileContent.match(insertPoint);
-      if (match) {
-        const replacement = match[0] + '\n' + additionalSettings.join('\n');
-        fileContent = fileContent.replace(insertPoint, replacement);
+    for (const [questionNumber, promptContent] of Object.entries(prompts)) {
+      if (promptContent && promptContent.trim() !== '') {
+        promptsToUpsert.push({
+          question_number: parseInt(questionNumber),
+          prompt_content: promptContent.trim(),
+          updated_at: new Date().toISOString()
+        });
+        updatedQuestions.push(questionNumber);
       }
     }
 
-    // 写回文件
-    fs.writeFileSync(filePath, fileContent, 'utf8');
+    // 批量插入/更新prompts
+    if (promptsToUpsert.length > 0) {
+      const { error: promptsError } = await supabase
+        .from('prompts_config')
+        .upsert(promptsToUpsert, {
+          onConflict: 'question_number'
+        });
 
-    console.log('✅ Prompts saved to generate-Finalreport.js');
+      if (promptsError) {
+        console.error('❌ Error upserting prompts:', promptsError);
+        return res.status(500).json({ error: 'Failed to save prompts' });
+      }
+    }
+
+    // 删除空的prompts（如果用户清空了某个问题）
+    const emptyQuestions = [];
+    for (const [questionNumber, promptContent] of Object.entries(prompts)) {
+      if (!promptContent || promptContent.trim() === '') {
+        emptyQuestions.push(parseInt(questionNumber));
+      }
+    }
+
+    if (emptyQuestions.length > 0) {
+      const { error: deleteError } = await supabase
+        .from('prompts_config')
+        .delete()
+        .in('question_number', emptyQuestions);
+
+      if (deleteError) {
+        console.error('❌ Error deleting empty prompts:', deleteError);
+        // 不返回错误，因为删除空记录失败不是致命错误
+      }
+    }
+
+    console.log('✅ Prompts saved to Supabase database');
     console.log('📊 Default total questions updated to:', totalQuestionsCount);
-    console.log('📋 Updated question contents:', Object.keys(prompts).filter(key => prompts[key] && prompts[key].trim() !== ''));
+    console.log('📋 Updated question contents:', updatedQuestions);
 
     res.status(200).json({ 
       success: true, 
       message: 'Prompts saved successfully',
       totalQuestions: totalQuestionsCount,
-      updatedQuestions: Object.keys(prompts).filter(key => prompts[key] && prompts[key].trim() !== '')
+      updatedQuestions: updatedQuestions
     });
 
   } catch (error) {

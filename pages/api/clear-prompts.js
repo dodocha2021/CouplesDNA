@@ -1,5 +1,4 @@
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '../../lib/supabase';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,36 +6,41 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 读取当前的generate-Finalreport.js文件
-    const filePath = path.join(process.cwd(), 'pages', 'api', 'generate-Finalreport.js');
+    console.log('🔄 Clearing all prompts from Supabase database...');
     
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'generate-Finalreport.js file not found' });
+    // 删除所有prompts记录
+    const { error: deleteError } = await supabase
+      .from('prompts_config')
+      .delete()
+      .neq('id', 0); // 删除所有记录（id不等于0意味着所有记录）
+
+    if (deleteError) {
+      console.error('❌ Error deleting prompts:', deleteError);
+      return res.status(500).json({ 
+        error: 'Failed to clear prompts',
+        message: deleteError.message 
+      });
     }
 
-    let fileContent = fs.readFileSync(filePath, 'utf8');
+    // 重置总问题数为默认值
+    const { error: settingsError } = await supabase
+      .from('prompts_settings')
+      .update({
+        setting_value: 40,
+        updated_at: new Date().toISOString()
+      })
+      .eq('setting_key', 'total_questions');
 
-    // 清空所有question的内容（包括question 1-40）
-    for (let i = 1; i <= 40; i++) {
-      const questionKey = `"question ${i}"`;
-      const questionRegex = new RegExp(`${questionKey}:\\s*"[^"]*"`, 'g');
-      const replacement = `${questionKey}: ""`;
-      
-      if (questionRegex.test(fileContent)) {
-        fileContent = fileContent.replace(questionRegex, replacement);
-      }
+    if (settingsError) {
+      console.error('❌ Error resetting settings:', settingsError);
+      // 不返回错误，因为重置设置失败不是致命错误
     }
 
-    // 写回文件
-    fs.writeFileSync(filePath, fileContent, 'utf8');
-
-    console.log('✅ All prompts cleared from generate-Finalreport.js');
-    console.log('📋 Cleared questions: 1-40');
+    console.log('✅ All prompts cleared from Supabase database');
 
     res.status(200).json({ 
       success: true, 
-      message: 'All prompts cleared successfully',
-      clearedQuestions: Array.from({length: 40}, (_, i) => i + 1) // questions 1-40
+      message: 'Successfully cleared all prompts from database'
     });
 
   } catch (error) {
@@ -46,4 +50,4 @@ export default async function handler(req, res) {
       message: error.message 
     });
   }
-} 
+}

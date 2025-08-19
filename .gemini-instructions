@@ -1,0 +1,104 @@
+# Gemini Instructions - CouplesDNA Project
+
+## 🎯 项目概述
+这是一个使用 Next.js + shadcn/ui 的情侣关系分析应用，已完成从自定义UI到shadcn/ui的系统性迁移。
+
+## 🛠 UI组件规范
+
+### ✅ 使用 shadcn/ui 组件
+**ALWAYS使用以下shadcn/ui组件：**
+```typescript
+// 基础组件
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
+
+// 布局组件
+import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent } from '@/components/ui/alert-dialog'
+
+// 表单组件
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
+```
+
+### 🔒 保持不变的定制组件
+**NEVER修改以下组件，它们是特定定制的：**
+- `SimpleChatInterface.jsx` - 黑白极简聊天界面，保持不变
+- `MarkdownMessage.jsx` - Markdown消息渲染
+- `useAutoScroll.js` - 自定义滚动逻辑
+- `LoadingSpinner.js` - 特定动画效果的加载组件
+
+### 📁 目录结构
+```
+components/
+├── ui/                    # shadcn/ui组件目录
+│   ├── button.tsx        # 新shadcn/ui组件
+│   ├── input.tsx
+│   ├── avatar.tsx
+│   ├── dialog.tsx
+│   └── ...
+├── chat/                 # 定制聊天组件
+│   ├── SimpleChatInterface.jsx  # 保持不变
+│   └── ...
+└── ...                   # 其他自定义组件
+```
+
+## 🚨 重要开发规则
+
+### 1. **新功能开发**
+- 创建新组件时，优先使用shadcn/ui组件
+- 新组件使用 `.tsx` 扩展名
+- 使用 `@/components/ui/*` 导入路径
+
+### 2. **样式规范**
+- 使用 Tailwind CSS 进行样式设置
+- 使用 `cn()` 工具函数合并类名：
+```typescript
+import { cn } from '@/lib/utils'
+<div className={cn("base-styles", conditional && "extra-styles", className)} />
+```
+
+### 3. **组件变体**
+shadcn/ui Button variants:
+```typescript
+<Button variant="default">Primary</Button>
+<Button variant="destructive">Delete</Button>
+<Button variant="outline">Border</Button>
+<Button variant="secondary">Secondary</Button>
+<Button variant="ghost">Subtle</Button>
+<Button variant="link">Link Style</Button>
+```
+
+### 4. **避免的操作**
+- ❌ 不要修改 `SimpleChatInterface.jsx` 及其相关组件
+- ❌ 不要创建重复的UI组件，使用已有的shadcn/ui组件
+- ❌ 不要使用绝对路径导入，使用 `@/` 别名
+
+## 📋 检查清单
+
+### 开发新功能时：
+1. ✅ 是否使用了shadcn/ui组件？
+2. ✅ 是否使用了 `@/components/ui/` 导入路径？
+3. ✅ 是否使用了 `.tsx` 文件扩展名？
+4. ✅ 是否使用了 `cn()` 工具函数？
+
+### 修改现有代码时：
+1. ✅ 是否保持了 `SimpleChatInterface` 不变？
+2. ✅ 是否更新了导入路径到新的shadcn/ui组件？
+3. ✅ 是否测试了功能完整性？
+
+## 🔧 可用的shadcn/ui组件列表
+
+参考 `/shadcn-components-map.json` 文件查看完整的组件映射关系。
+
+## 📝 迁移历史
+
+- ✅ 基础组件迁移完成 (Button, Input, Avatar)
+- ✅ Dialog组件迁移完成
+- ✅ 路径别名配置完成
+- ✅ 定制聊天界面保留
+
+**记住：当有疑问时，优先使用shadcn/ui组件，保持代码一致性和可维护性！**

@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { sessionId, expertId } = req.body;
+    const { sessionId } = req.body;
 
     console.log('🔄 API Route: Sending request to n8n webhook...');
     

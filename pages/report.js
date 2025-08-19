@@ -5,7 +5,7 @@ import { ArrowBigRightIcon } from 'lucide-react'
 import * as HoverCardPrimitive from "@radix-ui/react-hover-card"
 import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion"
 import { cn } from "../src/lib/utils"
-import { Mockup, MockupFrame } from "../src/components/ui/mockup"
+import { Mockup, MockupFrame } from "@/components/ui/mockup"
 
 // 高级 HoverCard 组件
 const AdvancedTooltip = ({ children, content, className }) => {
