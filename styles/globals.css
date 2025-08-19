@@ -12,12 +12,102 @@
     margin: 0;
     padding: 0;
   }
+  :root {
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+  .dark {
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
 }
 
 @layer components {
-  /* 自定义组件样式 */
+  /* Dashboard component animations */
+  .dashboard-card {
+    @apply transition-all duration-200 hover:shadow-md hover:scale-[1.02];
+  }
+  
+  .metric-card {
+    @apply relative overflow-hidden;
+  }
+  
+  .metric-card::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent;
+    @apply -translate-x-full transition-transform duration-1000;
+  }
+  
+  .metric-card:hover::before {
+    @apply translate-x-full;
+  }
+  
+  /* Reports table enhancements */
+  .reports-row {
+    @apply transition-all duration-150 hover:bg-muted/50 hover:shadow-sm;
+  }
+  
+  /* Sidebar enhancements */
+  .sidebar-link {
+    @apply relative overflow-hidden transition-all duration-200;
+  }
+  
+  .sidebar-link::before {
+    content: '';
+    @apply absolute left-0 top-0 h-full w-1 bg-primary;
+    @apply transform -translate-x-full transition-transform duration-200;
+  }
+  
+  .sidebar-link.active::before,
+  .sidebar-link:hover::before {
+    @apply translate-x-0;
+  }
 }
 
 @layer utilities {
-  /* 自定义工具类 */
+  /* Smooth animations */
+  .animate-fade-in {
+    @apply animate-in fade-in duration-300;
+  }
+  
+  .animate-slide-up {
+    @apply animate-in slide-in-from-bottom-4 duration-300;
+  }
+  
+  .animate-slide-down {
+    @apply animate-in slide-in-from-top-4 duration-300;
+  }
+  
+  /* Glassmorphism effect */
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/20;
+  }
+  
+  /* Improved focus states */
+  .focus-enhanced {
+    @apply focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 } 

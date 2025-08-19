@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "shadcn-no-key": {
+      "command": "npx",
+      "args": [
+        "@jpisnice/shadcn-ui-mcp-server"
+      ],
+      "transport": "stdio",
+      "trust": true
+    },
+    "figma": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "figma-developer-mcp",
+        "--figma-api-key=YOUR_FIGMA_API_KEY",
+        "--stdio"
+      ],
+      "transport": "stdio",
+      "trust": true
+    }
+  }
+}

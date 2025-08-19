@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { supabase } from '../../lib/supabase';
 
 const N8N_WEBHOOK = 'https://couplesdna.app.n8n.cloud/webhook-test/81134b04-e2f5-4661-ae0b-6d6ef6d83123';
 
@@ -14,7 +15,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'sessionId is required' });
     }
 
-    const questionsCount = totalQuestions || 2; // 默认40个问题
+    const questionsCount = totalQuestions || 5; // 默认40个问题
 
     console.log('🔄 Final Report API: Sending request to n8n webhook...');
     console.log('📋 Session ID:', sessionId);
@@ -26,14 +27,76 @@ export default async function handler(req, res) {
       "totalQuestions": questionsCount // 传递总问题数给n8n
     };
     
-    // 动态添加问题
-    for (let i = 1; i <= questionsCount; i++) {
-      questionsObject[`question ${i}`] = "";
+    // 从数据库获取prompts
+    console.log('🔄 Loading prompts from database...');
+    const { data: promptsData, error: promptsError } = await supabase
+      .from('prompts_config')
+      .select('question_number, prompt_content')
+      .lte('question_number', questionsCount)
+      .order('question_number', { ascending: true });
+
+    if (promptsError) {
+      console.error('❌ Error loading prompts from database:', promptsError);
+      return res.status(500).json({ 
+        error: 'Failed to load prompts from database',
+        message: promptsError.message,
+        sessionId: sessionId,
+        status: 'error'
+      });
     }
-    
-    // 设置默认的前两个问题
-    if (questionsCount >= 1) questionsObject["question 1"] = `according conversation, Analyze the available relationship data to understand behavioral patterns and consistency between actions and emotions for both partners. Look for evidence of how each person's contributions align with their emotional investment, and examine different behavioral approaches (high effort/high emotion vs other combinations). Focus on: 1) How contribution levels correlate with emotional investment for each partner, 2) Different behavioral pattern categories and their implications, 3) Consistency and change trends in behavioral patterns, 4) How partner behavioral patterns coordinate or conflict, 5) Possibilities and resistance factors for behavioral adjustment. Present your analysis with evidence about behavioral consistency and insights about potential for positive change in relationship dynamics.`;
-    if (questionsCount >= 2) questionsObject["question 2"] = `according conversation, Analyze the available relationship data to calculate the probability of long-term relationship success based on current patterns and dynamics. Look for compatibility indicators, relationship health signs, and success factors evident in their interactions and behaviors. Assess various relationship aspects by their importance to long-term viability. Focus on: 1) Current success rate estimation based on observable patterns, 2) How different relationship aspects contribute to overall success potential, 3) Key success factors identified from their dynamics, 4) Comprehensive compatibility assessment from available evidence, 5) Statistical viability analysis supported by behavioral data. Present percentage probabilities where calculable with supporting evidence and reasoning for your assessment of their relationship's long-term potential.`;
+
+    if (!promptsData || promptsData.length === 0) {
+      console.error('❌ No prompts found in database');
+      return res.status(400).json({ 
+        error: 'No prompts found',
+        message: 'Please configure prompts in the database first',
+        sessionId: sessionId,
+        status: 'error'
+      });
+    }
+
+    // 验证prompts数量和连续性
+    if (promptsData.length !== questionsCount) {
+      console.error(`❌ Expected ${questionsCount} prompts, found ${promptsData.length}`);
+      return res.status(400).json({ 
+        error: 'Incomplete prompts',
+        message: `Expected ${questionsCount} prompts, but found ${promptsData.length} in database`,
+        sessionId: sessionId,
+        status: 'error'
+      });
+    }
+
+    // 检查连续性 (1,2,3...)
+    for (let i = 0; i < promptsData.length; i++) {
+      const expectedNumber = i + 1;
+      if (promptsData[i].question_number !== expectedNumber) {
+        console.error(`❌ Missing or non-sequential question number: expected ${expectedNumber}, found ${promptsData[i].question_number}`);
+        return res.status(400).json({ 
+          error: 'Non-sequential prompts',
+          message: `Questions must be sequential (1,2,3...). Missing question ${expectedNumber}`,
+          sessionId: sessionId,
+          status: 'error'
+        });
+      }
+
+      // 检查内容是否为空
+      if (!promptsData[i].prompt_content || promptsData[i].prompt_content.trim() === '') {
+        console.error(`❌ Empty prompt content for question ${expectedNumber}`);
+        return res.status(400).json({ 
+          error: 'Empty prompt content',
+          message: `Question ${expectedNumber} has empty content`,
+          sessionId: sessionId,
+          status: 'error'
+        });
+      }
+    }
+
+    // 动态添加从数据库获取的问题
+    promptsData.forEach(prompt => {
+      questionsObject[`question ${prompt.question_number}`] = prompt.prompt_content.trim();
+    });
+
+    console.log('✅ Successfully loaded', promptsData.length, 'prompts from database');
     
     // 发送请求到 n8n 并等待响应
     try {

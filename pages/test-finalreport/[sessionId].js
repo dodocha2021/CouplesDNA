@@ -1,6 +1,111 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { supabase } from '../../lib/supabase';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import { HeartPulse, MessageCircleHeart } from 'lucide-react';
+
+// Icons from Figma - moved to public directory
+const heartIcon = "/icons/heart.svg";
+const arrowIcon = "/icons/arrow.svg";
+
+// Wireframe Kit Design Variables
+const WIREFRAME_COLORS = {
+  DARK_FILL: '#000000',
+  LIGHT_FILL: '#FFFFFF', 
+  LIGHT_GREY_FILL: '#F1F1F1',
+  SUPER_LIGHT_FILL: '#FCFCFC',
+  STROKE_COLOR: '#000000',
+  TEXT_PRIMARY: '#000000',
+  TEXT_SECONDARY: '#757575',
+  TEXT_LIGHT: '#FFFFFF',
+  GREY_FILL: '#CCCCCC'
+};
+
+// 数据规范化工具函数
+const normalizeContent = (rawContent) => {
+  // 如果已经是规范化的对象，直接返回
+  if (rawContent && typeof rawContent === 'object' && rawContent.type && rawContent.data) {
+    return rawContent;
+  }
+
+  // 处理字符串类型的内容
+  if (typeof rawContent === 'string') {
+    try {
+      const parsed = JSON.parse(rawContent);
+      // 检查是否是JSON blocks结构
+      if (parsed && parsed.output && parsed.output.blocks) {
+        return {
+          type: 'json_blocks',
+          data: parsed
+        };
+      }
+      // 其他JSON对象
+      return {
+        type: 'json_object',
+        data: parsed
+      };
+    } catch (e) {
+      // JSON解析失败，作为文本处理
+      return {
+        type: 'text',
+        data: rawContent
+      };
+    }
+  }
+
+  // 处理对象类型的内容
+  if (typeof rawContent === 'object') {
+    // 检查是否是JSON blocks结构
+    if (rawContent && rawContent.output && rawContent.output.blocks) {
+      return {
+        type: 'json_blocks',
+        data: rawContent
+      };
+    }
+    // 其他对象
+    return {
+      type: 'json_object', 
+      data: rawContent
+    };
+  }
+
+  // 默认情况，作为文本处理
+  return {
+    type: 'text',
+    data: String(rawContent || '')
+  };
+};
+
+// 内容格式检测和转换工具函数
+const processContentFormat = (content) => {
+  if (typeof content !== 'string') return content;
+  
+  // 检测是否包含 Markdown 语法
+  const hasMarkdown = content.includes('**') || 
+                     content.includes('*') || 
+                     content.includes('•') || 
+                     content.includes('- ') ||
+                     content.includes('# ') ||
+                     content.includes('## ') ||
+                     content.includes('### ');
+                     
+  return {
+    isMarkdown: hasMarkdown,
+    content: content
+  };
+};
+
+// Markdown 渲染组件
+const MarkdownRenderer = ({ content, className = "" }) => {
+  return (
+    <div className={`prose prose-sm max-w-none ${className}`}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+};
 
 // 可交互的Accordion组件
 const AccordionComponent = ({ items }) => {
@@ -16,27 +121,34 @@ const AccordionComponent = ({ items }) => {
   return (
     <div className="space-y-4">
       {items.map((item, itemIndex) => (
-        <div key={itemIndex} className="border border-gray-200 rounded-lg overflow-hidden">
+        <div key={itemIndex} className="border border-black bg-white overflow-hidden">
           <button 
             onClick={() => toggleItem(itemIndex)}
-            className="w-full px-6 py-4 text-left bg-gray-50 hover:bg-gray-100 font-semibold flex items-center justify-between transition-colors"
+            className="w-full px-6 py-4 text-left bg-white border-b border-black hover:bg-gray-100 font-medium flex items-center justify-between transition-colors"
           >
             <span>{item.title}</span>
-            <svg 
-              className={`w-5 h-5 transition-transform ${openItems[itemIndex] ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path>
-            </svg>
+            <img 
+              src={arrowIcon} 
+              alt="Toggle"
+              className={`w-5 h-5 object-contain transition-transform ${openItems[itemIndex] ? 'rotate-180' : ''}`} 
+              style={{ aspectRatio: '1' }}
+            />
           </button>
           {openItems[itemIndex] && (
-            <div className="px-6 py-4 border-t border-gray-200 bg-white">
-              <div 
-                className="prose prose-sm max-w-none text-gray-700"
-                dangerouslySetInnerHTML={{ __html: item.content }}
-              />
+            <div className="px-6 py-4 border-t border-black bg-white">
+              {(() => {
+                const processedContent = processContentFormat(item.content);
+                if (processedContent.isMarkdown) {
+                  return <MarkdownRenderer content={processedContent.content} className="text-gray-700" />;
+                } else {
+                  return (
+                    <div 
+                      className="prose prose-sm max-w-none text-gray-700"
+                      dangerouslySetInnerHTML={{ __html: item.content }}
+                    />
+                  );
+                }
+              })()}
             </div>
           )}
         </div>
@@ -79,20 +191,21 @@ export default function ReportPage() {
 
   // 时间线组件
   const TimelineBlock = ({ data }) => {
-    const timelineColors = ['border-pink-400', 'border-rose-400', 'border-pink-500', 'border-rose-500'];
+    // Wireframe style - use consistent black borders
+    const timelineColors = ['border-black', 'border-black', 'border-black', 'border-black'];
     
     return (
       <div className="space-y-6">
         {data.stages.map((stage, index) => (
-          <div key={index} className={`border-l-4 pl-6 ${timelineColors[index % timelineColors.length]}`}>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">{stage.title}</h3>
+          <div key={index} className="border border-black bg-white p-6 mb-4">
+            <h3 className="text-lg font-medium text-black mb-2">{stage.title}</h3>
             {stage.progress && (
-              <p className="text-gray-700 mb-2"><strong>Progress:</strong>{stage.progress}</p>
+              <p className="text-black mb-2"><strong>Progress:</strong>{stage.progress}</p>
             )}
             {stage.details && stage.details.length > 0 && (
               <ul className="text-gray-600 space-y-1">
                 {stage.details.map((detail, idx) => (
-                  <li key={idx}>• <strong>{detail.label}：</strong>{detail.content}</li>
+                  <li key={idx} className="text-black">• <strong>{detail.label}：</strong>{detail.content}</li>
                 ))}
               </ul>
             )}
@@ -106,19 +219,19 @@ export default function ReportPage() {
   const DataTable = ({ data }) => {
     return (
       <div className="overflow-x-auto mb-8">
-        <table className="w-full bg-gray-50 rounded-lg">
-          <thead className="bg-blue-100">
+        <table className="w-full bg-white border border-black">
+          <thead className="bg-white border-b border-black">
             <tr>
               {data.headers.map((header, index) => (
-                <th key={index} className="px-4 py-3 text-left font-semibold">{header}</th>
+                <th key={index} className="px-4 py-3 text-left font-medium text-black border-r border-black last:border-r-0">{header}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {data.rows.map((row, rowIndex) => (
-              <tr key={rowIndex} className="border-b">
+              <tr key={rowIndex} className="border-b border-black">
                 {row.map((cell, cellIndex) => (
-                  <td key={cellIndex} className={`px-4 py-3 ${getCellStyle(cell)}`}>
+                  <td key={cellIndex} className={`px-4 py-3 text-black border-r border-black last:border-r-0 ${getCellStyle(cell)}`}>
                     {cell}
                   </td>
                 ))}
@@ -150,11 +263,10 @@ export default function ReportPage() {
 
     const mainPercentage = parsePercentage(data.mainValue);
 
-    // 获取进度条颜色
+    // 获取进度条颜色 - wireframe style
     const getProgressColor = (percentage) => {
-      if (percentage >= 80) return 'bg-green-500';
-      if (percentage >= 60) return 'bg-yellow-500';
-      return 'bg-red-500';
+      // All progress bars use black in wireframe style
+      return 'bg-black';
     };
 
     // 获取状态图标
@@ -172,25 +284,25 @@ export default function ReportPage() {
     };
 
     return (
-      <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-200">
+      <div className="bg-white p-8 border border-black">
         {/* 主标题 */}
         <div className="text-center mb-8">
-          <h3 className="text-2xl font-bold text-gray-800 mb-2">{data.title}</h3>
-          <p className="text-gray-600">{data.description}</p>
+          <h3 className="text-2xl font-medium text-black mb-2">{data.title}</h3>
+          <p className="text-black">{data.description}</p>
         </div>
 
         {/* 主要指标 */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-lg font-semibold text-gray-700">Overall Score</span>
+            <span className="text-lg font-medium text-black">Overall Score</span>
             <div className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-blue-600">{data.mainValue}</span>
-              <span className="text-sm">{getStatusIcon(mainPercentage)} {getStatusText(mainPercentage)}</span>
+              <span className="text-2xl font-medium text-black">{data.mainValue}</span>
+              <span className="text-sm text-black">{getStatusIcon(mainPercentage)} {getStatusText(mainPercentage)}</span>
             </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
+          <div className="w-full bg-white border border-black h-3">
             <div 
-              className={`h-3 rounded-full transition-all duration-500 ${getProgressColor(mainPercentage)}`}
+              className="h-3 bg-black transition-all duration-500"
               style={{ width: `${mainPercentage}%` }}
             ></div>
           </div>
@@ -199,26 +311,26 @@ export default function ReportPage() {
         {/* 子指标 */}
         {data.subStats && data.subStats.length > 0 && (
           <div className="space-y-4">
-            <h4 className="text-lg font-semibold text-gray-700 mb-4">Detailed Metrics</h4>
+            <h4 className="text-lg font-medium text-black mb-4">Detailed Metrics</h4>
             {data.subStats.map((stat, index) => {
               const subPercentage = parsePercentage(stat.value);
               return (
-                <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                <div key={index} className="bg-white border border-black p-4 mb-2">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-700">{stat.label}</span>
+                    <span className="font-medium text-black">{stat.label}</span>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-800">{stat.value}</span>
-                      <span className="text-sm">{getStatusIcon(subPercentage)} {getStatusText(subPercentage)}</span>
+                      <span className="font-medium text-black">{stat.value}</span>
+                      <span className="text-sm text-black">{getStatusIcon(subPercentage)} {getStatusText(subPercentage)}</span>
                     </div>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
+                  <div className="w-full bg-white border border-black h-2 mb-2">
                     <div 
-                      className={`h-2 rounded-full transition-all duration-500 ${getProgressColor(subPercentage)}`}
+                      className="h-2 bg-black transition-all duration-500"
                       style={{ width: `${subPercentage}%` }}
                     ></div>
                   </div>
                   {stat.desc && (
-                    <p className="text-sm text-gray-500">{stat.desc}</p>
+                    <p className="text-sm text-black">{stat.desc}</p>
                   )}
                 </div>
               );
@@ -231,21 +343,22 @@ export default function ReportPage() {
 
   // 特性卡片组件
   const FeatureCards = ({ data }) => {
+    // Wireframe style - consistent white background and black borders
     const cardColors = [
-      'bg-pink-50 border-pink-400',
-      'bg-rose-50 border-rose-400', 
-      'bg-purple-50 border-purple-400',
-      'bg-indigo-50 border-indigo-400',
-      'bg-blue-50 border-blue-400'
+      'bg-white border-black',
+      'bg-white border-black', 
+      'bg-white border-black',
+      'bg-white border-black',
+      'bg-white border-black'
     ];
     
     return (
       <div className="grid md:grid-cols-2 gap-6 mb-8">
         {data.features.map((feature, index) => (
-          <div key={index} className={`p-6 rounded-lg border-l-4 ${cardColors[index % cardColors.length]}`}>
-            <h3 className="font-semibold text-lg mb-4">{feature.title}</h3>
+          <div key={index} className="p-6 bg-white border border-black">
+            <h3 className="font-medium text-lg text-black mb-4">{feature.title}</h3>
             {feature.type === 'ordered' ? (
-              <ol className="space-y-3 text-gray-700">
+              <ol className="space-y-3 text-black">
                 {feature.items.map((item, idx) => (
                   <li key={idx}>
                     <strong>{idx + 1}. {item.label}</strong> - {item.content}
@@ -253,9 +366,9 @@ export default function ReportPage() {
                 ))}
               </ol>
             ) : (
-              <ul className="space-y-3 text-gray-700">
+              <ul className="space-y-3 text-black">
                 {feature.items.map((item, idx) => (
-                  <li key={idx}>• <strong>{item.label}：</strong>{item.content}</li>
+                  <li key={idx} className="text-black">• <strong>{item.label}：</strong>{item.content}</li>
                 ))}
               </ul>
             )}
@@ -267,23 +380,16 @@ export default function ReportPage() {
 
   // 引用块组件
   const QuoteBlock = ({ data }) => {
-    const quoteColors = {
-      positive: 'bg-green-50 border-green-400',
-      neutral: 'bg-blue-50 border-blue-400',
-      warning: 'bg-yellow-50 border-yellow-400',
-      highlight: 'bg-pink-50 border-pink-400'
-    };
-    
     return (
-      <div className={`p-6 rounded-lg border-l-4 ${quoteColors[data.type] || quoteColors.neutral}`}>
-        <blockquote className="text-lg italic text-gray-700 mb-4">
+      <div className="p-6 bg-white border border-black">
+        <blockquote className="text-lg italic text-black mb-4">
           &ldquo;{data.content}&rdquo;
         </blockquote>
         {data.author && (
-          <cite className="text-sm text-gray-500">— {data.author}</cite>
+          <cite className="text-sm text-black">— {data.author}</cite>
         )}
         {data.context && (
-          <p className="text-sm text-gray-600 mt-2">{data.context}</p>
+          <p className="text-sm text-black mt-2">{data.context}</p>
         )}
       </div>
     );
@@ -293,22 +399,22 @@ export default function ReportPage() {
   const SummaryBlock = ({ data }) => {
     return (
       <div className="grid md:grid-cols-2 gap-8">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4 text-green-600">
+        <div className="bg-white border border-black p-6">
+          <h3 className="text-lg font-medium text-black mb-4">
             {data.positiveTitle || 'Healthy Attachment Formation Indicators'}
           </h3>
-          <ul className="space-y-2 text-gray-700">
+          <ul className="space-y-2 text-black">
             {data.positiveItems.map((item, index) => (
               <li key={index}>• <strong>{item.label}：</strong>{item.content}</li>
             ))}
           </ul>
         </div>
         
-        <div>
-          <h3 className="text-lg font-semibold text-gray-800 mb-4 text-blue-600">
+        <div className="bg-white border border-black p-6">
+          <h3 className="text-lg font-medium text-black mb-4">
             {data.negativeTitle || 'Sustainable Foundation Elements'}
           </h3>
-          <ul className="space-y-2 text-gray-700">
+          <ul className="space-y-2 text-black">
             {data.negativeItems.map((item, index) => (
               <li key={index}>• <strong>{item.label}：</strong>{item.content}</li>
             ))}
@@ -316,8 +422,8 @@ export default function ReportPage() {
         </div>
         
         {data.conclusion && (
-          <div className="col-span-2 mt-8 p-6 bg-gradient-to-r from-pink-100 to-rose-100 rounded-lg">
-            <p className="text-gray-700 font-medium text-center">
+          <div className="col-span-2 mt-8 p-6 bg-white border border-black">
+            <p className="text-black font-medium text-center">
               {data.conclusion}
             </p>
           </div>
@@ -328,37 +434,35 @@ export default function ReportPage() {
 
   // 进度指示器组件
   const ProgressIndicator = ({ data }) => {
+    // Wireframe style - all progress bars use black
     const getProgressColor = (value) => {
-      if (value >= 80) return 'bg-green-500';
-      if (value >= 60) return 'bg-yellow-500';
-      if (value >= 40) return 'bg-orange-500';
-      return 'bg-red-500';
+      return 'bg-black';
     };
 
     return (
       <div className="space-y-6">
         {data.items.map((item, index) => (
-          <div key={index} className="bg-gray-50 p-4 rounded-lg">
+          <div key={index} className="bg-white border border-black p-4 mb-2">
             <div className="flex justify-between items-center mb-2">
-              <span className="font-medium text-gray-800">{item.label}</span>
-              <span className="text-sm font-semibold text-gray-600">{item.value}%</span>
+              <span className="font-medium text-black">{item.label}</span>
+              <span className="text-sm font-medium text-black">{item.value}%</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full bg-white border border-black h-3">
               <div 
-                className={`h-3 rounded-full ${getProgressColor(item.value)}`}
+                className="h-3 bg-black"
                 style={{ width: `${item.value}%` }}
               ></div>
             </div>
             {item.description && (
-              <p className="text-sm text-gray-600 mt-2">{item.description}</p>
+              <p className="text-sm text-black mt-2">{item.description}</p>
             )}
           </div>
         ))}
         
         {data.summary && (
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-400">
-            <h4 className="font-semibold text-blue-800 mb-2">Overall Assessment</h4>
-            <p className="text-blue-700">{data.summary}</p>
+          <div className="mt-6 p-4 bg-white border border-black">
+            <h4 className="font-medium text-black mb-2">Overall Assessment</h4>
+            <p className="text-black">{data.summary}</p>
           </div>
         )}
       </div>
@@ -371,31 +475,32 @@ export default function ReportPage() {
     
     return (
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold text-gray-800 mb-4">{data.title}</h3>
+        <h3 className="text-lg font-medium text-black mb-4">{data.title}</h3>
         
         <div className="space-y-3">
           {data.items.map((item, index) => {
             const percentage = (item.value / maxValue) * 100;
+            // Wireframe style - all bars use black
             const barColors = [
-              'bg-pink-500',
-              'bg-blue-500', 
-              'bg-green-500',
-              'bg-purple-500',
-              'bg-orange-500'
+              'bg-black',
+              'bg-black', 
+              'bg-black',
+              'bg-black',
+              'bg-black'
             ];
             
             return (
               <div key={index} className="flex items-center space-x-4">
-                <div className="w-24 text-sm font-medium text-gray-700">
+                <div className="w-24 text-sm font-medium text-black">
                   {item.label}
                 </div>
-                <div className="flex-1 bg-gray-200 rounded-full h-4">
+                <div className="flex-1 bg-white border border-black h-4">
                   <div 
-                    className={`h-4 rounded-full ${barColors[index % barColors.length]}`}
+                    className="h-4 bg-black"
                     style={{ width: `${percentage}%` }}
                   ></div>
                 </div>
-                <div className="w-16 text-sm font-semibold text-gray-600 text-right">
+                <div className="w-16 text-sm font-medium text-black text-right">
                   {item.value}
                 </div>
               </div>
@@ -404,8 +509,8 @@ export default function ReportPage() {
         </div>
         
         {data.legend && (
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-            <p className="text-sm text-gray-600">{data.legend}</p>
+          <div className="mt-4 p-3 bg-white border border-black">
+            <p className="text-sm text-black">{data.legend}</p>
           </div>
         )}
       </div>
@@ -416,7 +521,8 @@ export default function ReportPage() {
 
   // 基础文本组件
   const TextBlock = ({ content }) => {
-    const formattedContent = useMemo(() => {
+    // 原有的格式化逻辑作为fallback
+    const formattedContent = React.useMemo(() => {
       if (!content) return '';
       
       let formatted = content;
@@ -459,6 +565,13 @@ export default function ReportPage() {
       
       return formatted;
     }, [content]);
+
+    // 使用统一的内容格式检测
+    const processedContent = processContentFormat(content);
+    
+    if (processedContent.isMarkdown) {
+      return <MarkdownRenderer content={processedContent.content} />;
+    }
 
     return (
       <div 
@@ -1096,7 +1209,7 @@ export default function ReportPage() {
   const JsonBlockRenderer = ({ block, index }) => {
     const blockProps = {
       key: `block-${index}`,
-      className: "bg-white rounded-xl shadow-lg p-8 mb-8 hover-lift card-hover fade-in-up",
+      className: "bg-white border border-black p-8 mb-8 hover-lift card-hover fade-in-up",
       style: { animationDelay: `${index * 0.1}s` }
     };
 
@@ -1120,21 +1233,21 @@ export default function ReportPage() {
         return (
           <div {...blockProps}>
             <div className="overflow-x-auto">
-              <table className="w-full bg-white rounded-lg border border-gray-200">
-                <thead className="bg-gray-50">
+              <table className="w-full bg-white border border-black">
+                <thead className="bg-white border-b border-black">
                   <tr>
                     {block.data.columns.map((column, colIndex) => (
-                      <th key={colIndex} className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200">
+                      <th key={colIndex} className="px-6 py-3 text-left text-xs font-medium text-black uppercase tracking-wider border-r border-black last:border-r-0">
                         {column}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-black">
                   {block.data.rows.map((row, rowIndex) => (
-                    <tr key={rowIndex} className={rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                    <tr key={rowIndex} className="bg-white border-b border-black">
                       {row.map((cell, cellIndex) => (
-                        <td key={cellIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td key={cellIndex} className="px-6 py-4 whitespace-nowrap text-sm text-black border-r border-black last:border-r-0">
                           {cell}
                         </td>
                       ))}
@@ -1152,11 +1265,11 @@ export default function ReportPage() {
             <div className="text-center">
               <h3 className="text-lg font-semibold mb-4">{block.data.label}</h3>
               <div className="flex items-center justify-center gap-4">
-                <div className="text-3xl font-bold text-blue-600">{block.data.score}/10</div>
+                <div className="text-3xl font-medium text-black">{block.data.score}/10</div>
                 <div className="flex-1 max-w-md">
-                  <div className="w-full bg-gray-200 rounded-full h-4">
+                  <div className="w-full bg-white border border-black h-4">
                     <div 
-                      className="h-4 rounded-full bg-gradient-to-r from-red-500 via-yellow-500 to-green-500"
+                      className="h-4 bg-black"
                       style={{ width: `${(block.data.score / 10) * 100}%` }}
                     ></div>
                   </div>
@@ -1170,9 +1283,9 @@ export default function ReportPage() {
       case 'stat':
         return (
           <div {...blockProps}>
-            <div className="text-center bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-lg">
-              <h4 className="text-lg font-semibold text-gray-800 mb-2">{block.data.label}</h4>
-              <div className="text-4xl font-bold text-blue-600 mb-2">{block.data.value}</div>
+            <div className="text-center bg-white border border-black p-6">
+              <h4 className="text-lg font-medium text-black mb-2">{block.data.label}</h4>
+              <div className="text-4xl font-medium text-black mb-2">{block.data.value}</div>
             </div>
           </div>
         );
@@ -1202,11 +1315,18 @@ export default function ReportPage() {
       case 'callout':
         return (
           <div {...blockProps}>
-            <div className="bg-blue-50 border-l-4 border-blue-400 p-6 rounded-lg">
+            <div className="bg-white border border-black p-6">
               <div className="flex items-start">
                 <div className="text-2xl mr-4">💡</div>
                 <div className="flex-1">
-                  <TextBlock content={block.content} />
+                  {(() => {
+                    const processedContent = processContentFormat(block.content);
+                    if (processedContent.isMarkdown) {
+                      return <MarkdownRenderer content={processedContent.content} />;
+                    } else {
+                      return <TextBlock content={block.content} />;
+                    }
+                  })()}
                 </div>
               </div>
             </div>
@@ -1216,9 +1336,16 @@ export default function ReportPage() {
       case 'quote':
         return (
           <div {...blockProps}>
-            <div className="bg-gray-50 border-l-4 border-gray-400 p-6 rounded-lg">
-              <blockquote className="text-lg italic text-gray-700 mb-4">
-                &ldquo;{block.content}&rdquo;
+            <div className="bg-white border border-black p-6">
+              <blockquote className="text-lg italic text-black mb-4">
+                {(() => {
+                  const processedContent = processContentFormat(block.content);
+                  if (processedContent.isMarkdown) {
+                    return <MarkdownRenderer content={processedContent.content} />;
+                  } else {
+                    return <>&ldquo;{block.content}&rdquo;</>;
+                  }
+                })()}
               </blockquote>
             </div>
           </div>
@@ -1228,7 +1355,7 @@ export default function ReportPage() {
         console.warn('Unknown block type:', block.type, block);
         return (
           <div {...blockProps}>
-            <div className="bg-gray-50 p-4 rounded-lg">
+            <div className="bg-white border border-black p-4">
               <p className="text-gray-600">Unknown block type: {block.type}</p>
               <pre className="mt-2 text-xs text-gray-500 overflow-auto">{JSON.stringify(block, null, 2)}</pre>
             </div>
@@ -1247,21 +1374,35 @@ export default function ReportPage() {
       );
     }
 
-    // 如果content是字符串，按原来的逻辑处理
-    if (typeof content === 'string') {
-      const sections = parseContentIntoSections(content);
-      return (
-        <div className="space-y-8">
-          {sections.map((section, index) => {
-            const processedData = processDataForComponent(section);
-            
-            return (
-              <div 
-                key={`${section.type}-${index}`} 
-                className="bg-white rounded-xl shadow-lg p-8 mb-8 hover-lift card-hover fade-in-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                {section.type === 'timeline' && <TimelineBlock data={processedData} />}
+    // 确保content是规范化的数据
+    const normalizedContent = normalizeContent(content);
+
+    // 根据数据类型渲染
+    switch (normalizedContent.type) {
+      case 'json_blocks':
+        const blocks = normalizedContent.data.output.blocks;
+        return (
+          <div className="space-y-8">
+            {blocks.map((block, index) => (
+              <JsonBlockRenderer key={index} block={block} index={index} />
+            ))}
+          </div>
+        );
+      
+      case 'text':
+        const sections = parseContentIntoSections(normalizedContent.data);
+        return (
+          <div className="space-y-8">
+            {sections.map((section, index) => {
+              const processedData = processDataForComponent(section);
+              
+              return (
+                <div 
+                  key={`${section.type}-${index}`} 
+                  className="bg-white border border-black p-8 mb-8 hover-lift card-hover fade-in-up"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  {section.type === 'timeline' && <TimelineBlock data={processedData} />}
                 {section.type === 'table' && <DataTable data={processedData} />}
                 {section.type === 'stats' && <StatsBlock data={processedData} />}
                 {section.type === 'cards' && <FeatureCards data={processedData} />}
@@ -1274,38 +1415,19 @@ export default function ReportPage() {
             );
           })}
         </div>
-      );
-    }
-
-    // 如果content是对象且包含output.blocks，处理JSON结构
-    if (content && typeof content === 'object' && content.output && content.output.blocks) {
-      const blocks = content.output.blocks;
-      return (
-        <div className="space-y-8">
-          {blocks.map((block, index) => (
-            <JsonBlockRenderer key={index} block={block} index={index} />
-          ))}
-        </div>
-      );
-    }
-
-    // 如果content是其他对象格式，尝试显示
-    if (typeof content === 'object') {
-      return (
-        <div className="space-y-8">
-          <div className="bg-white rounded-xl shadow-lg p-8 mb-8">
-            <h3 className="text-lg font-semibold mb-4">Raw Data</h3>
-            <pre className="bg-gray-100 p-4 rounded-lg text-sm overflow-auto">{JSON.stringify(content, null, 2)}</pre>
+        );
+      
+      case 'json_object':
+      default:
+        return (
+          <div className="space-y-8">
+            <div className="bg-white border border-black p-8 mb-8">
+              <h3 className="text-lg font-semibold mb-4">Raw Data</h3>
+              <pre className="bg-gray-100 p-4 rounded-lg text-sm overflow-auto">{JSON.stringify(normalizedContent.data, null, 2)}</pre>
+            </div>
           </div>
-        </div>
-      );
+        );
     }
-
-    return (
-      <div className="text-center py-12 text-gray-500">
-        <p>Unable to render {pageTitle} data</p>
-      </div>
-    );
   };
 
   // 从n8n_chat_histories表获取数据
@@ -1337,25 +1459,18 @@ export default function ReportPage() {
         if (type === 'ai') {
           console.log(`📝 Processing AI item ${aiResponses.length + 1}:`);
           
-          // 尝试解析content中的JSON结构
-          let content = message.content;
-          if (typeof content === 'string') {
-            try {
-              content = JSON.parse(content);
-            } catch (e) {
-              console.log('Content is not JSON, treating as text:', content.substring(0, 100) + '...');
-            }
-          }
+          // 使用统一数据规范化
+          const normalizedContent = normalizeContent(message.content);
           
           // 从content中提取标题和副标题
-          const extractTitlesFromContent = (content) => {
+          const extractTitlesFromContent = (normalizedContent) => {
             let title = `Analysis ${aiResponses.length + 1}`;
             let subtitle = `Report Section ${aiResponses.length + 1}`;
             
             try {
-              // 检查是否有blocks结构
-              if (content && content.output && content.output.blocks) {
-                const blocks = content.output.blocks;
+              // 检查是否是JSON blocks类型
+              if (normalizedContent.type === 'json_blocks') {
+                const blocks = normalizedContent.data.output.blocks;
                 
                 // 查找markdown类型的block
                 const markdownBlock = blocks.find(block => block.type === 'markdown');
@@ -1375,9 +1490,9 @@ export default function ReportPage() {
                   }
                   
                   // 提取紧跟在主标题后面的斜体文本作为副标题
-                  const italicMatch = processedContent.match(/^#\s+.+\n\*([^*]+)\*/m);
+                  const italicMatch = processedContent.match(/^#\s+(.+?)[\r\n]+\*([^*]+)\*/m);
                   if (italicMatch) {
-                    subtitle = italicMatch[1].trim();
+                    subtitle = italicMatch[2].trim();
                     console.log('📝 Found subtitle:', subtitle);
                   } else {
                     console.log('📝 No subtitle found, processed content:', processedContent.substring(0, 200));
@@ -1392,14 +1507,14 @@ export default function ReportPage() {
             return { title, subtitle };
           };
           
-          const { title, subtitle } = extractTitlesFromContent(content);
+          const { title, subtitle } = extractTitlesFromContent(normalizedContent);
           
           // 动态生成页面信息
           const pageInfo = {
             id: `page_${aiResponses.length + 1}`,
             title: title,
             subtitle: subtitle,
-            content: content,
+            content: normalizedContent,
             index: aiResponses.length
           };
           
@@ -1546,20 +1661,11 @@ export default function ReportPage() {
           padding-top: 2rem;
         }
         .nav-item.active {
-          background-color: #3b82f6;
-          color: white;
+          background-color: #f1f1f1;
+          color: #000000;
+          border-width: 2px;
         }
-        .nav-item.active::before {
-          content: '';
-          position: absolute;
-          left: -4px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 4px;
-          height: 100%;
-          background-color: #3b82f6;
-          border-radius: 2px;
-        }
+
         
         /* 内容样式优化 */
         .prose h1 {
@@ -1604,14 +1710,14 @@ export default function ReportPage() {
           font-style: italic;
         }
         
-        /* 悬停效果 */
+        /* 悬停效果 - Wireframe style */
         .hover-lift {
-          transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+          transition: transform 0.2s ease-out, border-color 0.2s ease-out;
         }
         
         .hover-lift:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+          transform: translateY(-1px);
+          border-color: #000;
         }
         
         /* 渐进式动画 */
@@ -1628,14 +1734,14 @@ export default function ReportPage() {
           }
         }
         
-        /* 卡片悬停增强 */
+        /* 卡片悬停增强 - Wireframe style */
         .card-hover {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
         
         .card-hover:hover {
-          transform: translateY(-4px) scale(1.02);
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+          transform: translateY(-2px);
+          border-width: 2px;
         }
         
         /* 响应式优化 */
@@ -1646,17 +1752,20 @@ export default function ReportPage() {
           
           .hover-lift:hover {
             transform: none;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            border-width: 1px;
           }
         }
       `}</style>
 
-      <div className="bg-gray-50">
+      <div className="bg-white">
         {/* 左侧导航栏 */}
-        <nav className="fixed left-0 top-0 w-80 h-full bg-white shadow-lg z-10 border-r">
+        <nav className="fixed left-0 top-0 w-80 h-full bg-white border-r border-black z-10">
           <div className="p-6">
-            <h1 className="text-xl font-bold text-gray-800 mb-6">💕 CouplesDNA Report</h1>
-            <p className="text-sm text-gray-500 mb-8">Session: {sessionId}</p>
+            <h1 className="text-xl font-medium text-black mb-6 flex items-center gap-2">
+              <img src={heartIcon} alt="CouplesDNA" className="h-6 w-6 object-contain" style={{ aspectRatio: '1' }} />
+              CouplesDNA Report
+            </h1>
+            <p className="text-sm text-black mb-8">Session: {sessionId}</p>
             
             <ul className="space-y-2">
               {contentData.map((page, index) => {
@@ -1666,13 +1775,13 @@ export default function ReportPage() {
                 
                 return (
                   <li key={page.id}>
-                    <a href={`#${page.id}`} className={`nav-item relative flex items-center p-4 rounded-lg hover:bg-gray-100 transition-colors ${isActive}`}>
-                      <div className={`w-8 h-8 ${bgColor} rounded-full flex items-center justify-center text-white text-sm mr-3`}>
-                        {index + 1}
+                    <a href={`#${page.id}`} className={`nav-item relative flex items-center p-4 border border-black hover:bg-gray-50 transition-colors ${isActive}`}>
+                      <div className="mr-3">
+                        <img src={heartIcon} alt="Section" className="h-4 w-4 object-contain" style={{ aspectRatio: '1' }} />
                       </div>
                       <div>
-                        <div className="font-medium text-gray-800">{page.title}</div>
-                        <div className="text-sm text-gray-500">{page.subtitle}</div>
+                        <div className="font-medium text-black">{page.title}</div>
+                        <div className="text-sm text-black">{page.subtitle}</div>
                       </div>
                     </a>
                   </li>
@@ -1682,11 +1791,11 @@ export default function ReportPage() {
             
             {/* 进度指示器 */}
             <div className="mt-8 pt-6 border-t">
-              <div className="text-sm text-gray-500 mb-2">Reading Progress</div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div id="progress-bar" className="bg-blue-500 h-2 rounded-full transition-all duration-300" style={{ width: `${(currentPage / contentData.length) * 100}%` }}></div>
+              <div className="text-sm text-black mb-2">Reading Progress</div>
+              <div className="w-full bg-white border border-black h-2">
+                <div id="progress-bar" className="bg-black h-2 transition-all duration-300" style={{ width: `${(currentPage / contentData.length) * 100}%` }}></div>
               </div>
-              <div className="text-xs text-gray-400 mt-1">Page {currentPage} of {contentData.length}</div>
+              <div className="text-xs text-black mt-1">Page {currentPage} of {contentData.length}</div>
             </div>
           </div>
         </nav>
@@ -1694,33 +1803,20 @@ export default function ReportPage() {
         {/* 主要内容区域 */}
         <main className="ml-80" ref={mainRef}>
           {contentData.map((page, index) => {
-            const gradients = [
-              'bg-gradient-to-br from-pink-50 to-rose-50',
-              'bg-gradient-to-br from-blue-50 to-indigo-50', 
-              'bg-gradient-to-br from-green-50 to-emerald-50',
-              'bg-gradient-to-br from-purple-50 to-indigo-50',
-              'bg-gradient-to-br from-yellow-50 to-orange-50',
-              'bg-gradient-to-br from-red-50 to-pink-50',
-              'bg-gradient-to-br from-teal-50 to-cyan-50',
-              'bg-gradient-to-br from-indigo-50 to-purple-50'
-            ];
-            const icons = ['💕', '🤝', '📊', '🎯', '✨', '💎', '🌟', '🚀'];
-            const colors = ['bg-pink-500', 'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-yellow-500', 'bg-red-500', 'bg-teal-500', 'bg-indigo-500'];
-            
-            const gradient = gradients[index % gradients.length];
-            const icon = icons[index % icons.length];
-            const iconBg = colors[index % colors.length];
+            // Wireframe style - remove gradients and use consistent styling
+            const gradient = 'bg-white border border-black';
+            const iconBg = 'bg-black';
             const isLastPage = index === contentData.length - 1;
             
             return (
               <section key={page.id} id={page.id} className={`page-section ${gradient}`}>
                 <div className="max-w-5xl mx-auto px-8 py-12">
                   <div className="text-center mb-12">
-                    <div className={`w-16 h-16 ${iconBg} rounded-full flex items-center justify-center text-white text-2xl mx-auto mb-4`}>
-                      {icon}
+                    <div className={`w-16 h-16 ${iconBg} border border-black flex items-center justify-center text-white mx-auto mb-4`}>
+                      <img src={heartIcon} alt="Section Icon" className="h-8 w-8 object-contain filter invert" style={{ aspectRatio: '1' }} />
                     </div>
-                    <h1 className="text-4xl font-bold text-gray-800 mb-4">{page.title}</h1>
-                    <p className="text-xl text-gray-600">{page.subtitle}</p>
+                    <h1 className="text-4xl font-medium text-black mb-4">{page.title}</h1>
+                    <p className="text-xl text-black">{page.subtitle}</p>
                   </div>
                   
                   <SmartContentRenderer 
@@ -1731,15 +1827,13 @@ export default function ReportPage() {
                   {!isLastPage ? (
                     <div className="text-center">
                       <div className="inline-flex items-center text-gray-500">
-                        <span>Scroll down to view next section</span>
-                        <svg className="w-4 h-4 ml-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path>
-                        </svg>
+                        <span className="text-black">Scroll down to view next section</span>
+                        <img src={arrowIcon} alt="Next" className="w-4 h-4 ml-2 object-contain animate-bounce rotate-90" style={{ aspectRatio: '1' }} />
                       </div>
                     </div>
                   ) : (
                     <div className="text-center pt-8">
-                      <p className="text-gray-600 text-lg">🎉 Congratulations! You have completed the comprehensive relationship analysis report</p>
+                      <p className="text-black text-lg">🎉 Congratulations! You have completed the comprehensive relationship analysis report</p>
                     </div>
                   )}
                 </div>
