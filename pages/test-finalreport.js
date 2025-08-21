@@ -6,6 +6,11 @@ import remarkGfm from 'remark-gfm';
 import { ArrowUpRightFromSquare } from 'lucide-react';
 
 export default function TestFinalReport() {
+  // 用户认证状态
+  const [user, setUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
@@ -39,26 +44,41 @@ export default function TestFinalReport() {
   const [startingTimeout, setStartingTimeout] = useState(null);
   
   // Prompt管理状态
-  const [prompts, setPrompts] = useState({});
-  const [expandedQuestions, setExpandedQuestions] = useState({});
+  const [prompts, setPrompts] = useState({
+    1: "How to maintain a long-term healthy relationship" // 默认问题1的内容
+  });
+  const [expandedQuestions, setExpandedQuestions] = useState({
+    1: true // 默认展开第一个问题
+  });
+  const [promptErrors, setPromptErrors] = useState({}); // 每个输入框的错误状态
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
-  const [totalQuestions, setTotalQuestions] = useState(40); // 动态问题数量
+  const [totalQuestions, setTotalQuestions] = useState(1); // 动态问题数量，默认1个
   const [apiError, setApiError] = useState(null); // API测试区域错误显示
 
-  // 验证prompts连续性和完整性
+  // 验证prompts连续性和完整性 - 新规则：所有问题都必须有内容
   const validatePrompts = () => {
     // 清除之前的错误
     setApiError(null);
     
-    // 检查从1到totalQuestions的连续性
+    // 检查从1到totalQuestions的每个问题都必须有内容
+    const emptyQuestions = [];
+    const newErrors = {};
+    
     for (let i = 1; i <= totalQuestions; i++) {
       const promptContent = prompts[i];
-      
-      // 检查是否存在且非空
       if (!promptContent || promptContent.trim() === '') {
-        return `Question ${i} is empty. Please fill in all questions from 1 to ${totalQuestions}.`;
+        emptyQuestions.push(i);
+        newErrors[i] = '请输入内容或删除这个prompt';
+      } else {
+        newErrors[i] = null; // 清除错误
       }
+    }
+    
+    setPromptErrors(newErrors);
+    
+    if (emptyQuestions.length > 0) {
+      return `所有问题都必须填写内容`;
     }
     
     return null; // 验证通过
@@ -81,11 +101,20 @@ export default function TestFinalReport() {
       console.log('📋 Session ID:', testSessionId);
       console.log('📊 Total Questions:', totalQuestions);
 
+      // 获取当前会话信息用于认证
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session for generating report');
+      }
+
       const response = await axios.post('/api/generate-Finalreport', {
         sessionId: testSessionId,
         totalQuestions: totalQuestions
       }, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         timeout: 90000
       });
 
@@ -260,10 +289,23 @@ export default function TestFinalReport() {
   };
 
   const updatePrompt = (questionNumber, value) => {
-    setPrompts(prev => ({
-      ...prev,
-      [questionNumber]: value
-    }));
+    console.log(`📝 Updating prompt ${questionNumber} with value:`, value);
+    setPrompts(prev => {
+      const updated = {
+        ...prev,
+        [questionNumber]: value
+      };
+      console.log('📋 Updated prompts state:', updated);
+      return updated;
+    });
+    
+    // 清除该输入框的错误状态（如果用户开始输入内容）
+    if (value && value.trim() !== '') {
+      setPromptErrors(prev => ({
+        ...prev,
+        [questionNumber]: null
+      }));
+    }
   };
 
   const cleanAllPrompts = async () => {
@@ -274,9 +316,18 @@ export default function TestFinalReport() {
     try {
       console.log('🔄 Clearing all prompts from generate-Finalreport.js...');
       
+      // 获取当前会话信息用于认证
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session for clearing prompts');
+      }
+
       // 调用API清空文件中的prompts
       const response = await axios.post('/api/clear-prompts', {}, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         timeout: 10000
       });
 
@@ -291,7 +342,20 @@ export default function TestFinalReport() {
 
   // 动态管理问题数量
   const addQuestion = () => {
-    setTotalQuestions(prev => prev + 1);
+    setTotalQuestions(prev => {
+      const newQuestionNumber = prev + 1;
+      // 为新问题添加空内容
+      setPrompts(prevPrompts => ({
+        ...prevPrompts,
+        [newQuestionNumber]: ''
+      }));
+      // 展开新问题
+      setExpandedQuestions(prevExpanded => ({
+        ...prevExpanded,
+        [newQuestionNumber]: true
+      }));
+      return newQuestionNumber;
+    });
   };
 
   const removeQuestion = () => {
@@ -306,6 +370,11 @@ export default function TestFinalReport() {
       delete newExpanded[totalQuestions];
       setExpandedQuestions(newExpanded);
       
+      // 删除错误状态
+      const newErrors = { ...promptErrors };
+      delete newErrors[totalQuestions];
+      setPromptErrors(newErrors);
+      
       setTotalQuestions(prev => prev - 1);
     }
   };
@@ -316,28 +385,55 @@ export default function TestFinalReport() {
     try {
       console.log('🔄 Loading prompts from generate-Finalreport.js...');
       
+      // 获取当前会话信息用于认证
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session for loading prompts');
+      }
+
       const response = await axios.get('/api/get-prompts', {
-        timeout: 10000
+        timeout: 10000,
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
       });
 
       console.log('✅ Loaded prompts:', response.data.prompts);
-      setPrompts(response.data.prompts);
       
-      // 从加载的数据中获取问题总数
-      if (response.data.totalQuestions) {
-        setTotalQuestions(response.data.totalQuestions);
+      // 如果数据库中有数据，使用数据库的；否则保持默认值
+      if (response.data.prompts && Object.keys(response.data.prompts).length > 0) {
+        // 检查是否有实际内容（不是全部空字符串）
+        const hasContent = Object.values(response.data.prompts).some(content => content && content.trim() !== '');
+        
+        if (hasContent) {
+          setPrompts(response.data.prompts);
+          
+          // 从加载的数据中获取问题总数
+          if (response.data.totalQuestions) {
+            setTotalQuestions(response.data.totalQuestions);
+          }
+        } else {
+          // 数据库中都是空的，保持默认值
+          console.log('Database contains empty prompts, keeping defaults');
+        }
+      } else {
+        console.log('No prompts in database, keeping defaults');
       }
       
       // 自动展开有内容的questions
-      const questionsWithContent = Object.keys(response.data.prompts).filter(
-        key => response.data.prompts[key] && response.data.prompts[key].trim() !== ''
-      );
-      
-      const expandedState = {};
-      questionsWithContent.forEach(key => {
-        expandedState[key] = true;
-      });
-      setExpandedQuestions(expandedState);
+      if (response.data.prompts && Object.keys(response.data.prompts).length > 0) {
+        const questionsWithContent = Object.keys(response.data.prompts).filter(
+          key => response.data.prompts[key] && response.data.prompts[key].trim() !== ''
+        );
+        
+        if (questionsWithContent.length > 0) {
+          const expandedState = {};
+          questionsWithContent.forEach(key => {
+            expandedState[key] = true;
+          });
+          setExpandedQuestions(expandedState);
+        }
+      }
       
     } catch (error) {
       console.error('Error loading prompts:', error);
@@ -384,7 +480,18 @@ export default function TestFinalReport() {
     
     if (!silent) setIsLoadingProgress(true);
     try {
-      const response = await axios.get(`/api/get-workflow-progress?sessionId=${sessionId}`);
+      // 获取当前会话信息用于认证
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (!silent) console.error('No active session for loading workflow progress');
+        return;
+      }
+
+      const response = await axios.get(`/api/get-workflow-progress?sessionId=${sessionId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       if (response.data.success) {
         setWorkflowProgress(response.data.data);
         
@@ -446,7 +553,18 @@ export default function TestFinalReport() {
   const loadSessionHistory = async (silent = false) => {
     if (!silent) setIsLoadingHistory(true);
     try {
-      const response = await axios.get('/api/get-session-history');
+      // 获取当前会话信息用于认证
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        if (!silent) console.error('No active session for loading session history');
+        return;
+      }
+
+      const response = await axios.get('/api/get-session-history', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       if (response.data.success) {
         setSessionHistory(response.data.data);
       }
@@ -526,7 +644,18 @@ export default function TestFinalReport() {
   // 检查并恢复进行中的workflow状态
   const checkAndRestoreWorkflowState = async () => {
     try {
-      const response = await axios.get('/api/get-session-history');
+      // 获取当前会话信息用于认证
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No active session for checking workflow state');
+        return false;
+      }
+
+      const response = await axios.get('/api/get-session-history', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
       if (response.data.success && response.data.data.length > 0) {
         // 查找最新的进行中workflow
         const activeWorkflow = response.data.data.find(session => 
@@ -562,8 +691,53 @@ export default function TestFinalReport() {
     return false;
   };
 
+  // 用户认证检查
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          setAuthError('认证检查失败');
+          return;
+        }
+
+        if (!session) {
+          setAuthError('请先登录访问此页面');
+          return;
+        }
+
+        setUser(session.user);
+        setAuthError(null);
+      } catch (error) {
+        console.error('Auth check error:', error);
+        setAuthError('认证检查出错');
+      } finally {
+        setIsAuthLoading(false);
+      }
+    };
+
+    checkAuth();
+
+    // 监听认证状态变化
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setUser(null);
+        setAuthError('会话已过期，请重新登录');
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setUser(session.user);
+        setAuthError(null);
+      }
+    });
+
+    return () => subscription?.unsubscribe();
+  }, []);
+
   // 页面加载时自动获取prompts、历史和恢复workflow状态
   useEffect(() => {
+    // 只有用户认证成功后才初始化页面
+    if (!user || isAuthLoading) return;
+
     const initializePage = async () => {
       loadPromptsFromFile();
       loadSessionHistory();
@@ -583,7 +757,7 @@ export default function TestFinalReport() {
     return () => {
       stopPolling();
     };
-  }, []);
+  }, [user, isAuthLoading]); // 依赖用户状态
   
   // 监听workflow状态变化，更新Session History
   useEffect(() => {
@@ -623,42 +797,137 @@ export default function TestFinalReport() {
   }, [currentSessionId]);
 
   const savePrompts = async () => {
+    console.log('🚀 Save button clicked');
+    console.log('📋 Current prompts state:', prompts);
+    console.log('📊 Total questions:', totalQuestions);
+    console.log('👤 Current user:', user);
+    
+    // Save函数调用日志
+
     if (Object.keys(prompts).length === 0) {
-      alert('No prompts to save');
+      alert('没有prompts需要保存');
+      console.log('❌ No prompts to save - prompts object is empty');
       return;
     }
 
     // 验证问题连续性和完整性
+    console.log('🔍 Starting validation...');
     const validationError = validatePrompts();
     if (validationError) {
+      console.log('❌ Validation failed:', validationError);
       setApiError(validationError);
+      alert('验证失败: ' + validationError);
       return;
     }
+    console.log('✅ Validation passed');
 
     setIsSaving(true);
     try {
-      console.log('Saving prompts:', prompts);
-      console.log('Total questions:', totalQuestions);
+      console.log('💾 Starting save process...');
+      console.log('📝 Prompts to save:', prompts);
+      console.log('📊 Total questions to save:', totalQuestions);
       
-      const response = await axios.post('/api/save-prompts', {
+      // 获取当前会话信息用于认证
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        throw new Error('Session error: ' + sessionError.message);
+      }
+      if (!session) {
+        throw new Error('No active session for saving prompts');
+      }
+      
+      console.log('🔑 Session found, access token:', session.access_token ? 'Present' : 'Missing');
+
+      console.log('📡 Making API request to /api/save-prompts...');
+      const requestPayload = {
         prompts: prompts,
-        totalQuestions: totalQuestions // 同时保存问题总数
-      }, {
-        headers: { 'Content-Type': 'application/json' },
+        totalQuestions: totalQuestions
+      };
+      const requestHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+      };
+      
+      console.log('📦 Request payload:', requestPayload);
+      console.log('🔑 Request headers:', { ...requestHeaders, Authorization: 'Bearer [REDACTED]' });
+
+      const response = await axios.post('/api/save-prompts', requestPayload, {
+        headers: requestHeaders,
         timeout: 10000
       });
+      
+      console.log('🎉 API request successful!');
 
       console.log('✅ Save response:', response.data);
-      // 成功时不显示弹窗，静默保存，并清除错误状态
+      // 成功保存提示
       setApiError(null);
+      
+      // 显示成功提示
+      const successMsg = `✅ 保存成功！更新了 ${response.data.updatedQuestions?.length || Object.keys(prompts).filter(k => prompts[k]?.trim()).length} 个prompts`;
+      console.log(successMsg);
+      
+      // 可选：显示短暂的成功提示
+      alert(successMsg);
       
     } catch (error) {
       console.error('Error saving prompts:', error);
-      alert(`Failed to save prompts to database: ${error.response?.data?.error || error.message}`);
+      console.error('Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message
+      });
+      
+      let errorMessage = 'Failed to save prompts to database';
+      
+      if (error.response?.status === 401) {
+        errorMessage = '认证失败，请重新登录';
+      } else if (error.response?.status === 500) {
+        errorMessage = '服务器错误：' + (error.response?.data?.error || error.message);
+      } else if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else {
+        errorMessage = error.message;
+      }
+      
+      alert(`保存失败: ${errorMessage}`);
+      setApiError(`保存失败: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
   };
+
+  // 认证加载中
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
+          <p className="text-gray-600">检查用户认证状态...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // 认证失败
+  if (authError || !user) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-red-800 mb-2">访问受限</h2>
+            <p className="text-red-600 mb-4">{authError || '需要登录才能访问此页面'}</p>
+            <button
+              onClick={() => window.location.href = '/auth'}
+              className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition-colors"
+            >
+              前往登录
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white p-4">
@@ -674,10 +943,19 @@ export default function TestFinalReport() {
                 `}</style>
       <div className="max-w-7xl mx-auto">
         {/* 标题 */}
-        <div className="border border-black bg-white p-8 mb-8 text-center">
-          <h1 className="text-3xl font-medium text-black">
-            Test Final Report API
-          </h1>
+        <div className="border border-black bg-white p-8 mb-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-medium text-black mb-2">
+              Test Final Report API
+            </h1>
+            <div className="text-sm text-gray-600">
+              <span>用户: </span>
+              <span className="font-medium">{user?.email || 'Unknown User'}</span>
+              <span className="mx-2">|</span>
+              <span>ID: </span>
+              <span className="font-mono text-xs">{user?.id?.slice(0, 8) || 'N/A'}</span>
+            </div>
+          </div>
         </div>
         
 
@@ -887,7 +1165,7 @@ export default function TestFinalReport() {
         </div>
         
         {/* 报告浏览区域 */}
-        <div className="bg-white border border-black p-6 mb-8">
+        <div className="bg-white border border-black p-6 mb-8" style={{display: 'none'}}>
           <h2 className="text-xl font-medium text-black mb-4">Report Browser</h2>
           
           <div className="space-y-4">
@@ -1021,8 +1299,15 @@ export default function TestFinalReport() {
                         value={prompts[questionNumber] || ''}
                         onChange={(e) => updatePrompt(questionNumber, e.target.value)}
                         placeholder={`Enter prompt for question ${questionNumber}...`}
-                        className="w-full h-32 px-3 py-2 border border-black bg-white focus:outline-none resize-none"
+                        className={`w-full h-32 px-3 py-2 border bg-white focus:outline-none resize-none ${
+                          promptErrors[questionNumber] ? 'border-red-500' : 'border-black'
+                        }`}
                       />
+                      {promptErrors[questionNumber] && (
+                        <div className="mt-1 text-xs text-red-500">
+                          {promptErrors[questionNumber]}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

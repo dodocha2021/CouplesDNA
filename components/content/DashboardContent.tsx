@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Line, 
   XAxis, 
@@ -18,7 +18,8 @@ import {
   BarChart,
   MessageSquare,
   Upload,
-  TrendingUp
+  TrendingUp,
+  FileText
 } from "lucide-react";
 import {
   Card,
@@ -28,7 +29,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-
+import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/router";
 
 // Mock data for charts
@@ -51,6 +52,41 @@ const communicationStyleData = [
 
 export default function DashboardContent() {
   const router = useRouter();
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [fileCount, setFileCount] = useState(0);
+
+  useEffect(() => {
+    const fetchUserFiles = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data, error } = await supabase.storage
+          .from('chat-logs')
+          .list(user.id, {
+            limit: 3,
+            sortBy: { column: 'created_at', order: 'desc' }
+          });
+
+        if (error) {
+          console.error('Error fetching files:', error);
+          return;
+        }
+
+        // Get total count
+        const { data: allFiles } = await supabase.storage
+          .from('chat-logs')
+          .list(user.id);
+
+        setUploadedFiles(data || []);
+        setFileCount(allFiles?.length || 0);
+      } catch (error) {
+        console.error('Error fetching user files:', error);
+      }
+    };
+
+    fetchUserFiles();
+  }, []);
 
   const handleUploadClick = () => {
     router.push('/questionnaire');
@@ -102,7 +138,27 @@ export default function DashboardContent() {
               Get a new in-depth analysis report.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            {fileCount > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">
+                  Your Files ({fileCount})
+                </div>
+                <div className="space-y-1">
+                  {uploadedFiles.slice(0, 3).map((file, index) => (
+                    <div key={index} className="flex items-center gap-2 text-xs text-primary-foreground/90">
+                      <FileText className="h-3 w-3" />
+                      <span className="truncate">{file.name}</span>
+                    </div>
+                  ))}
+                  {fileCount > 3 && (
+                    <div className="text-xs text-primary-foreground/70">
+                      +{fileCount - 3} more files
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
             <Button 
               variant="secondary" 
               className="w-full" 

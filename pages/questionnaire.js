@@ -33,6 +33,22 @@ export default function QuestionnairePage() {
         .single()
 
       if (profile && profile.age_range) {
+        // Check if questionnaire is already completed (all required fields are filled)
+        const isQuestionnaireComplete = profile.age_range && 
+                                        profile.default_focus && 
+                                        profile.relationship_stage && 
+                                        profile.conversation_feeling
+
+        if (isQuestionnaireComplete) {
+          // Redirect to upload page if questionnaire is already completed
+          if (router.query.sessionId) {
+            router.push(`/upload?sessionId=${router.query.sessionId}&questionnaireComplete=true`)
+          } else {
+            router.push('/upload?questionnaireComplete=true')
+          }
+          return
+        }
+
         setInitialAnswers({
           ageRange: profile.age_range,
           analysisFocus: profile.default_focus || '',
@@ -76,6 +92,7 @@ export default function QuestionnairePage() {
   const handleQuestionnaireComplete = async (answers) => {
     try {
       setLoading(true)
+      console.log('Completing questionnaire with answers:', answers)
 
       // Save answers to profiles table (final save to ensure consistency)
       const { error: profileError } = await supabase
@@ -91,9 +108,12 @@ export default function QuestionnairePage() {
 
       if (profileError) {
         console.error('Error saving questionnaire:', profileError)
+        alert(`Error saving questionnaire: ${profileError.message}`)
         return
       }
 
+      console.log('Questionnaire saved successfully, redirecting to upload...')
+      
       // Redirect to upload page with questionnaire completion flag
       if (sessionId) {
         router.push(`/upload?sessionId=${sessionId}&questionnaireComplete=true`)
@@ -102,6 +122,7 @@ export default function QuestionnairePage() {
       }
     } catch (error) {
       console.error('Error completing questionnaire:', error)
+      alert(`Error completing questionnaire: ${error.message}`)
     } finally {
       setLoading(false)
     }

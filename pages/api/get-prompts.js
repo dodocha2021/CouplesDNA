@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase, getUserFromRequest } from '../../lib/supabase';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -6,24 +6,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 从数据库获取总问题数设置
+    // 验证用户身份
+    const user = await getUserFromRequest(req, res);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    // 从数据库获取总问题数设置（只获取当前用户的）
     const { data: settingsData, error: settingsError } = await supabase
       .from('prompts_settings')
       .select('setting_value')
       .eq('setting_key', 'total_questions')
-      .single();
+      .eq('user_id', user.id)
+      .maybeSingle();
 
     if (settingsError) {
       console.error('❌ Error fetching settings:', settingsError);
       return res.status(500).json({ error: 'Failed to fetch settings' });
     }
 
-    const totalQuestions = settingsData?.setting_value || 40;
+    const totalQuestions = settingsData?.setting_value || 1;
 
-    // 从数据库获取所有prompts
+    // 从数据库获取所有prompts（只获取当前用户的）
     const { data: promptsData, error: promptsError } = await supabase
       .from('prompts_config')
       .select('question_number, prompt_content')
+      .eq('user_id', user.id)
       .order('question_number', { ascending: true });
 
     if (promptsError) {

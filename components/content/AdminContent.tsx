@@ -130,13 +130,22 @@ export function AdminContent() {
     setTestResult(null)
 
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setTestError('No active session for test report generation')
+        return
+      }
+
       const testSessionId = `admin-test-${Date.now()}`
       
       const response = await axios.post('/api/generate-Finalreport', {
         sessionId: testSessionId,
         totalQuestions: totalQuestions
       }, {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
         timeout: 90000
       })
 
@@ -153,7 +162,17 @@ export function AdminContent() {
 
   const fetchSessionHistory = async () => {
     try {
-      const response = await axios.get('/api/get-session-history')
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.error('No active session for history fetching')
+        return
+      }
+
+      const response = await axios.get('/api/get-session-history', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
       if (response.data.success) {
         setSessionHistory(response.data.data.slice(0, 10)) // Show last 10
       }
@@ -165,13 +184,28 @@ export function AdminContent() {
   const loadPrompts = async () => {
     setPromptsLoading(true)
     try {
-      const response = await axios.get('/api/get-prompts')
-      setPrompts(response.data.prompts)
-      if (response.data.totalQuestions) {
-        setTotalQuestions(response.data.totalQuestions)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.error('No active session for loading prompts')
+        return
+      }
+
+      const response = await axios.get('/api/get-prompts', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+      if (response.data.success) {
+        setPrompts(response.data.prompts)
+        if (response.data.totalQuestions) {
+          setTotalQuestions(response.data.totalQuestions)
+        }
       }
     } catch (error) {
       console.error('Error loading prompts:', error)
+      if (error.response?.status === 401) {
+        console.error('Authentication required for loading prompts')
+      }
     } finally {
       setPromptsLoading(false)
     }
@@ -179,21 +213,53 @@ export function AdminContent() {
 
   const savePrompts = async () => {
     try {
-      await axios.post('/api/save-prompts', {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.error('No active session for saving prompts')
+        return
+      }
+
+      const response = await axios.post('/api/save-prompts', {
         prompts: prompts,
         totalQuestions: totalQuestions
+      }, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
       })
+      if (response.data.success) {
+        console.log('Prompts saved successfully')
+      }
     } catch (error) {
       console.error('Error saving prompts:', error)
+      if (error.response?.status === 401) {
+        console.error('Authentication required for saving prompts')
+      }
     }
   }
 
   const clearPrompts = async () => {
     try {
-      await axios.post('/api/clear-prompts')
-      setPrompts({})
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.error('No active session for clearing prompts')
+        return
+      }
+
+      const response = await axios.post('/api/clear-prompts', {}, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+      if (response.data.success) {
+        setPrompts({})
+        console.log('Prompts cleared successfully')
+      }
     } catch (error) {
       console.error('Error clearing prompts:', error)
+      if (error.response?.status === 401) {
+        console.error('Authentication required for clearing prompts')
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { formidable } from 'formidable';
 import fs from 'fs';
+import { getUserFromRequest } from '../../lib/supabase';
 
 // API 配置，让 Next.js 知道这个接口会处理文件流
 export const config = {
@@ -27,26 +28,11 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. 验证用户身份 - 从Authorization header获取token
-    const authHeader = req.headers.authorization;
-    let user = null;
+    // 1. 验证用户身份
+    const user = await getUserFromRequest(req);
     
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.split(' ')[1];
-      
-      // 验证token并获取用户信息
-      const { data: { user: authUser }, error: authError } = await supabaseAuth.auth.getUser(token);
-      
-      if (!authError && authUser) {
-        user = authUser;
-      }
-    }
-    
-    // 如果没有有效的用户认证，使用默认用户ID进行测试
     if (!user) {
-      // 对于测试，我们创建一个临时用户ID
-      user = { id: 'anonymous-' + Date.now() };
-      console.log('Using anonymous user for upload:', user.id);
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const form = formidable();
@@ -67,14 +53,14 @@ export default async function handler(req, res) {
       try {
         // 2. 文件验证
         const allowedTypes = ['text/plain', 'text/csv', 'application/json'];
-        const maxSize = 10 * 1024 * 1024; // 10MB
+        const maxSize = 5 * 1024 * 1024; // 5MB
         
         if (!allowedTypes.includes(file.mimetype)) {
           return res.status(400).json({ error: 'Invalid file type. Only .txt, .csv, and .json files are allowed.' });
         }
         
         if (file.size > maxSize) {
-          return res.status(400).json({ error: 'File size too large. Maximum size is 10MB.' });
+          return res.status(400).json({ error: 'File size too large. Maximum size is 5MB.' });
         }
 
         // 3. 读取文件内容
@@ -98,8 +84,22 @@ export default async function handler(req, res) {
           throw uploadError;
         }
 
-        // 6. 记录上传信息到数据库（可选 - 为后续追踪）
-        // 这里可以添加文件上传记录到数据库的逻辑
+        // 6. 记录上传信息到数据库（为文件提供元数据索引）
+        const { error: dbError } = await supabaseAdmin
+          .from('chat-logs')
+          .insert({
+            user_id: user.id,
+            file_name: safeFileName,
+            file_path: filePath,
+            file_size: file.size,
+            mime_type: file.mimetype,
+            uploaded_at: new Date().toISOString()
+          });
+
+        if (dbError) {
+          console.warn('Failed to record file metadata:', dbError);
+          // 不中断流程，只记录警告
+        }
 
         // 7. 返回成功响应
         return res.status(200).json({

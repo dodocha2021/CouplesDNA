@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { supabase } from '../lib/supabase';
 import { generateSessionId } from '../lib/utils';
 
 export const useReportGenerator = ({ sessionId, setSessionId }) => {
@@ -37,7 +36,7 @@ export const useReportGenerator = ({ sessionId, setSessionId }) => {
 
     try {
       console.log('📤 Sending request to API route...');
-      const response = await axios.post('/api/generate-report', {
+      const response = await axios.post('/api/generate-Finalreport', {
         sessionId: sid
       }, { 
         headers: { 'Content-Type': 'application/json' } 
@@ -57,16 +56,11 @@ export const useReportGenerator = ({ sessionId, setSessionId }) => {
         setReportProgress(`AI is generating your report... (Check ${checkCount}/${maxChecks})`);
         
         try {
-          const { data, error } = await supabase
-            .from('n8n_chat_histories')
-            .select('message')
-            .eq('session_id', sid)
-            .order('created_at', { ascending: false })
-            .limit(1);
+          const response = await axios.get(`/api/get-chat-history?sessionId=${sid}`);
+          console.log('📊 API response:', response.data);
 
-          console.log('📊 Database query result:', { data, error });
-
-          if (!error && data && data.length > 0) {
+          if (response.data.success && response.data.data && response.data.data.length > 0) {
+            const data = response.data.data;
             console.log('📝 Found message in database:', data[0]);
             const latestMessage = data[0].message;
             console.log('📄 Latest message:', latestMessage);
@@ -115,6 +109,16 @@ export const useReportGenerator = ({ sessionId, setSessionId }) => {
           
         } catch (checkError) {
           console.error('❌ Error checking report:', checkError);
+          if (checkError.response?.status === 401) {
+            console.error('❌ Authentication failed');
+            setReportProgress('Authentication required. Please refresh the page.');
+            alert('Authentication required. Please refresh the page.');
+            if (reportCheckInterval) {
+              clearInterval(reportCheckInterval);
+            }
+            setGeneratingReport(false);
+            return;
+          }
           if (checkCount >= maxChecks) {
             alert('Failed to generate report. Please try again.');
             if (reportCheckInterval) {

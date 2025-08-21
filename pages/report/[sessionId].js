@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useRouter } from "next/router"
-import { supabase } from "../../lib/supabase"
+import axios from 'axios'
 import { ArrowBigRightIcon } from 'lucide-react'
 import * as HoverCardPrimitive from "@radix-ui/react-hover-card"
 import { AnimatePresence, motion, useMotionValue, useSpring } from "framer-motion"
@@ -230,23 +230,14 @@ export default function DynamicReportPage() {
       try {
         setLoading(true)
         
-        // 从数据库获取报告数据
-        const { data, error } = await supabase
-          .from('n8n_chat_histories')
-          .select('message')
-          .eq('session_id', sessionId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        if (error) {
-          throw new Error('Failed to fetch report data')
-        }
-
-        if (!data || data.length === 0) {
+        // 从API获取报告数据
+        const response = await axios.get(`/api/get-chat-history?sessionId=${sessionId}`)
+        
+        if (!response.data.success || !response.data.data || response.data.data.length === 0) {
           throw new Error('No report found for this session')
         }
 
-        const message = data[0].message
+        const message = response.data.data[0].message
         if (message.type === 'ai' && message.content) {
           // 检查内容是否是 JSON 格式
           if (typeof message.content === 'string' && message.content.trim().startsWith('{')) {
@@ -267,7 +258,14 @@ export default function DynamicReportPage() {
           throw new Error('Invalid message format')
         }
       } catch (err) {
-        setError(err.message)
+        console.error('Error fetching report:', err)
+        if (err.response?.status === 401) {
+          setError('Authentication required. Please log in to view this report.')
+        } else if (err.response?.status === 404) {
+          setError('Report not found for this session.')
+        } else {
+          setError(err.message || 'Failed to load report')
+        }
       } finally {
         setLoading(false)
       }

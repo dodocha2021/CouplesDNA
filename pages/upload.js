@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { supabase } from '../lib/supabase'
-import { Upload, FileText, CheckCircle2, AlertCircle } from 'lucide-react'
+import TableUpload from '../components/file-uploader'
+import { Upload, CheckCircle2, AlertCircle } from 'lucide-react'
 
 export default function UploadPage() {
   const router = useRouter()
@@ -15,7 +15,8 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [uploadStatus, setUploadStatus] = useState(null)
-  const [selectedFile, setSelectedFile] = useState(null)
+  const [selectedFiles, setSelectedFiles] = useState([])
+  const [processingStatus, setProcessingStatus] = useState(null)
 
   useEffect(() => {
     checkAuth()
@@ -36,38 +37,20 @@ export default function UploadPage() {
     }
   }
 
-  const handleFileSelect = (event) => {
-    const file = event.target.files[0]
-    if (file) {
-      // Check file type and size
-      const allowedTypes = ['.txt', '.csv', '.json']
-      const maxSize = 10 * 1024 * 1024 // 10MB
-      
-      const fileExtension = '.' + file.name.split('.').pop().toLowerCase()
-      
-      if (!allowedTypes.includes(fileExtension)) {
-        setUploadStatus({
-          type: 'error',
-          message: 'Please select a valid file type (.txt, .csv, or .json)'
-        })
-        return
-      }
-      
-      if (file.size > maxSize) {
-        setUploadStatus({
-          type: 'error',
-          message: 'File size must be less than 10MB'
-        })
-        return
-      }
-      
-      setSelectedFile(file)
-      setUploadStatus(null)
-    }
+  const handleFilesReady = (files) => {
+    // Transform files to match expected format
+    const transformedFiles = files.map((file, index) => ({
+      id: `file-${index}`,
+      file: file
+    }))
+    setSelectedFiles(transformedFiles)
+    setUploadStatus(null)
   }
 
   const handleUpload = async () => {
-    if (!selectedFile) return
+    if (!selectedFiles || selectedFiles.length === 0) return
+
+    const selectedFile = selectedFiles[0].file // Use the first file for upload
 
     try {
       setUploading(true)
@@ -98,8 +81,20 @@ export default function UploadPage() {
       if (response.ok) {
         setUploadStatus({
           type: 'success',
-          message: 'File uploaded successfully! Generating your report...'
+          message: 'File uploaded successfully! Processing for vector analysis...'
         })
+
+        // Check if the file processing might fail (show processing status)
+        setProcessingStatus({
+          type: 'processing',
+          message: 'Analyzing file content and generating vectors... This may take a moment.',
+          filePath: result.filePath
+        })
+
+        // Check processing status after a delay
+        setTimeout(() => {
+          checkProcessingStatus(result.filePath)
+        }, 10000) // Check after 10 seconds
 
         // Generate a session ID for the report  
         const newSessionId = Date.now().toString()
@@ -107,7 +102,7 @@ export default function UploadPage() {
         // Redirect to report generation with secure file path
         setTimeout(() => {
           router.push(`/report/${newSessionId}?file=${encodeURIComponent(result.fileName)}&filePath=${encodeURIComponent(result.filePath)}`)
-        }, 2000)
+        }, 3000) // Extended to 3 seconds to allow processing status to show
         
       } else {
         throw new Error(result.error || 'Upload failed')
@@ -118,8 +113,52 @@ export default function UploadPage() {
         type: 'error',
         message: error.message || 'Upload failed. Please try again.'
       })
+      setProcessingStatus(null) // Clear processing status on error
     } finally {
       setUploading(false)
+    }
+  }
+
+  const checkProcessingStatus = async (filePath) => {
+    try {
+      // Check if documents were created for this file path
+      const { data, error } = await supabase
+        .from('documents')
+        .select('id')
+        .eq('metadata->>source_file_path', filePath)
+        .limit(1)
+
+      if (error) {
+        console.error('Error checking processing status:', error)
+        setProcessingStatus({
+          type: 'error',
+          message: 'Processing verification failed. The file might be too large or invalid.',
+          showRetry: true
+        })
+        return
+      }
+
+      if (data && data.length > 0) {
+        // Processing successful
+        setProcessingStatus({
+          type: 'success',
+          message: 'File successfully processed and vectorized!'
+        })
+      } else {
+        // No documents found - processing likely failed
+        setProcessingStatus({
+          type: 'error',
+          message: 'File processing failed or timed out.',
+          showRetry: true
+        })
+      }
+    } catch (error) {
+      console.error('Processing status check error:', error)
+      setProcessingStatus({
+        type: 'error',
+        message: 'Processing verification failed.',
+        showRetry: true
+      })
     }
   }
 
@@ -152,11 +191,41 @@ export default function UploadPage() {
           {/* Questionnaire Status */}
           {questionnaireComplete && (
             <Card className="mb-6 border-green-200 bg-green-50">
-              <CardContent className="flex items-center gap-3 py-4">
-                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                <span className="text-green-800 font-medium">
-                  Questionnaire completed! Your analysis will be personalized.
-                </span>
+              <CardContent className="flex items-center justify-between py-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <span className="text-green-800 font-medium">
+                    Questionnaire completed! Your analysis will be personalized.
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      // Clear questionnaire answers from profiles table
+                      const { data: { user } } = await supabase.auth.getUser()
+                      if (user) {
+                        await supabase
+                          .from('profiles')
+                          .update({ 
+                            age_range: null,
+                            relationship_stage: null,
+                            default_focus: null,
+                            conversation_feeling: null
+                          })
+                          .eq('id', user.id)
+                      }
+                      // Redirect to first question
+                      router.push('/questionnaire')
+                    } catch (error) {
+                      console.error('Error resetting questionnaire:', error)
+                    }
+                  }}
+                  className="text-green-700 border-green-300 hover:bg-green-100"
+                >
+                  Redo
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -195,42 +264,18 @@ export default function UploadPage() {
                 Select Chat Log File
               </CardTitle>
               <CardDescription>
-                Supported formats: .txt, .csv, .json (max 10MB)
+                Supported formats: .txt, .csv, .json (max 3MB - optimized chunking)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* File Input */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
-                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <div className="space-y-2">
-                  <Input
-                    type="file"
-                    onChange={handleFileSelect}
-                    accept=".txt,.csv,.json"
-                    className="cursor-pointer"
-                  />
-                  <p className="text-sm text-gray-500">
-                    Choose a file or drag and drop
-                  </p>
-                </div>
-              </div>
-
-              {/* Selected File Info */}
-              {selectedFile && (
-                <Card className="bg-gray-50">
-                  <CardContent className="py-4">
-                    <div className="flex items-center gap-3">
-                      <FileText className="h-5 w-5 text-gray-600" />
-                      <div className="flex-1">
-                        <p className="font-medium">{selectedFile.name}</p>
-                        <p className="text-sm text-gray-500">
-                          {(selectedFile.size / 1024).toFixed(1)} KB
-                        </p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              <TableUpload
+                onFilesChange={handleFilesReady}
+                className="w-full"
+                maxFiles={5}
+                accept=".txt,.csv,.json"
+                maxSize={3 * 1024 * 1024} // 3MB
+                simulateUpload={false}
+              />
 
               {/* Status Messages */}
               {uploadStatus && (
@@ -256,35 +301,60 @@ export default function UploadPage() {
                 </Card>
               )}
 
-              {/* Upload Button */}
-              <div className="flex gap-3">
-                <Button
-                  onClick={handleUpload}
-                  disabled={!selectedFile || uploading}
-                  className="flex-1"
-                  size="lg"
-                >
-                  {uploading ? (
-                    <>
-                      <LoadingSpinner />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Upload & Analyze
-                    </>
-                  )}
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  onClick={() => router.push('/dashboard')}
-                  size="lg"
-                >
-                  Cancel
-                </Button>
-              </div>
+              {/* Processing Status Messages */}
+              {processingStatus && (
+                <Card className={`mt-3 ${
+                  processingStatus.type === 'error' ? 'border-red-200 bg-red-50' :
+                  processingStatus.type === 'success' ? 'border-green-200 bg-green-50' :
+                  processingStatus.type === 'warning' ? 'border-yellow-200 bg-yellow-50' :
+                  'border-blue-200 bg-blue-50'
+                }`}>
+                  <CardContent className="py-4">
+                    <div className="flex items-start gap-3">
+                      {processingStatus.type === 'processing' && <LoadingSpinner />}
+                      {processingStatus.type === 'error' && <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />}
+                      {processingStatus.type === 'success' && <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />}
+                      {processingStatus.type === 'warning' && <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5" />}
+                      <div className="flex-1">
+                        <span className={`${
+                          processingStatus.type === 'error' ? 'text-red-800' :
+                          processingStatus.type === 'success' ? 'text-green-800' :
+                          processingStatus.type === 'warning' ? 'text-yellow-800' :
+                          'text-blue-800'
+                        } block`}>
+                          {processingStatus.message}
+                        </span>
+                        {processingStatus.type === 'error' && processingStatus.showRetry && (
+                          <div className="mt-3 flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setProcessingStatus(null)
+                                setUploadStatus(null)
+                                setSelectedFiles([])
+                              }}
+                              className="inline-flex items-center gap-1 text-sm bg-red-100 text-red-700 px-3 py-1 rounded-md hover:bg-red-200 transition-colors"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Retry with smaller file
+                            </button>
+                            <span className="text-xs text-red-600">
+                              ⚠️ Try files under 2MB for optimal processing
+                            </span>
+                          </div>
+                        )}
+                        {processingStatus.type === 'warning' && (
+                          <p className="text-sm text-yellow-700 mt-1">
+                            The file was uploaded but may not be processed for vector analysis. You can still proceed to generate a report.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
             </CardContent>
           </Card>
 

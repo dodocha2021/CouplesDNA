@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase, getUserFromRequest } from '../../lib/supabase';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {
@@ -6,9 +6,17 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 验证用户身份
+    const user = await getUserFromRequest(req);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { data, error } = await supabase
       .from('workflow_progress')
       .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at')
+      .eq('user_id', user.id)
       .order('started_at', { ascending: false });
     
     if (error) {

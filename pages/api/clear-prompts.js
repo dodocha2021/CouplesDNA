@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabase';
+import { supabase, getUserFromRequest } from '../../lib/supabase';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -6,13 +6,20 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 验证用户身份
+    const user = await getUserFromRequest(req);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     console.log('🔄 Clearing all prompts from Supabase database...');
     
-    // 删除所有prompts记录
+    // 删除所有当前用户的prompts记录
     const { error: deleteError } = await supabase
       .from('prompts_config')
       .delete()
-      .neq('id', 0); // 删除所有记录（id不等于0意味着所有记录）
+      .eq('user_id', user.id);
 
     if (deleteError) {
       console.error('❌ Error deleting prompts:', deleteError);
@@ -22,13 +29,14 @@ export default async function handler(req, res) {
       });
     }
 
-    // 重置总问题数为默认值
+    // 重置当前用户的总问题数为默认值
     const { error: settingsError } = await supabase
       .from('prompts_settings')
       .update({
         setting_value: 40,
         updated_at: new Date().toISOString()
       })
+      .eq('user_id', user.id)
       .eq('setting_key', 'total_questions');
 
     if (settingsError) {

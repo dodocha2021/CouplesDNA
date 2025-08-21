@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { supabase } from '../../lib/supabase';
+import { supabase, getUserFromRequest } from '../../lib/supabase';
 
 const N8N_WEBHOOK = 'https://couplesdna.app.n8n.cloud/webhook-test/81134b04-e2f5-4661-ae0b-6d6ef6d83123';
 
@@ -9,6 +9,13 @@ export default async function handler(req, res) {
   }
 
   try {
+    // 1. 验证用户身份
+    const user = await getUserFromRequest(req);
+    
+    if (!user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
     const { sessionId, totalQuestions } = req.body;
 
     if (!sessionId) {
@@ -24,14 +31,16 @@ export default async function handler(req, res) {
     // 动态构建问题对象
     const questionsObject = {
       "sessionId": sessionId,
-      "totalQuestions": questionsCount // 传递总问题数给n8n
+      "totalQuestions": questionsCount, // 传递总问题数给n8n
+      "user_id": user.id // 传递用户ID给n8n工作流
     };
     
-    // 从数据库获取prompts
+    // 从数据库获取prompts（只获取当前用户的）
     console.log('🔄 Loading prompts from database...');
     const { data: promptsData, error: promptsError } = await supabase
       .from('prompts_config')
       .select('question_number, prompt_content')
+      .eq('user_id', user.id)
       .lte('question_number', questionsCount)
       .order('question_number', { ascending: true });
 
