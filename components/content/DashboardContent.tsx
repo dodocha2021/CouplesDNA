@@ -61,9 +61,11 @@ export default function DashboardContent() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        const userPath = `users/${user.id}`;
+
         const { data, error } = await supabase.storage
           .from('chat-logs')
-          .list(user.id, {
+          .list(userPath, {
             limit: 3,
             sortBy: { column: 'created_at', order: 'desc' }
           });
@@ -74,9 +76,14 @@ export default function DashboardContent() {
         }
 
         // Get total count
-        const { data: allFiles } = await supabase.storage
+        const { data: allFiles, error: countError } = await supabase.storage
           .from('chat-logs')
-          .list(user.id);
+          .list(userPath);
+        
+        if (countError) {
+          console.error('Error fetching file count:', countError);
+          // Don't return, maybe the first query succeeded
+        }
 
         setUploadedFiles(data || []);
         setFileCount(allFiles?.length || 0);

@@ -43,7 +43,7 @@ const CONFIG = {
   
   // 已废弃的旧组件
   deprecatedComponents: [
-    'Button.js', 'Input.js', 'Avatar.js'
+    'Input.js', 'Avatar.js'
   ]
 };
 
@@ -136,7 +136,7 @@ class ComponentChecker {
   // 查找shadcn/ui组件导入
   findShadcnImports(content) {
     const imports = [];
-    const importRegex = /import\s+{([^}]+)}\s+from\s+['"]@\/components\/ui\/([^'"]+)['"]/g;
+    const importRegex = /import\s+{\([^}]+\)}\s+from\s+['"]@\/components\/ui\/([^'\"]+)['"]/g;
     let match;
     
     while ((match = importRegex.exec(content)) !== null) {
@@ -154,9 +154,9 @@ class ComponentChecker {
     
     // 检查旧的导入路径
     const oldImportPatterns = [
-      /from\s+['"][^'"]*components\/ui\/Button['"]/g,
-      /from\s+['"][^'"]*components\/ui\/Input['"]/g,
-      /from\s+['"][^'"]*components\/ui\/Avatar['"]/g,
+      /from\s+['"][^'\"]*components\/ui\/Button['"]/g,
+      /from\s+['"][^'\"]*components\/ui\/Input['"]/g,
+      /from\s+['"][^'\"]*components\/ui\/Avatar['"]/g,
     ];
 
     oldImportPatterns.forEach(pattern => {
@@ -173,7 +173,7 @@ class ComponentChecker {
     const issues = [];
     
     // 检查是否使用了相对路径而不是别名
-    const relativeUiImports = content.match(/from\s+['"][^'"]*\.\.\/[^'"]*\/ui\/[^'"]+['"]/g);
+    const relativeUiImports = content.match(/from\s+['"][^'\"]*\.\.\/[^'\"]*\/ui\/[^'\"]+['"]/g);
     if (relativeUiImports) {
       issues.push('应使用@/components/ui/*别名导入而不是相对路径');
     }

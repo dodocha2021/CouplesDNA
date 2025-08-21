@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ArrowUpRightFromSquare } from 'lucide-react';
+import NoUserPrompt from '../components/NoUserPrompt';
 
 export default function TestFinalReport() {
   // 用户认证状态
@@ -957,8 +958,128 @@ export default function TestFinalReport() {
             </div>
           </div>
         </div>
-        
 
+        {/* Prompt Editor - 整合模块 */}
+        <div className="bg-white border border-black p-6 mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-medium text-black">Prompt Editor</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left: AI Suggestions */}
+            <div>
+              <NoUserPrompt />
+            </div>
+            
+            {/* Right: Manual Prompts */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-black">Manual Prompts</h3>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={loadPromptsFromFile}
+                    disabled={isLoadingPrompts}
+                    className={`w-16 h-8 border border-black font-medium text-xs transition-all duration-200 ${
+                      isLoadingPrompts
+                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                        : 'bg-white text-black hover:bg-gray-100'
+                    }`}
+                  >
+                    {isLoadingPrompts ? 'Loading...' : 'Reload'}
+                  </button>
+                  <button
+                    onClick={savePrompts}
+                    disabled={isSaving}
+                    className={`w-16 h-8 border border-black font-medium text-xs transition-all duration-200 ${
+                      isSaving
+                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                        : 'bg-black text-white hover:bg-gray-800'
+                    }`}
+                  >
+                    {isSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={cleanAllPrompts}
+                    className="w-16 h-8 border border-black font-medium text-xs bg-white text-black hover:bg-gray-100 transition-all duration-200"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+              
+              {/* 问题数量管理 */}
+              <div className="mb-4 p-3 bg-white border border-black">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-black">Total Questions: {totalQuestions}</span>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={removeQuestion}
+                      disabled={totalQuestions <= 1}
+                      className={`w-8 h-8 border border-black font-medium text-sm transition-all duration-200 ${
+                        totalQuestions <= 1
+                          ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
+                          : 'bg-white text-black hover:bg-gray-100'
+                      }`}
+                      title="Remove last question"
+                    >
+                      −
+                    </button>
+                    <button
+                      onClick={addQuestion}
+                      className="w-8 h-8 border border-black font-medium text-sm bg-white text-black hover:bg-gray-100 transition-all duration-200"
+                      title="Add new question"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* 问题编辑区域 */}
+              <div>
+                {Array.from({length: totalQuestions}, (_, index) => {
+                  const questionNumber = index + 1;
+                  return (
+                    <div key={questionNumber} className="mb-4 bg-white border border-black">
+                      <button
+                        onClick={() => toggleQuestion(questionNumber)}
+                        className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-black">Question {questionNumber}</span>
+                          {prompts[questionNumber] && prompts[questionNumber].trim() !== '' && (
+                            <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+                          )}
+                        </div>
+                        <span className="text-black">
+                          {expandedQuestions[questionNumber] ? '−' : '+'}
+                        </span>
+                      </button>
+                      
+                      {expandedQuestions[questionNumber] && (
+                        <div className="px-4 pb-4">
+                          <textarea
+                            value={prompts[questionNumber] || ''}
+                            onChange={(e) => updatePrompt(questionNumber, e.target.value)}
+                            placeholder={`Enter prompt for question ${questionNumber}...`}
+                            className={`w-full h-32 px-3 py-2 border bg-white focus:outline-none resize-none ${
+                              promptErrors[questionNumber] ? 'border-red-500' : 'border-black'
+                            }`}
+                          />
+                          {promptErrors[questionNumber] && (
+                            <div className="mt-1 text-xs text-red-500">
+                              {promptErrors[questionNumber]}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* API测试和Workflow状态 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
@@ -1208,115 +1329,10 @@ export default function TestFinalReport() {
             )}
           </div>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-          {/* 中间：报告页面prompt区域 */}
-          <div className="bg-white border border-black p-6 lg:col-span-1">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-medium text-black">Report Page Prompts</h2>
-              <div className="flex space-x-2">
-                <button
-                  onClick={loadPromptsFromFile}
-                  disabled={isLoadingPrompts}
-                  className={`w-16 h-8 border border-black font-medium text-xs transition-all duration-200 ${
-                    isLoadingPrompts
-                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                      : 'bg-white text-black hover:bg-gray-100'
-                  }`}
-                >
-                  {isLoadingPrompts ? 'Loading...' : 'Reload'}
-                </button>
-                <button
-                  onClick={savePrompts}
-                  disabled={isSaving}
-                  className={`w-16 h-8 border border-black font-medium text-xs transition-all duration-200 ${
-                    isSaving
-                      ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                      : 'bg-black text-white hover:bg-gray-800'
-                  }`}
-                >
-                  {isSaving ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  onClick={cleanAllPrompts}
-                  className="w-16 h-8 border border-black font-medium text-xs bg-white text-black hover:bg-gray-100 transition-all duration-200"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-            
-            {/* 问题数量管理 */}
-            <div className="mb-4 p-3 bg-white border border-black">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-black">Total Questions: {totalQuestions}</span>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={removeQuestion}
-                    disabled={totalQuestions <= 1}
-                    className={`w-8 h-8 border border-black font-medium text-sm transition-all duration-200 ${
-                      totalQuestions <= 1
-                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                        : 'bg-white text-black hover:bg-gray-100'
-                    }`}
-                    title="Remove last question"
-                  >
-                    −
-                  </button>
-                  <button
-                    onClick={addQuestion}
-                    className="w-8 h-8 border border-black font-medium text-sm bg-black text-white hover:bg-gray-800 transition-all duration-200"
-                    title="Add new question"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div className="space-y-2 max-h-[800px] overflow-y-auto">
-              {Array.from({ length: totalQuestions }, (_, i) => i + 1).map((questionNumber) => (
-                <div key={questionNumber} className="border border-black bg-white">
-                  <button
-                    onClick={() => toggleQuestion(questionNumber)}
-                    className="w-full px-4 py-3 text-left flex items-center justify-between hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-black">Question {questionNumber}</span>
-                      {prompts[questionNumber] && prompts[questionNumber].trim() !== '' && (
-                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                      )}
-                    </div>
-                    <span className="text-black">
-                      {expandedQuestions[questionNumber] ? '−' : '+'}
-                    </span>
-                  </button>
-                  
-                  {expandedQuestions[questionNumber] && (
-                    <div className="px-4 pb-4">
-                      <textarea
-                        value={prompts[questionNumber] || ''}
-                        onChange={(e) => updatePrompt(questionNumber, e.target.value)}
-                        placeholder={`Enter prompt for question ${questionNumber}...`}
-                        className={`w-full h-32 px-3 py-2 border bg-white focus:outline-none resize-none ${
-                          promptErrors[questionNumber] ? 'border-red-500' : 'border-black'
-                        }`}
-                      />
-                      {promptErrors[questionNumber] && (
-                        <div className="mt-1 text-xs text-red-500">
-                          {promptErrors[questionNumber]}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 右侧：报告显示区域 */}
-          <div className="bg-white border border-black p-6 lg:col-span-2">
+        <div className="grid grid-cols-1 gap-8">
+          {/* 报告显示区域 */}
+          <div className="bg-white border border-black p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-medium text-black">Report Content</h2>
               {sessionId.trim() && (

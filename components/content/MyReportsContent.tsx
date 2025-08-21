@@ -2,52 +2,47 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { FileText, Calendar, TrendingUp, Download } from 'lucide-react'
-import axios from 'axios'
 import { supabase } from '../../lib/supabase'
 
 export const MyReportsContent = React.memo(function MyReportsContent() {
   const router = useRouter()
   const [reports, setReports] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
     fetchReports()
   }, [])
 
   const fetchReports = async () => {
-    try {
-      // 获取当前用户和访问令牌
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      
-      if (sessionError || !session) {
-        console.error('User not authenticated')
-        setReports([])
-        setLoading(false)
-        return
-      }
+    setLoading(true)
+    setError(null)
 
-      // 使用访问令牌调用 API
-      const response = await axios.get('/api/get-reports', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
-      
-      if (response.data.success) {
-        setReports(response.data.data)
-      } else {
-        console.error('Failed to fetch reports:', response.data.error)
-      }
-    } catch (error) {
-      console.error('Error fetching reports:', error)
-      if (error.response?.status === 401) {
-        console.error('User not authenticated')
-        // Could redirect to login page here
-      }
+    try {
+      // 1. 获取当前用户
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("用户未登录")
+
+      // 2. 从 workflow_progress 表获取该用户的所有记录
+      const { data, error } = await supabase
+        .from('workflow_progress')
+        .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at') // 选择需要的字段
+        .eq('user_id', user.id) // 关键：按当前 user_id 筛选
+        .order('started_at', { ascending: false }) // 按开始时间降序排序
+
+      if (error) throw error
+
+      // 3. 更新组件状态
+      setReports(data || []) // 将获取到的报告存入 state
+
+    } catch (err) {
+      console.error("获取报告失败:", err)
+      setError(err.message)
     } finally {
       setLoading(false)
     }
@@ -55,8 +50,12 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
 
   // Sort reports by date (newest first)
   const sortedReports = reports.sort((a, b) => {
-    return new Date(b.created_at) - new Date(a.created_at)
+    return new Date(b.started_at) - new Date(a.started_at)
   })
+
+  // 计算统计数据
+  const totalReports = reports.length
+  const completedReports = reports.filter(report => report.status === 'completed').length
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -73,7 +72,7 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
 
   const handleViewReport = (report) => {
     if (report.session_id) {
-      router.push(`/report/${report.session_id}`)
+      router.push(`/test-finalreport/${report.session_id}?completed=true`)
     }
   }
 
@@ -89,6 +88,20 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
             ))}
           </div>
           <div className="h-96 bg-gray-200 rounded"></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="text-center py-12">
+          <FileText className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <p className="text-red-600 mb-2">
+            Error loading reports: {error}
+          </p>
+          <Button onClick={fetchReports} className="mt-4">Try Again</Button>
         </div>
       </div>
     )
@@ -112,7 +125,7 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
               <FileText className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{reports.length}</div>
+              <div className="text-2xl font-bold">{totalReports}</div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
           </Card>
@@ -123,23 +136,21 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{reports.filter(r => r.status === 'completed').length}</div>
+              <div className="text-2xl font-bold">{completedReports}</div>
               <p className="text-xs text-muted-foreground">Successful reports</p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Avg Sentiment</CardTitle>
+              <CardTitle className="text-sm font-medium">Processing</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {reports.filter(r => r.sentiment_score).length > 0 
-                  ? Math.round(reports.filter(r => r.sentiment_score).reduce((acc, r) => acc + r.sentiment_score!, 0) / reports.filter(r => r.sentiment_score).length * 100)
-                  : 0}%
+                {reports.filter(report => report.status === 'processing').length}
               </div>
-              <p className="text-xs text-muted-foreground">Positivity score</p>
+              <p className="text-xs text-muted-foreground">In progress</p>
             </CardContent>
           </Card>
         </div>
@@ -154,10 +165,10 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
             {/* Table Header */}
             <div className="rounded-lg border">
               <div className="grid grid-cols-5 gap-4 p-4 bg-muted/50 font-medium text-sm border-b">
-                <div>Report Title</div>
-                <div>Date</div>
+                <div>Session ID</div>
+                <div>Created Date</div>
                 <div>Status</div>
-                <div>Sentiment Score</div>
+                <div>Progress</div>
                 <div>Actions</div>
               </div>
 
@@ -165,15 +176,15 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
               <div className="divide-y">
                 {sortedReports.map((report) => (
                   <div
-                    key={report.id}
+                    key={report.session_id}
                     className="reports-row grid grid-cols-5 gap-4 p-4 rounded-lg"
                   >
                     <div className="flex flex-col">
-                      <span className="font-medium">{report.title}</span>
-                      <span className="text-sm text-muted-foreground">{report.communication_style || 'Processing...'}</span>
+                      <span className="font-medium">{report.session_id}</span>
+                      <span className="text-sm text-muted-foreground">Report Session</span>
                     </div>
                     <div className="flex items-center text-sm">
-                      {new Date(report.created_at).toLocaleDateString('en-US', {
+                      {new Date(report.started_at).toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric'
@@ -183,13 +194,9 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
                       {getStatusBadge(report.status)}
                     </div>
                     <div className="flex items-center">
-                      {report.sentiment_score ? (
-                        <span className={`font-medium ${
-                          report.sentiment_score >= 0.8 ? 'text-green-600' :
-                          report.sentiment_score >= 0.6 ? 'text-yellow-600' :
-                          'text-red-600'
-                        }`}>
-                          {Math.round(report.sentiment_score * 100)}%
+                      {report.total_steps && report.current_step ? (
+                        <span className="text-sm">
+                          {report.current_step}/{report.total_steps}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
@@ -198,13 +205,16 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
                     <div className="flex items-center gap-2">
                       {report.status === 'completed' && (
                         <>
-                          <Button variant="outline" size="sm">
-                            <Download className="h-4 w-4 mr-1" />
-                            Export
-                          </Button>
-                          <Button size="sm" onClick={() => handleViewReport(report)}>
-                            View
-                          </Button>
+                          <Link
+                            href={`/test-finalreport/${report.session_id}?completed=true`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            passHref
+                          >
+                            <Button size="sm">
+                              View
+                            </Button>
+                          </Link>
                         </>
                       )}
                       {report.status === 'processing' && (

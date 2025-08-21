@@ -2,13 +2,6 @@
   "componentMapping": {
     "description": "映射旧UI组件到新shadcn/ui组件的对照表",
     "replacements": {
-      "Button.js": {
-        "newComponent": "button.tsx",
-        "importPath": "@/components/ui/button",
-        "exportName": "Button",
-        "status": "ready_to_replace",
-        "notes": "shadcn/ui Button有更多variants和更好的TypeScript支持"
-      },
       "Input.js": {
         "newComponent": "input.tsx", 
         "importPath": "@/components/ui/input",

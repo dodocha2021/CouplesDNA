@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import axios from 'axios';
 import { cn } from '../lib/utils';
+import { supabase } from '../lib/supabase';
 import { Button } from './ui/button';
 import {
   CloudUpload,
@@ -77,8 +78,18 @@ export default function TableUpload({
         )
       );
 
+      // Get the current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers: Record<string, string> = {};
+      if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       // Check if documents were created for this file path via API
-      const response = await axios.get(`/api/check-document-processing?filePath=${encodeURIComponent(filePath)}`);
+      const response = await axios.get(`/api/check-document-processing?filePath=${encodeURIComponent(filePath)}`, {
+        headers
+      });
       
       if (response.data.success && response.data.processed) {
         // Processing successful
@@ -119,7 +130,17 @@ export default function TableUpload({
     }
 
     try {
-      const response = await axios.get(`/api/check-document-processing?filePath=${encodeURIComponent(filePath)}`);
+      // Get the current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers: Record<string, string> = {};
+      if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
+      const response = await axios.get(`/api/check-document-processing?filePath=${encodeURIComponent(filePath)}`, {
+        headers
+      });
       
       if (response.data.success && response.data.processed) {
         setUploadFiles(prev =>
@@ -152,6 +173,17 @@ export default function TableUpload({
         fileType: file.type
       });
 
+      // Get the current user session for authentication
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const headers: Record<string, string> = {
+        'Content-Type': 'multipart/form-data',
+      };
+      
+      if (session) {
+        headers['Authorization'] = `Bearer ${session.access_token}`;
+      }
+
       // Create FormData for file upload
       const formData = new FormData();
       formData.append('file', file);
@@ -169,15 +201,13 @@ export default function TableUpload({
       }, 200);
 
       const response = await axios.post('/api/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        headers,
         timeout: 60000, // 60 seconds timeout
       });
 
       clearInterval(progressInterval);
 
-      if (response.data.success) {
+      if (response.status === 200 && response.data.filePath) {
         console.log('Upload successful:', response.data);
         
         // Update file status to completed
