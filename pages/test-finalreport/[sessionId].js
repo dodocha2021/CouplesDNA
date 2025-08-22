@@ -1430,9 +1430,6 @@ export default function ReportPage() {
     }
   };
 
-  );
-  };
-
   // Fetch data from n8n_chat_histories table
   const fetchData = async (sessionId) => {
     try {

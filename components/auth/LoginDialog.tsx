@@ -88,7 +88,7 @@ export function LoginDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {triggerButton && <DialogTrigger asChild>{triggerButton}</DialogTrigger>}
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
         <div className="flex flex-col gap-6">
           <Card className="border-0 shadow-none">
             <CardHeader className="text-center pb-6">
