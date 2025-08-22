@@ -8,17 +8,17 @@
 ### ✅ 使用 shadcn/ui 组件
 **ALWAYS使用以下shadcn/ui组件：**
 ```typescript
-// 基础组件
+// Basic components
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 
-// 布局组件
+// Layout components
 import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent } from '@/components/ui/alert-dialog'
 
-// 表单组件
+// Form components
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/ui/select'
@@ -34,16 +34,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 ### 📁 目录结构
 ```
 components/
-├── ui/                    # shadcn/ui组件目录
-│   ├── button.tsx        # 新shadcn/ui组件
+├── ui/                    # shadcn/ui component directory
+│   ├── button.tsx        # New shadcn/ui component
 │   ├── input.tsx
 │   ├── avatar.tsx
 │   ├── dialog.tsx
 │   └── ...
-├── chat/                 # 定制聊天组件
-│   ├── SimpleChatInterface.jsx  # 保持不变
+├── chat/                 # Custom chat components
+│   ├── SimpleChatInterface.jsx  # Keep unchanged
 │   └── ...
-└── ...                   # 其他自定义组件
+└── ...                   # Other custom components
 ```
 
 ## 🚨 重要开发规则

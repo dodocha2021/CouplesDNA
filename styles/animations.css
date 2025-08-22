@@ -1,4 +1,4 @@
-/* 脉冲点动画 */
+/* Pulse dot animation */
 .pulse-dots {
   display: flex;
   gap: 4px;
@@ -30,7 +30,7 @@
   }
 }
 
-/* 旋转动画 */
+/* Rotate animation */
 .spinner {
   border: 2px solid transparent;
   border-top: 2px solid;
@@ -47,7 +47,7 @@
   }
 }
 
-/* 淡入动画 */
+/* Fade-in animation */
 .fade-in {
   animation: fadeIn 0.5s ease-in;
 }
@@ -63,7 +63,7 @@
   }
 }
 
-/* 脉冲动画 */
+/* Pulse animation */
 @keyframes pulse {
   0%, 60%, 100% { 
     opacity: 0.3; 

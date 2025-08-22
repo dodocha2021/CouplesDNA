@@ -11,42 +11,44 @@ import { supabase } from '../../lib/supabase'
 
 export const MyReportsContent = React.memo(function MyReportsContent() {
   const router = useRouter()
-  const [reports, setReports] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [reports, setReports] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetchReports()
-  }, [])
+    const fetchReports = async () => {
+      setIsLoading(true);
+      setError(null);
 
-  const fetchReports = async () => {
-    setLoading(true)
-    setError(null)
+      try {
+        // 1. Get current user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) throw userError;
+        if (!user) throw new Error('User not authenticated');
 
-    try {
-      // 1. 获取当前用户
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error("用户未登录")
+        // 2. Get all records for this user from workflow_progress table
+        const { data, error } = await supabase
+          .from('workflow_progress')
+          .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at') // Select required fields
+          .eq('user_id', user.id) // 关键：按当前 user_id 筛选
+          .order('started_at', { ascending: false }) // 按开始时间降序排序
 
-      // 2. 从 workflow_progress 表获取该用户的所有记录
-      const { data, error } = await supabase
-        .from('workflow_progress')
-        .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at') // 选择需要的字段
-        .eq('user_id', user.id) // 关键：按当前 user_id 筛选
-        .order('started_at', { ascending: false }) // 按开始时间降序排序
+        if (error) throw error
 
-      if (error) throw error
+        // 3. 更新组件状态
+        setReports(data || []) // 将获取到的报告存入 state
 
-      // 3. 更新组件状态
-      setReports(data || []) // 将获取到的报告存入 state
-
-    } catch (err) {
-      console.error("获取报告失败:", err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
+      } catch (err) {
+        console.error("获取报告失败:", err)
+        setError(err.message)
+      } finally {
+        setIsLoading(false)
+      }
     }
-  }
+    
+    fetchReports();
+  }, [])
 
   // Sort reports by date (newest first)
   const sortedReports = reports.sort((a, b) => {
@@ -76,7 +78,38 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
     }
   }
 
-  if (loading) {
+  const fetchReports = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // 1. Get current user
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) throw userError;
+      if (!user) throw new Error('User not authenticated');
+
+      // 2. Get all records for this user from workflow_progress table
+      const { data, error } = await supabase
+        .from('workflow_progress')
+        .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at') // Select required fields
+        .eq('user_id', user.id) // 关键：按当前 user_id 筛选
+        .order('started_at', { ascending: false }) // 按开始时间降序排序
+
+      if (error) throw error
+
+      // 3. 更新组件状态
+      setReports(data || []) // 将获取到的报告存入 state
+
+    } catch (err) {
+      console.error("获取报告失败:", err)
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  if (isLoading) {
     return (
       <div className="p-6 max-w-7xl mx-auto">
         <div className="animate-pulse">
@@ -246,3 +279,5 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
     </div>
   )
 })
+
+export default MyReportsContent

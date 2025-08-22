@@ -3,20 +3,20 @@ import { formidable } from 'formidable';
 import fs from 'fs';
 import { getUserFromRequest } from '../../lib/supabase';
 
-// API 配置，让 Next.js 知道这个接口会处理文件流
+// API configuration, let Next.js know this interface will handle file streams
 export const config = {
   api: {
     bodyParser: false,
   },
 };
 
-// 创建两个Supabase客户端：一个用于认证，一个用于存储上传
+// Create two Supabase clients: one for authentication, one for storage uploads
 const supabaseAuth = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-// 暂时使用anon key，因为service role key有问题
+// Temporarily use anon key, because service role key has issues
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. 验证用户身份
+    // 1. Authenticate user identity
     const user = await getUserFromRequest(req);
     
     if (!user) {
@@ -51,40 +51,50 @@ export default async function handler(req, res) {
       }
 
       try {
-        // 2. 文件验证
-        const allowedTypes = ['text/plain', 'text/csv', 'application/json'];
+        // 2. File validation
+        const allowedTypes = [
+          'text/plain', 
+          'text/csv', 
+          'application/json',
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'text/markdown',
+          'application/xml',
+          'text/xml',
+          'text/html'
+        ];
         const maxSize = 5 * 1024 * 1024; // 5MB
         
         if (!allowedTypes.includes(file.mimetype)) {
-          return res.status(400).json({ error: 'Invalid file type. Only .txt, .csv, and .json files are allowed.' });
+          return res.status(400).json({ error: 'Invalid file type. Only .txt, .csv, .json, .pdf, .docx, .md, .xml, and .html files are allowed.' });
         }
         
         if (file.size > maxSize) {
           return res.status(400).json({ error: 'File size too large. Maximum size is 5MB.' });
         }
 
-        // 3. 读取文件内容
+        // 3. Read file content
         const fileContent = fs.readFileSync(file.filepath);
 
-        // 4. 创建用户隔离的文件路径
+        // 4. Create user-isolated file path
         const timestamp = Date.now();
         const safeFileName = (file.originalFilename || file.name).replace(/[^a-zA-Z0-9.-]/g, '_');
         const uniqueFileName = `${timestamp}_${safeFileName}`;
         const filePath = `users/${user.id}/${uniqueFileName}`;
 
-        // 5. 上传到Supabase Storage
+        // 5. Upload to Supabase Storage
         const { data, error: uploadError } = await supabaseAdmin.storage
           .from('chat-logs')
           .upload(filePath, fileContent, {
             contentType: file.mimetype,
-            upsert: false, // 不覆盖，确保文件名唯一
+            upsert: false, // Do not overwrite, ensure unique file name
           });
 
         if (uploadError) {
           throw uploadError;
         }
 
-        // 6. 记录上传信息到数据库（为文件提供元数据索引）
+        // 6. Record upload information to the database (provide metadata index for the file)
         const { error: dbError } = await supabaseAdmin
           .from('chat-logs')
           .insert({
@@ -98,10 +108,10 @@ export default async function handler(req, res) {
 
         if (dbError) {
           console.warn('Failed to record file metadata:', dbError);
-          // 不中断流程，只记录警告
+          // Do not interrupt the process, only record warnings
         }
 
-        // 7. 返回成功响应
+        // 7. Return success response
         return res.status(200).json({
           fileName: file.originalFilename || file.name,
           message: 'File uploaded successfully with user isolation',

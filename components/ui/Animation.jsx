@@ -1,6 +1,6 @@
 import React from 'react';
 
-// 等待动画组件
+// Waiting animation component
 export function LoadingAnimation({ text = "AI is thinking..." }) {
   return (
     <div style={{
@@ -26,7 +26,7 @@ export function LoadingAnimation({ text = "AI is thinking..." }) {
   );
 }
 
-// 脉冲动画组件
+// Pulse animation component
 export function PulseAnimation({ children, duration = 1.4 }) {
   return (
     <div style={{ animation: `pulse ${duration}s infinite` }}>
@@ -35,7 +35,7 @@ export function PulseAnimation({ children, duration = 1.4 }) {
   );
 }
 
-// 旋转动画组件
+// Spin animation component
 export function SpinnerAnimation({ size = 20, color = '#666' }) {
   return (
     <div 
@@ -49,7 +49,7 @@ export function SpinnerAnimation({ size = 20, color = '#666' }) {
   );
 }
 
-// 淡入动画组件
+// Fade-in animation component
 export function FadeInAnimation({ children, delay = 0 }) {
   return (
     <div 
@@ -61,7 +61,7 @@ export function FadeInAnimation({ children, delay = 0 }) {
   );
 }
 
-// 打字机效果组件
+// Typewriter effect component
 export function TypewriterAnimation({ text, speed = 50 }) {
   const [displayText, setDisplayText] = React.useState('');
   const [currentIndex, setCurrentIndex] = React.useState(0);
@@ -77,4 +77,4 @@ export function TypewriterAnimation({ text, speed = 50 }) {
   }, [currentIndex, text, speed]);
 
   return <span>{displayText}</span>;
-} 
+}  

@@ -7,6 +7,30 @@
 
 ### ✅ 使用 shadcn/ui 组件
 **ALWAYS使用以下shadcn/ui组件：**
+
+// Basic components
+- Button
+- Input
+- Avatar
+- Dialog
+- Checkbox
+- RadioGroup
+- Select
+- Textarea
+
+// Layout components
+- Card
+- Accordion
+- Tabs
+
+// Form components
+- Form
+- Label
+- RadioGroup
+- Select
+- Textarea
+
+### 🔒 保持不变的定制组件
 ```typescript
 // 基础组件
 import { Button } from '@/components/ui/button'
@@ -34,16 +58,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@/components/u
 ### 📁 目录结构
 ```
 components/
-├── ui/                    # shadcn/ui组件目录
-│   ├── button.tsx        # 新shadcn/ui组件
+├── ui/                    # shadcn/ui component directory
+│   ├── button.tsx        # New shadcn/ui component
 │   ├── input.tsx
 │   ├── avatar.tsx
 │   ├── dialog.tsx
 │   └── ...
-├── chat/                 # 定制聊天组件
-│   ├── SimpleChatInterface.jsx  # 保持不变
+├── chat/                 # Custom chat components
+│   ├── SimpleChatInterface.jsx  # Keep unchanged
 │   └── ...
-└── ...                   # 其他自定义组件
+└── ...                   # Other custom components
 ```
 
 ## 🚨 重要开发规则

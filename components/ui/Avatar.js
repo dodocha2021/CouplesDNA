@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 
-// Avatar Component - 通用头像组件
+// Avatar Component - General purpose avatar component
 const Avatar = ({ className, src, fallback, ...props }) => (
   <div className={cn("relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full", className)} {...props}>
     {src ? (

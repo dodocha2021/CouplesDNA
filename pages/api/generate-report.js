@@ -12,13 +12,13 @@ export default async function handler(req, res) {
 
     console.log('🔄 API Route: Sending request to n8n webhook...');
     
-    // 立即返回成功，让前端开始轮询
+    // Return success immediately, let the frontend start polling
     res.status(200).json({ 
       success: true, 
       message: 'Request sent to n8n, starting to check for results...' 
     });
     
-    // 在后台异步发送请求到 n8n（不等待响应）
+    // Asynchronously send request to n8n in the background (do not wait for response)
     axios.post(N8N_WEBHOOK, [
       {
         sessionId: sessionId,
@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       }
     ], { 
       headers: { 'Content-Type': 'application/json' },
-      timeout: 120000 // 2分钟超时
+      timeout: 120000 // 2-minute timeout
     }).then(response => {
       console.log('✅ API Route: n8n response received:', response.data);
     }).catch(error => {

@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// 统一使用 CouplesDNA-AI webhook
+// Unified CouplesDNA-AI webhook
 const WEBHOOK_URL = 'https://couplesdna.app.n8n.cloud/webhook/a46db80c-5a86-4d9a-b6ba-547fa403a9f7';
 
 export default async function handler(req, res) {
@@ -24,18 +24,18 @@ export default async function handler(req, res) {
         }
       ], { 
         headers: { 'Content-Type': 'application/json' },
-        timeout: 300000 // 5分钟超时
+        timeout: 300000 // 5-minute timeout
       });
       
       console.log('✅ CouplesDNA-AI: Direct response received:', response.data);
       
-      // 返回webhook的响应数据
+      // Return webhook response data
       res.status(200).json({ 
         success: true, 
         message: 'CouplesDNA-AI response received',
         sessionId: sessionId,
         webhookUrl: WEBHOOK_URL,
-        aiResponse: response.data // 包含AI的回复
+        aiResponse: response.data // Contains AI response
       });
     } catch (error) {
       console.error('❌ CouplesDNA-AI: Error calling webhook:', error);

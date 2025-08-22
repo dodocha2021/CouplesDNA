@@ -34,7 +34,7 @@ export default function Navigation({
   customIcon = true,
 }) {
   const router = useRouter();
-  // 控制两个弹窗的开关
+  // Controls the opening and closing of the two dialogs
   const [openSignIn, setOpenSignIn] = useState(false);
   const [openSignUp, setOpenSignUp] = useState(false);
   const [user, setUser] = useState(null);
@@ -96,7 +96,7 @@ export default function Navigation({
             </div>
           ) : (
             <>
-              {/* Login：主按钮，打开登录弹窗 */}
+              {/* Login: Primary button, opens the login dialog */}
               <Button
                 variant="primary"
                 size="md"
@@ -106,7 +106,7 @@ export default function Navigation({
                 {loginButtonText}
               </Button>
 
-              {/* Sign up：次按钮，打开注册弹窗 */}
+              {/* Sign up: Secondary button, opens the registration dialog */}
               <Button
                 variant="secondary"
                 size="md"
@@ -120,7 +120,7 @@ export default function Navigation({
         </div>
       </div>
 
-      {/* 新的shadcn/ui登录弹窗 */}
+      {/* New shadcn/ui login dialog */}
       <LoginDialog
         open={openSignIn}
         setOpen={setOpenSignIn}
@@ -130,7 +130,7 @@ export default function Navigation({
         }}
       />
 
-      {/* 新的shadcn/ui注册弹窗 */}
+      {/* New shadcn/ui registration dialog */}
       <SignupDialog
         open={openSignUp}
         setOpen={setOpenSignUp}

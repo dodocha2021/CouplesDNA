@@ -7,7 +7,7 @@ export const useReportGenerator = ({ sessionId, setSessionId }) => {
   const [reportProgress, setReportProgress] = useState('');
   const [reportCheckInterval, setReportCheckInterval] = useState(null);
 
-  // 清理轮询定时器
+  // Clean up the polling timer
   useEffect(() => {
     return () => {
       if (reportCheckInterval) {

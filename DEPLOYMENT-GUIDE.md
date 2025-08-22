@@ -58,7 +58,7 @@ COHERE_API_KEY = caJwxUY3FyQ9eHuYpkJatqXtu4OWNwTCx1Y31fV9
 ### 4.1 测试触发器
 在 SQL 编辑器中运行：
 ```sql
-SELECT test_vector_processing_trigger();
+;
 ```
 
 ### 4.2 测试文件上传

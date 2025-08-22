@@ -10,7 +10,7 @@ import {
   BarChart, Bar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, RadarChart, Radar
 } from 'recharts'
 
-// 图表组件
+// Chart component
 const ChartCard = ({ title, children, className }) => (
   <div className={cn("bg-white p-6 rounded-lg shadow-sm border border-gray-200", className)}>
     <h3 className="text-lg font-semibold text-gray-900 mb-4 font-instrument-sans text-center">{title}</h3>
@@ -20,13 +20,13 @@ const ChartCard = ({ title, children, className }) => (
   </div>
 )
 
-// 自定义图表样式
+// Custom chart styles
 const chartStyle = {
   fontSize: '12px',
   fontFamily: 'inherit'
 }
 
-// 高级 HoverCard 组件
+// Advanced HoverCard Component
 const AdvancedTooltip = ({ children, content, className }) => {
   const [isOpen, setOpen] = React.useState(false)
   const [isMounted, setIsMounted] = React.useState(false)
@@ -152,7 +152,7 @@ const Hero = React.forwardRef(({ className, title, subtitle, eyebrow, ctaText, c
 })
 Hero.displayName = "Hero"
 
-// 添加动画样式
+// Add animation styles
 const animationStyles = `
   @keyframes appear {
     from {
@@ -230,7 +230,7 @@ export default function DynamicReportPage() {
       try {
         setLoading(true)
         
-        // 从API获取报告数据
+        // Fetch report data from API
         const response = await axios.get(`/api/get-chat-history?sessionId=${sessionId}`)
         
         if (!response.data.success || !response.data.data || response.data.data.length === 0) {
@@ -239,7 +239,7 @@ export default function DynamicReportPage() {
 
         const message = response.data.data[0].message
         if (message.type === 'ai' && message.content) {
-          // 检查内容是否是 JSON 格式
+          // Check if content is in JSON format
           if (typeof message.content === 'string' && message.content.trim().startsWith('{')) {
             try {
               const content = JSON.parse(message.content)
@@ -338,7 +338,7 @@ export default function DynamicReportPage() {
           subtitle="Comprehensive insights based on conversation patterns and psychological research"
         />
         
-        {/* 总体评分 */}
+        {/* Overall Score */}
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
@@ -375,7 +375,7 @@ export default function DynamicReportPage() {
           </div>
         </section>
 
-        {/* 关键优势 */}
+        {/* Key Strengths */}
         <section className="py-20 bg-[#f3f1ea]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
@@ -399,7 +399,7 @@ export default function DynamicReportPage() {
           </div>
         </section>
 
-        {/* 关键问题 */}
+        {/* Key Concerns */}
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
@@ -423,7 +423,7 @@ export default function DynamicReportPage() {
           </div>
         </section>
 
-        {/* 可视化评估 */}
+        {/* Visual Assessment */}
         {reportData.charts && (
           <section className="py-20 bg-[#f3f1ea]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -434,7 +434,7 @@ export default function DynamicReportPage() {
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                {/* 饼图 - 关系健康分析 */}
+                {/* Pie Chart - Relationship Health Analysis */}
                 {reportData.charts.scoreBreakdown && (
                   <ChartCard title={reportData.charts.scoreBreakdown.title}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -461,7 +461,7 @@ export default function DynamicReportPage() {
                   </ChartCard>
                 )}
 
-                {/* 折线图 - 关系质量随时间变化 */}
+                {/* Line Chart - Relationship Quality Over Time */}
                 {reportData.charts.progressOverTime && (
                   <ChartCard title={reportData.charts.progressOverTime.title}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -492,7 +492,7 @@ export default function DynamicReportPage() {
                   </ChartCard>
                 )}
 
-                {/* 雷达图 - 关系维度评估 */}
+                {/* Radar Chart - Relationship Dimension Assessment */}
                 {reportData.charts.relationshipDimensions && (
                   <ChartCard title={reportData.charts.relationshipDimensions.title}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -517,7 +517,7 @@ export default function DynamicReportPage() {
                   </ChartCard>
                 )}
 
-                {/* 柱状图 - 沟通模式频率分析 */}
+                {/* Bar Chart - Communication Pattern Frequency Analysis */}
                 {reportData.charts.communicationPatterns && (
                   <ChartCard title={reportData.charts.communicationPatterns.title}>
                     <ResponsiveContainer width="100%" height="100%">
@@ -541,7 +541,7 @@ export default function DynamicReportPage() {
                 )}
               </div>
 
-              {/* 图表说明 */}
+              {/* Chart Description */}
               {reportData.charts.communicationPatterns?.description && (
                 <div className="mt-8 bg-white p-6 rounded-lg">
                   <p className="text-sm text-gray-600 font-instrument-sans text-center">
@@ -553,7 +553,7 @@ export default function DynamicReportPage() {
           </section>
         )}
 
-        {/* 详细分析 */}
+        {/* Detailed Analysis */}
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
@@ -609,7 +609,7 @@ export default function DynamicReportPage() {
           </div>
         </section>
 
-        {/* 建议 */}
+        {/* Recommendations */}
         <section className="py-20 bg-[#f3f1ea]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
@@ -633,7 +633,7 @@ export default function DynamicReportPage() {
           </div>
         </section>
 
-        {/* 下一步 */}
+        {/* Next Steps */}
         <section className="py-20 bg-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-16">
@@ -650,7 +650,7 @@ export default function DynamicReportPage() {
           </div>
         </section>
 
-        {/* 返回按钮 */}
+        {/* Back Button */}
         <section className="py-16 bg-[#f3f1ea]">
           <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
             <button 

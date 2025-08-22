@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * CouplesDNA项目UI组件检查脚本
- * 检查项目中的UI组件使用情况，确保遵循shadcn/ui规范
+ * CouplesDNA Project UI Component Check Script
+ * Checks the usage of UI components in the project to ensure compliance with shadcn/ui specifications
  */
 
 const fs = require('fs');
 const path = require('path');
 
-// 颜色输出函数
+// Color output function
 const colors = {
   green: (text) => `\x1b[32m${text}\x1b[0m`,
   red: (text) => `\x1b[31m${text}\x1b[0m`,
@@ -18,22 +18,22 @@ const colors = {
   bold: (text) => `\x1b[1m${text}\x1b[0m`,
 };
 
-// 配置
+// Configuration
 const CONFIG = {
-  // 需要检查的文件扩展名
+  // File extensions to check
   extensions: ['.js', '.jsx', '.ts', '.tsx'],
   
-  // 需要检查的目录
+  // Directories to check
   directories: ['pages', 'components', 'hooks'],
   
-  // shadcn/ui组件列表
+  // shadcn/ui component list
   shadcnComponents: [
     'button', 'input', 'avatar', 'skeleton', 'dialog', 'alert-dialog',
     'label', 'textarea', 'select', 'checkbox', 'radio-group', 'switch',
     'card', 'badge', 'separator', 'tooltip', 'popover', 'dropdown-menu'
   ],
   
-  // 应该保持不变的定制组件
+  // Custom components that should remain unchanged
   preservedComponents: [
     'SimpleChatInterface',
     'MarkdownMessage', 
@@ -41,7 +41,7 @@ const CONFIG = {
     'useAutoScroll'
   ],
   
-  // 已废弃的旧组件
+  // Deprecated old components
   deprecatedComponents: [
     'Input.js', 'Avatar.js'
   ]
@@ -59,7 +59,7 @@ class ComponentChecker {
     };
   }
 
-  // 递归获取所有文件
+  // Recursively get all files
   getAllFiles(dir, files = []) {
     if (!fs.existsSync(dir)) return files;
     
@@ -78,25 +78,25 @@ class ComponentChecker {
     return files;
   }
 
-  // 检查文件内容
+  // Check file content
   checkFile(filePath) {
     const content = fs.readFileSync(filePath, 'utf-8');
     const relativePath = path.relative(process.cwd(), filePath);
     
     this.stats.checkedFiles++;
     
-    // 检查shadcn/ui组件使用
+    // Check shadcn/ui component usage
     const shadcnImports = this.findShadcnImports(content);
     if (shadcnImports.length > 0) {
       this.stats.shadcnUsage++;
       this.issues.push({
         type: 'success',
         file: relativePath,
-        message: `✅ 使用shadcn/ui组件: ${shadcnImports.join(', ')}`
+        message: `✅ Using shadcn/ui components: ${shadcnImports.join(', ')}`
       });
     }
 
-    // 检查废弃组件使用
+    // Check for deprecated component usage
     const deprecatedUsage = this.findDeprecatedUsage(content, relativePath);
     if (deprecatedUsage.length > 0) {
       this.stats.deprecatedUsage++;
@@ -104,22 +104,22 @@ class ComponentChecker {
         this.issues.push({
           type: 'error',
           file: relativePath,
-          message: `❌ 使用了废弃组件: ${usage}`
+          message: `❌ Used deprecated component: ${usage}`
         });
       });
     }
 
-    // 检查导入路径
+    // Check import paths
     const pathIssues = this.checkImportPaths(content, relativePath);
     pathIssues.forEach(issue => {
       this.issues.push({
         type: 'warning',
         file: relativePath,
-        message: `⚠️ 导入路径问题: ${issue}`
+        message: `⚠️ Import path issue: ${issue}`
       });
     });
 
-    // 检查好的实践
+    // Check for good practices
     const goodPractices = this.checkGoodPractices(content);
     if (goodPractices.length > 0) {
       this.stats.goodPractices++;
@@ -127,13 +127,13 @@ class ComponentChecker {
         this.issues.push({
           type: 'info',
           file: relativePath,
-          message: `📋 良好实践: ${practice}`
+          message: `📋 Good practice: ${practice}`
         });
       });
     }
   }
 
-  // 查找shadcn/ui组件导入
+  // Find shadcn/ui component imports
   findShadcnImports(content) {
     const imports = [];
     const importRegex = /import\s+{\([^}]+\)}\s+from\s+['"]@\/components\/ui\/([^'\"]+)['"]/g;
@@ -148,59 +148,59 @@ class ComponentChecker {
     return imports;
   }
 
-  // 查找废弃组件使用
+  // Find deprecated component usage
   findDeprecatedUsage(content, filePath) {
     const usage = [];
     
-    // 检查旧的导入路径
+    // Check for old import paths
     const oldImportPatterns = [
-      /from\s+['"][^'\"]*components\/ui\/Button['"]/g,
-      /from\s+['"][^'\"]*components\/ui\/Input['"]/g,
-      /from\s+['"][^'\"]*components\/ui\/Avatar['"]/g,
+      /from\s+['"][^'"]*components\/ui\/Button['"]/g,
+      /from\s+['"][^'"]*components\/ui\/Input['"]/g,
+      /from\s+['"][^'"]*components\/ui\/Avatar['"]/g,
     ];
 
     oldImportPatterns.forEach(pattern => {
       if (pattern.test(content)) {
-        usage.push('旧的UI组件导入路径');
+        usage.push('Old UI component import path');
       }
     });
 
     return usage;
   }
 
-  // 检查导入路径
+  // Check import paths
   checkImportPaths(content, filePath) {
     const issues = [];
     
-    // 检查是否使用了相对路径而不是别名
-    const relativeUiImports = content.match(/from\s+['"][^'\"]*\.\.\/[^'\"]*\/ui\/[^'\"]+['"]/g);
+    // Check if relative paths are used instead of aliases
+    const relativeUiImports = content.match(/from\s+['"][^'"]*\.\.\/[^'"]*\/ui\/[^'"]+['"]/g);
     if (relativeUiImports) {
-      issues.push('应使用@/components/ui/*别名导入而不是相对路径');
+      issues.push('Should use @/components/ui/* alias for imports instead of relative paths');
     }
 
     return issues;
   }
 
-  // 检查良好实践
+  // Check for good practices
   checkGoodPractices(content) {
     const practices = [];
     
-    // 检查cn()工具函数使用
+    // Check for cn() utility function usage
     if (content.includes('cn(')) {
-      practices.push('使用cn()工具函数合并CSS类名');
+      practices.push('Using cn() utility function to merge CSS class names');
     }
 
-    // 检查TypeScript使用
+    // Check for TypeScript usage
     if (content.includes('interface ') || content.includes('type ')) {
-      practices.push('使用TypeScript类型定义');
+      practices.push('Using TypeScript type definitions');
     }
 
     return practices;
   }
 
-  // 运行检查
+  // Run the check
   run() {
-    console.log(colors.bold('\n🔍 CouplesDNA项目UI组件检查\n'));
+    console.log(colors.bold('\n🔍 CouplesDNA Project UI Component Check\n'));
     
     let allFiles = [];
     CONFIG.directories.forEach(dir => {
@@ -210,73 +210,73 @@ class ComponentChecker {
 
     this.stats.totalFiles = allFiles.length;
     
-    console.log(colors.cyan(`检查 ${this.stats.totalFiles} 个文件...\n`));
+    console.log(colors.cyan(`Checking ${this.stats.totalFiles} files...\n`));
 
     allFiles.forEach(file => this.checkFile(file));
 
     this.printResults();
   }
 
-  // 打印结果
+  // Print the results
   printResults() {
-    console.log(colors.bold('\n📊 检查结果统计：'));
-    console.log(`总文件数: ${this.stats.totalFiles}`);
-    console.log(`检查文件数: ${this.stats.checkedFiles}`);
-    console.log(colors.green(`shadcn/ui使用: ${this.stats.shadcnUsage} 个文件`));
-    console.log(colors.red(`废弃组件使用: ${this.stats.deprecatedUsage} 个文件`));
-    console.log(colors.blue(`良好实践: ${this.stats.goodPractices} 个文件`));
+    console.log(colors.bold('\n📊 Check Result Statistics:'));
+    console.log(`Total files: ${this.stats.totalFiles}`);
+    console.log(`Checked files: ${this.stats.checkedFiles}`);
+    console.log(colors.green(`shadcn/ui usage: ${this.stats.shadcnUsage} files`));
+    console.log(colors.red(`Deprecated component usage: ${this.stats.deprecatedUsage} files`));
+    console.log(colors.blue(`Good practices: ${this.stats.goodPractices} files`));
 
     if (this.issues.length > 0) {
-      console.log(colors.bold('\n📋 详细问题清单：'));
+      console.log(colors.bold('\n📋 Detailed Issue List:'));
       
-      // 按类型分组显示
+      // Group issues by type
       const groupedIssues = this.issues.reduce((groups, issue) => {
         groups[issue.type] = groups[issue.type] || [];
         groups[issue.type].push(issue);
         return groups;
       }, {});
 
-      // 显示错误
+      // Show errors
       if (groupedIssues.error) {
-        console.log(colors.bold('\n❌ 错误 (需要立即修复):'));
+        console.log(colors.bold('\n❌ Errors (needs immediate fixing):'));
         groupedIssues.error.forEach(issue => {
           console.log(colors.red(`  ${issue.file}: ${issue.message}`));
         });
       }
 
-      // 显示警告
+      // Show warnings
       if (groupedIssues.warning) {
-        console.log(colors.bold('\n⚠️  警告 (建议修复):'));
+        console.log(colors.bold('\n⚠️  Warnings (recommended to fix):'));
         groupedIssues.warning.forEach(issue => {
           console.log(colors.yellow(`  ${issue.file}: ${issue.message}`));
         });
       }
 
-      // 显示成功
+      // Show success
       if (groupedIssues.success) {
-        console.log(colors.bold('\n✅ 正确使用:'));
-        groupedIssues.success.slice(0, 5).forEach(issue => { // 只显示前5个
+        console.log(colors.bold('\n✅ Correct Usage:'));
+        groupedIssues.success.slice(0, 5).forEach(issue => { // Only show the first 5
           console.log(colors.green(`  ${issue.file}: ${issue.message}`));
         });
         if (groupedIssues.success.length > 5) {
-          console.log(colors.green(`  ... 还有 ${groupedIssues.success.length - 5} 个文件正确使用了shadcn/ui`));
+          console.log(colors.green(`  ... and ${groupedIssues.success.length - 5} more files correctly use shadcn/ui`));
         }
       }
     }
 
-    console.log(colors.bold('\n🎯 建议：'));
+    console.log(colors.bold('\n🎯 Recommendations:'));
     if (this.stats.deprecatedUsage > 0) {
-      console.log(colors.red('• 请尽快替换废弃的UI组件'));
+      console.log(colors.red('• Please replace deprecated UI components as soon as possible'));
     }
-    console.log(colors.cyan('• 新功能开发请使用 shadcn/ui 组件'));
-    console.log(colors.cyan('• 使用 @/components/ui/* 导入路径'));
-    console.log(colors.cyan('• 保持 SimpleChatInterface 等定制组件不变'));
+    console.log(colors.cyan('• Please use shadcn/ui components for new feature development'));
+    console.log(colors.cyan('• Use @/components/ui/* for import paths'));
+    console.log(colors.cyan('• Keep custom components like SimpleChatInterface unchanged'));
     
-    console.log(colors.bold('\n✨ 检查完成!\n'));
+    console.log(colors.bold('\n✨ Check complete!\n'));
   }
 }
 
-// 运行检查
+// Run the check
 if (require.main === module) {
   const checker = new ComponentChecker();
   checker.run();

@@ -6,8 +6,40 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CohereClient } from 'npm:cohere-ai'
+import PDF from 'npm:pdf-parse'
 
 console.log("Process Chat Log to Vector Function Loaded!")
+
+// Function to extract text from PDF with timeout
+async function extractPdfText(fileBlob: Blob): Promise<string> {
+  try {
+    const arrayBuffer = await fileBlob.arrayBuffer()
+    const buffer = new Uint8Array(arrayBuffer)
+    
+    // Create a timeout promise
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('PDF processing timeout after 30 seconds')), 30000)
+    })
+    
+    // Race between PDF parsing and timeout
+    const data = await Promise.race([
+      PDF(buffer),
+      timeoutPromise
+    ])
+    
+    if (!data.text || data.text.trim().length === 0) {
+      throw new Error('No text content found in PDF')
+    }
+    
+    return data.text.trim()
+  } catch (error) {
+    console.error('PDF text extraction error:', error)
+    if (error.message?.includes('timeout')) {
+      throw new Error('PDF file too complex to process (timeout)')
+    }
+    throw new Error(`Failed to extract text from PDF: ${error.message}`)
+  }
+}
 
 // Function to split text into chunks - prioritizes chunk size over line boundaries
 function splitTextIntoChunks(text: string, chunkSize: number): string[] {
@@ -109,35 +141,85 @@ Deno.serve(async (req) => {
       // Return a successful response but don't process the file
       return new Response(
         JSON.stringify({ 
+          status: "error",
+          error_type: "download_failed",
           message: "File download failed - file may not exist or be accessible",
-          error: downloadError.message,
-          file_path: filePath 
+          data: {
+            error_detail: downloadError.message,
+            file_path: filePath,
+            user_id: userId
+          }
         }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       )
     }
 
-    // Check file size (optimized chunking allows for larger files)
-    const maxFileSize = 3 * 1024 * 1024 // 3MB limit with optimized chunking
+    // Check file size (different limits for different file types)
+    const fileName = filePath.toLowerCase();
+    const maxFileSize = fileName.endsWith('.pdf') ? 2 * 1024 * 1024 : 5 * 1024 * 1024 // 2MB for PDF, 5MB for text files
     if (fileBlob.size > maxFileSize) {
       console.log(`File too large: ${fileBlob.size} bytes, skipping`)
+      const maxSizeLabel = fileName.endsWith('.pdf') ? "2MB" : "5MB"
+      const tooLargeResponse = { 
+        status: "error",
+        error_type: "file_too_large",
+        message: "File too large for processing",
+        data: {
+          max_size: maxSizeLabel,
+          current_size: `${Math.round(fileBlob.size / 1024)}KB`,
+          file_path: filePath,
+          user_id: userId
+        }
+      };
+      console.log('EDGE_FUNCTION_RESPONSE (file_too_large):', JSON.stringify(tooLargeResponse, null, 2));
       return new Response(
-        JSON.stringify({ 
-          message: "File too large for processing", 
-          error: "FILE_TOO_LARGE",
-          max_size: "3MB",
-          current_size: `${Math.round(fileBlob.size / 1024)}KB`
-        }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
+        JSON.stringify(tooLargeResponse),
+        { status: 200, headers: { "Content-Type": "application/json" } }
       )
     }
 
-    const fileContent = await fileBlob.text()
+    // Handle different file types
+    let fileContent = '';
+    
+    try {
+      if (fileName.endsWith('.pdf')) {
+        console.log('Extracting text from PDF file...')
+        fileContent = await extractPdfText(fileBlob)
+        console.log(`Extracted ${fileContent.length} characters from PDF`)
+      } else {
+        // For text-based files, use standard text extraction
+        fileContent = await fileBlob.text()
+      }
+    } catch (extractionError) {
+      console.error('File content extraction error:', extractionError)
+      return new Response(
+        JSON.stringify({ 
+          status: "error",
+          error_type: "extraction_failed",
+          message: `Failed to extract content from file: ${extractionError.message}`,
+          data: {
+            file_path: filePath,
+            user_id: userId,
+            file_type: fileName.endsWith('.pdf') ? 'PDF' : 'Text',
+            error_details: extractionError.message
+          }
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      )
+    }
     
     if (!fileContent || fileContent.trim().length === 0) {
       console.log('File is empty, skipping')
       return new Response(
-        JSON.stringify({ message: "File is empty, skipping" }),
+        JSON.stringify({ 
+          status: "error",
+          error_type: "file_empty",
+          message: "File is empty, skipping",
+          data: {
+            file_path: filePath,
+            user_id: userId
+          }
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       )
     }
@@ -174,11 +256,19 @@ ${contentSnippet}
 
     if (classification !== 'CHAT') {
       console.log(`File ${filePath} is not a chat log. Classification: ${classification}`)
+      const rejectedResponse = { 
+        status: "rejected",
+        reason: "not_chat_log",
+        message: "File is not a chat log, skipping",
+        data: {
+          classification: classification,
+          file_path: filePath,
+          user_id: userId
+        }
+      };
+      console.log('EDGE_FUNCTION_RESPONSE (rejected):', JSON.stringify(rejectedResponse, null, 2));
       return new Response(
-        JSON.stringify({ 
-          message: "File is not a chat log, skipping",
-          classification: classification 
-        }),
+        JSON.stringify(rejectedResponse),
         { status: 200, headers: { "Content-Type": "application/json" } }
       )
     }
@@ -202,7 +292,7 @@ ${contentSnippet}
       
       // Add delay between batches to avoid rate limiting
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 1000)) // 1 second delay
+        await new Promise(resolve => setTimeout(resolve, 3000)) // 3 second delay
       }
       
       const embeddingResponse = await cohereClient.embed({
@@ -252,13 +342,16 @@ ${contentSnippet}
 
     return new Response(
       JSON.stringify({ 
+        status: "success",
         message: "Successfully processed and vectorized file",
-        file_path: filePath,
-        user_id: userId,
-        file_size: fileBlob.size,
-        chunks_created: chunks.length,
-        embedding_dimensions: allEmbeddings[0].length,
-        processing_batches: Math.ceil(chunks.length / BATCH_SIZE)
+        data: {
+          file_path: filePath,
+          user_id: userId,
+          file_size: fileBlob.size,
+          chunks_created: chunks.length,
+          embedding_dimensions: allEmbeddings[0].length,
+          processing_batches: Math.ceil(chunks.length / BATCH_SIZE)
+        }
       }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     )
@@ -267,10 +360,14 @@ ${contentSnippet}
     console.error('Function error:', error)
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Unknown error occurred',
-        details: error.stack
+        status: "error",
+        error_type: "processing_error",
+        message: error.message || 'Unknown error occurred',
+        data: {
+          error_details: error.stack
+        }
       }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 200, headers: { "Content-Type": "application/json" } }
     )
   }
 })

@@ -5,7 +5,7 @@ import { SimpleChatInterface } from './chat/SimpleChatInterface';
 import { useChat } from '../hooks/useChat';
 
 
-// Hero Component - 使用简单黑白聊天界面
+// Hero Component - Uses a simple black and white chat interface
 export default function Hero({ 
   headlineText = "Decode Your Relationship Patterns",
   subheadlineText = "Transform your everyday conversations into powerful insights for deeper connection and lasting love.",
@@ -15,7 +15,7 @@ export default function Hero({
   onFileUpload = () => {},
   uploading = false
 }) {
-  // 使用useChat hook获取聊天状态
+  // Use the useChat hook to get the chat status
   const {
     messages,
     isLoading,

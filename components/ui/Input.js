@@ -1,7 +1,7 @@
 import React from 'react';
 import { cn } from '../../lib/utils';
 
-// Input Component - 通用输入框组件
+// Input Component - General purpose input component
 const Input = React.forwardRef(({ className, type, ...props }, ref) => {
   return (
     <input

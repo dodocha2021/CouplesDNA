@@ -2,7 +2,7 @@ import React from 'react';
 import { MarkdownMessage } from './MarkdownMessage';
 import { LoadingAnimation } from './Animation';
 
-// 消息气泡组件
+// Message bubble component
 export function MessageBubble({ message, isLast, loading, onCancelPendingMessage, showCancel }) {
   return (
     <React.Fragment>
@@ -25,7 +25,7 @@ export function MessageBubble({ message, isLast, loading, onCancelPendingMessage
           message.text
         )}
       </div>
-      {/* 只在最后一条消息下方显示动画和Cancel按钮 */}
+      {/* Only show animation and Cancel button below the last message */}
       {isLast && loading && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
           <LoadingAnimation />
@@ -53,7 +53,7 @@ export function MessageBubble({ message, isLast, loading, onCancelPendingMessage
   );
 }
 
-// 消息列表组件
+// Message list component
 export function MessageList({ messages, loading, onCancelPendingMessage, pendingMessage }) {
   return (
     <div className="message-list" style={{ 

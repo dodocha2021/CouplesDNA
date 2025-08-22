@@ -81,9 +81,9 @@ export default function NoUserPrompt() {
             const rawText = response.data.original_data;
             if (typeof rawText === 'string') {
               // Try to extract text between quotes or find the main content
-              const match = rawText.match(/"output":"([^"]+)"/);
+              const match = rawText.match(/'output':'([^']+)'/);
               if (match && match[1]) {
-                improvedText = match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+                improvedText = match[1].replace(/\\n/g, '\n').replace(/\'/g, "'");
               }
             }
           }
@@ -125,21 +125,21 @@ export default function NoUserPrompt() {
     }
   };
 
-  // --- 获取用户和 Profile 数据 ---
+  // --- Get user and profile data ---
   useEffect(() => {
     const fetchUserAndProfile = async () => {
       try {
         setIsLoading(true);
         setError(null);
 
-        // 获取当前登录用户
+        // Get the currently logged in user
         const { data: { user }, error: userError } = await supabase.auth.getUser();
         if (userError) throw new Error(`Failed to get user info: ${userError.message}`);
         if (!user) throw new Error('User not logged in. Please login first.');
 
         setUser(user);
 
-        // 获取用户的 profile
+        // Get the user's profile
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
@@ -156,7 +156,7 @@ export default function NoUserPrompt() {
 
         setProfile(profileData);
 
-        // 获取最新的5条 prompts
+        // Get the latest 5 prompts
         await fetchPrompts(user.id);
 
       } catch (err) {
@@ -170,7 +170,7 @@ export default function NoUserPrompt() {
     fetchUserAndProfile();
   }, []);
 
-  // --- 获取 Prompts 数据 ---
+  // --- Get prompts data ---
   const fetchPrompts = async (userId) => {
     try {
       const { data: promptsData, error: promptsError } = await supabase
@@ -196,10 +196,10 @@ export default function NoUserPrompt() {
     }
   };
 
-  // --- 重试获取新 prompts ---
+  // --- Retry getting new prompts ---
   const fetchNewPromptsWithRetry = async (retryCount = 0) => {
     const maxRetries = 5;
-    const retryDelay = 2000; // 2秒
+    const retryDelay = 2000; // 2 seconds
     
     try {
       console.log(`🔄 Fetching new prompts (attempt ${retryCount + 1}/${maxRetries})`);
@@ -261,7 +261,7 @@ export default function NoUserPrompt() {
     }
   };
 
-  // --- 发送 Profile 到 Webhook ---
+  // --- Send profile to webhook ---
   const handleSendProfileToWebhook = async () => {
     if (!user || !profile) {
       setError('User or profile data incomplete, cannot send.');
@@ -290,14 +290,14 @@ export default function NoUserPrompt() {
 
       console.log('Sending data to Webhook:', payload);
 
-      // 使用 axios 发送 POST 请求
+      // Use axios to send a POST request
       await axios.post(WEBHOOK_URL, payload, {
         headers: { 'Content-Type': 'application/json' }
       });
 
       console.log('✅ Webhook request successful, now fetching new prompts...');
       
-      // 等待一下然后开始重试获取新数据
+      // Wait a moment and then start retrying to get new data
       await new Promise(resolve => setTimeout(resolve, 1000));
       await fetchNewPromptsWithRetry();
 
@@ -347,7 +347,7 @@ export default function NoUserPrompt() {
           <button
             onClick={handleSendProfileToWebhook}
             disabled={isAnyOperationInProgress()}
-            className={`w-16 h-8 border border-black font-medium text-xs transition-all duration-200 ${
+            className={`w-16 h-8 border border-black font-medium text-xs transition-all duration-200 ${ 
               isAnyOperationInProgress()
                 ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                 : 'bg-black text-white hover:bg-gray-800'
@@ -399,7 +399,7 @@ export default function NoUserPrompt() {
                       improvePrompt(prompt.id, currentText);
                     }}
                     disabled={improvingPrompts[prompt.id] || webhookStatus === 'sending'}
-                    className={`w-8 h-8 border border-black font-medium text-sm transition-all duration-200 flex items-center justify-center ${
+                    className={`w-8 h-8 border border-black font-medium text-sm transition-all duration-200 flex items-center justify-center ${ 
                       improvingPrompts[prompt.id] || webhookStatus === 'sending'
                         ? 'bg-gray-100 text-gray-500 cursor-not-allowed'
                         : 'bg-white text-black hover:bg-gray-100'

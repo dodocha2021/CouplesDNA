@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 
 export default function App({ Component, pageProps }) {
   useEffect(() => {
-    // 只在开发模式下初始化21st.dev toolbar
+    // Initialize the 21st.dev toolbar only in development mode
     if (process.env.NODE_ENV === 'development') {
       const initToolbar = async () => {
         try {

@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   try {
     console.log('🔐 Starting user authentication...');
-    // 验证用户身份
+    // Authenticate user identity
     const user = await getUserFromRequest(req, res);
     
     if (!user) {
@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 
     const totalQuestionsCount = totalQuestions || Object.keys(prompts).length || 1;
 
-    // 更新总问题数设置（只更新当前用户的）
+    // Update total questions setting (only for current user)
     const { error: settingsError } = await supabase
       .from('prompts_settings')
       .upsert({
@@ -49,7 +49,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to update settings' });
     }
 
-    // 准备prompts数据进行批量插入/更新
+    // Prepare prompts data for batch insert/update
     const promptsToUpsert = [];
     const updatedQuestions = [];
 
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 批量插入/更新prompts
+    // Batch insert/update prompts
     if (promptsToUpsert.length > 0) {
       const { error: promptsError } = await supabase
         .from('prompts_config')
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 删除空的prompts（如果用户清空了某个问题）
+    // Delete empty prompts (if user cleared a question)
     const emptyQuestions = [];
     for (const [questionNumber, promptContent] of Object.entries(prompts)) {
       if (!promptContent || promptContent.trim() === '') {
@@ -87,7 +87,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 删除超出totalQuestions范围的所有问题（用户删除问题的情况）
+    // Delete all questions beyond totalQuestions range (if user deleted questions)
     const { error: deleteExcessError } = await supabase
       .from('prompts_config')
       .delete()
@@ -100,7 +100,7 @@ export default async function handler(req, res) {
       console.log('✅ Deleted prompts beyond question', totalQuestionsCount);
     }
 
-    // 删除空的prompts
+    // Delete empty prompts
     if (emptyQuestions.length > 0) {
       const { error: deleteError } = await supabase
         .from('prompts_config')
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
 
       if (deleteError) {
         console.error('❌ Error deleting empty prompts:', deleteError);
-        // 不返回错误，因为删除空记录失败不是致命错误
+        // Do not return an error, as deleting empty records failure is not a fatal error
       } else {
         console.log('✅ Deleted empty prompts:', emptyQuestions);
       }

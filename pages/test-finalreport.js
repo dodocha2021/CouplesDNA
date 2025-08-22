@@ -7,7 +7,7 @@ import { ArrowUpRightFromSquare } from 'lucide-react';
 import NoUserPrompt from '../components/NoUserPrompt';
 
 export default function TestFinalReport() {
-  // 用户认证状态
+  // User authentication status
   const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [authError, setAuthError] = useState(null);
@@ -18,20 +18,20 @@ export default function TestFinalReport() {
   const [apiStatus, setApiStatus] = useState('idle'); // 'idle', 'loading', 'completed', 'error'
   const [currentSessionId, setCurrentSessionId] = useState('');
   
-  // 新增状态
+  // New state
   const [sessionId, setSessionId] = useState('');
   const [reports, setReports] = useState([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [reportsError, setReportsError] = useState(null);
   
-  // Workflow状态相关
+  // Workflow status related
   const [workflowProgress, setWorkflowProgress] = useState(null);
   const [sessionHistory, setSessionHistory] = useState([]);
   const [isLoadingProgress, setIsLoadingProgress] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   
-  // 集中化轮询状态管理
+  // Centralized polling state management
   const [pollingState, setPollingState] = useState({
     isPolling: false,
     intervals: {
@@ -44,25 +44,25 @@ export default function TestFinalReport() {
   const [workflowState, setWorkflowState] = useState('idle'); // 'idle', 'starting', 'processing', 'completed', 'error', 'timeout'
   const [startingTimeout, setStartingTimeout] = useState(null);
   
-  // Prompt管理状态
+  // Prompt management status
   const [prompts, setPrompts] = useState({
-    1: "How to maintain a long-term healthy relationship" // 默认问题1的内容
+    1: "How to maintain a long-term healthy relationship" // Default content for question 1
   });
   const [expandedQuestions, setExpandedQuestions] = useState({
-    1: true // 默认展开第一个问题
+    1: true // Expand the first question by default
   });
-  const [promptErrors, setPromptErrors] = useState({}); // 每个输入框的错误状态
+  const [promptErrors, setPromptErrors] = useState({}); // Error status for each input box
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingPrompts, setIsLoadingPrompts] = useState(false);
-  const [totalQuestions, setTotalQuestions] = useState(1); // 动态问题数量，默认1个
-  const [apiError, setApiError] = useState(null); // API测试区域错误显示
+  const [totalQuestions, setTotalQuestions] = useState(1); // Dynamic number of questions, default is 1
+  const [apiError, setApiError] = useState(null); // Error display in API testing area
 
-  // 验证prompts连续性和完整性 - 新规则：所有问题都必须有内容
+  // Validate prompts for continuity and completeness - new rule: all questions must have content
   const validatePrompts = () => {
-    // 清除之前的错误
+    // Clear previous errors
     setApiError(null);
     
-    // 检查从1到totalQuestions的每个问题都必须有内容
+    // Check that every question from 1 to totalQuestions must have content
     const emptyQuestions = [];
     const newErrors = {};
     
@@ -70,19 +70,19 @@ export default function TestFinalReport() {
       const promptContent = prompts[i];
       if (!promptContent || promptContent.trim() === '') {
         emptyQuestions.push(i);
-        newErrors[i] = '请输入内容或删除这个prompt';
+        newErrors[i] = 'Please enter content or delete this prompt';
       } else {
-        newErrors[i] = null; // 清除错误
+        newErrors[i] = null; // Clear error
       }
     }
     
     setPromptErrors(newErrors);
     
     if (emptyQuestions.length > 0) {
-      return `所有问题都必须填写内容`;
+      return `All questions must be filled in`;
     }
     
-    return null; // 验证通过
+    return null; // Validation passed
   };
 
   const handleGenerateReport = async () => {
@@ -91,10 +91,10 @@ export default function TestFinalReport() {
     setResult(null);
     setApiError(null);
     setWorkflowState('idle');
-    stopPolling(); // 停止所有轮询
+    stopPolling(); // Stop all polling
 
     try {
-      // 生成一个测试sessionId
+      // Generate a test sessionId
       const testSessionId = `test-${Date.now()}`;
       setCurrentSessionId(testSessionId);
       
@@ -102,7 +102,7 @@ export default function TestFinalReport() {
       console.log('📋 Session ID:', testSessionId);
       console.log('📊 Total Questions:', totalQuestions);
 
-      // 获取当前会话信息用于认证
+      // Get current session information for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('No active session for generating report');
@@ -122,21 +122,21 @@ export default function TestFinalReport() {
       console.log('✅ API Response:', response.data);
       setResult(response.data);
       
-      // Webhook成功，进入starting状态
+      // Webhook successful, enter starting state
       setWorkflowState('starting');
       setIsLoading(false);
       
-      // 开始starting状态的密集轮询
+      // Start intensive polling for the starting state
       startPolling(testSessionId, true);
 
     } catch (err) {
       console.error('❌ API Error:', err);
       
-      // 立即显示webhook错误
+      // Immediately display webhook error
       const errorMessage = err.response?.data?.error || err.message;
       const errorDetails = err.response?.data;
       
-      // 特殊处理常见错误
+      // Special handling for common errors
       let displayMessage = errorMessage;
       if (err.response?.status === 404) {
         displayMessage = 'Workflow not active in n8n - please check if the workflow is running';
@@ -148,18 +148,18 @@ export default function TestFinalReport() {
         details: errorDetails
       });
       
-      // 同时设置apiError以在API Testing区域显示
+      // Also set apiError to display in the API Testing area
       setApiError(displayMessage);
       
       setWorkflowState('error');
       setIsLoading(false);
       
-      // 开始常规轮询
+      // Start regular polling
       startPolling();
     }
   };
 
-  // 加载报告数据
+  // Load report data
   const handleLoadReports = async () => {
     if (!sessionId.trim()) {
       setReportsError('Please enter a SessionId');
@@ -189,10 +189,10 @@ export default function TestFinalReport() {
         return;
       }
 
-      // 过滤出AI消息
+      // Filter out AI messages
       const aiMessages = data.filter(item => {
         try {
-          // message字段已经是JSON对象，直接使用
+          // The message field is already a JSON object, use it directly
           const message = item.message;
           return message && message.type === 'ai';
         } catch (e) {
@@ -218,7 +218,7 @@ export default function TestFinalReport() {
     }
   };
 
-  // 翻页功能
+  // Pagination function
   const goToPrevious = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
@@ -231,7 +231,7 @@ export default function TestFinalReport() {
     }
   };
 
-  // 键盘导航
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyPress = (event) => {
       if (reports.length === 0) return;
@@ -247,7 +247,7 @@ export default function TestFinalReport() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [currentQuestionIndex, reports.length]);
 
-  // 解析报告内容
+  // Parse report content
   const getCurrentReportContent = () => {
     if (reports.length === 0 || currentQuestionIndex >= reports.length) {
       return null;
@@ -255,22 +255,22 @@ export default function TestFinalReport() {
     
     const report = reports[currentQuestionIndex];
     try {
-      // message字段已经是JSON对象，直接使用
+      // The message field is already a JSON object, use it directly
       let message = report.message;
       
-      // 如果message是字符串，尝试解析为JSON
+      // If message is a string, try to parse it as JSON
       if (typeof message === 'string') {
         try {
           message = JSON.parse(message);
         } catch (parseError) {
           console.error('Error parsing message string:', parseError);
-          return message; // 如果解析失败，直接返回原字符串
+          return message; // If parsing fails, return the original string
         }
       }
       
-      // 只显示AI类型的消息
+      // Only display AI type messages
       if (message && message.type === 'ai' && message.content) {
-        // 确保返回纯markdown字符串
+        // Ensure a pure markdown string is returned
         return typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
       } else {
         return 'Non-AI message or no content found';
@@ -281,7 +281,7 @@ export default function TestFinalReport() {
     }
   };
 
-  // Prompt管理功能
+  // Prompt management function
   const toggleQuestion = (questionNumber) => {
     setExpandedQuestions(prev => ({
       ...prev,
@@ -300,7 +300,7 @@ export default function TestFinalReport() {
       return updated;
     });
     
-    // 清除该输入框的错误状态（如果用户开始输入内容）
+    // Clear the error state of this input box (if the user starts typing)
     if (value && value.trim() !== '') {
       setPromptErrors(prev => ({
         ...prev,
@@ -310,20 +310,20 @@ export default function TestFinalReport() {
   };
 
   const cleanAllPrompts = async () => {
-    // 清空当前页面状态
+    // Clear the current page state
     setPrompts({});
     setExpandedQuestions({});
     
     try {
       console.log('🔄 Clearing all prompts from generate-Finalreport.js...');
       
-      // 获取当前会话信息用于认证
+      // Get current session information for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('No active session for clearing prompts');
       }
 
-      // 调用API清空文件中的prompts
+      // Call the API to clear the prompts in the file
       const response = await axios.post('/api/clear-prompts', {}, {
         headers: { 
           'Content-Type': 'application/json',
@@ -333,7 +333,7 @@ export default function TestFinalReport() {
       });
 
       console.log('✅ Clear response:', response.data);
-      // 成功时不显示弹窗，静默清空
+      // Do not show a pop-up on success, clear silently
       
     } catch (error) {
       console.error('Error clearing prompts:', error);
@@ -341,16 +341,16 @@ export default function TestFinalReport() {
     }
   };
 
-  // 动态管理问题数量
+  // Dynamically manage the number of questions
   const addQuestion = () => {
     setTotalQuestions(prev => {
       const newQuestionNumber = prev + 1;
-      // 为新问题添加空内容
+      // Add empty content for the new question
       setPrompts(prevPrompts => ({
         ...prevPrompts,
         [newQuestionNumber]: ''
       }));
-      // 展开新问题
+      // Expand the new question
       setExpandedQuestions(prevExpanded => ({
         ...prevExpanded,
         [newQuestionNumber]: true
@@ -361,17 +361,17 @@ export default function TestFinalReport() {
 
   const removeQuestion = () => {
     if (totalQuestions > 1) {
-      // 删除最后一个问题的prompt
+      // Delete the prompt for the last question
       const newPrompts = { ...prompts };
       delete newPrompts[totalQuestions];
       setPrompts(newPrompts);
       
-      // 删除展开状态
+      // Delete the expanded state
       const newExpanded = { ...expandedQuestions };
       delete newExpanded[totalQuestions];
       setExpandedQuestions(newExpanded);
       
-      // 删除错误状态
+      // Delete the error state
       const newErrors = { ...promptErrors };
       delete newErrors[totalQuestions];
       setPromptErrors(newErrors);
@@ -380,13 +380,13 @@ export default function TestFinalReport() {
     }
   };
 
-  // 加载文件中的prompts
+  // Load prompts from the file
   const loadPromptsFromFile = async () => {
     setIsLoadingPrompts(true);
     try {
       console.log('🔄 Loading prompts from generate-Finalreport.js...');
       
-      // 获取当前会话信息用于认证
+      // Get current session information for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         throw new Error('No active session for loading prompts');
@@ -401,27 +401,27 @@ export default function TestFinalReport() {
 
       console.log('✅ Loaded prompts:', response.data.prompts);
       
-      // 如果数据库中有数据，使用数据库的；否则保持默认值
+      // If there is data in the database, use it; otherwise, keep the default values
       if (response.data.prompts && Object.keys(response.data.prompts).length > 0) {
-        // 检查是否有实际内容（不是全部空字符串）
+        // Check if there is actual content (not all empty strings)
         const hasContent = Object.values(response.data.prompts).some(content => content && content.trim() !== '');
         
         if (hasContent) {
           setPrompts(response.data.prompts);
           
-          // 从加载的数据中获取问题总数
+          // Get the total number of questions from the loaded data
           if (response.data.totalQuestions) {
             setTotalQuestions(response.data.totalQuestions);
           }
         } else {
-          // 数据库中都是空的，保持默认值
+          // All are empty in the database, keep the default values
           console.log('Database contains empty prompts, keeping defaults');
         }
       } else {
         console.log('No prompts in database, keeping defaults');
       }
       
-      // 自动展开有内容的questions
+      // Automatically expand questions with content
       if (response.data.prompts && Object.keys(response.data.prompts).length > 0) {
         const questionsWithContent = Object.keys(response.data.prompts).filter(
           key => response.data.prompts[key] && response.data.prompts[key].trim() !== ''
@@ -444,11 +444,11 @@ export default function TestFinalReport() {
     }
   };
 
-  // 停止所有轮询
+  // Stop all polling
   const stopPolling = () => {
     console.log('🛑 Stopping all polling intervals');
     
-    // 清理所有间隔
+    // Clear all intervals
     if (pollingState.intervals.workflowStatus) {
       clearInterval(pollingState.intervals.workflowStatus);
     }
@@ -462,7 +462,7 @@ export default function TestFinalReport() {
       clearTimeout(startingTimeout);
     }
     
-    // 重置轮询状态
+    // Reset polling state
     setPollingState({
       isPolling: false,
       intervals: {
@@ -475,13 +475,13 @@ export default function TestFinalReport() {
     setStartingTimeout(null);
   };
 
-  // 获取workflow进度
+  // Get workflow progress
   const loadWorkflowProgress = async (sessionId, silent = false) => {
     if (!sessionId) return;
     
     if (!silent) setIsLoadingProgress(true);
     try {
-      // 获取当前会话信息用于认证
+      // Get current session information for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         if (!silent) console.error('No active session for loading workflow progress');
@@ -496,12 +496,12 @@ export default function TestFinalReport() {
       if (response.data.success) {
         setWorkflowProgress(response.data.data);
         
-        // 如果是starting状态且找到了记录，切换到processing
+        // If it is in the starting state and a record is found, switch to processing
         if (workflowState === 'starting') {
           console.log('✅ Found workflow record, switching from starting to processing');
           setWorkflowState('processing');
           
-          // 清理starting间隔，切换到常规轮询
+          // Clear the starting interval and switch to regular polling
           if (pollingState.intervals.starting) {
             clearInterval(pollingState.intervals.starting);
           }
@@ -510,13 +510,13 @@ export default function TestFinalReport() {
           }
           setStartingTimeout(null);
           
-          // 重新启动常规轮询
+          // Restart regular polling
           setTimeout(() => {
             startPolling(currentSessionId, false);
           }, 100);
         }
         
-        // 根据状态更新workflowState
+        // Update workflowState based on the status
         if (response.data.data.status === 'completed') {
           console.log('✅ Workflow completed, stopping all polling');
           setWorkflowState('completed');
@@ -529,16 +529,16 @@ export default function TestFinalReport() {
           setWorkflowState('processing');
         }
         
-        return true; // 找到记录
+        return true; // Record found
       }
     } catch (error) {
       if (error.response?.status === 404) {
         if (workflowState === 'starting') {
-          // starting状态下404是正常的，继续等待
+          // 404 is normal in the starting state, continue to wait
           console.log('🔍 Session not found yet, continuing to poll...');
           return false;
         } else {
-          // 非starting状态下的404，可能是session真的不存在
+          // 404 in a non-starting state may mean the session really does not exist
           console.log('❌ Session not found in database');
           return false;
         }
@@ -550,11 +550,11 @@ export default function TestFinalReport() {
     return false;
   };
   
-  // 获取session历史
+  // Get session history
   const loadSessionHistory = async (silent = false) => {
     if (!silent) setIsLoadingHistory(true);
     try {
-      // 获取当前会话信息用于认证
+      // Get current session information for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         if (!silent) console.error('No active session for loading session history');
@@ -576,16 +576,16 @@ export default function TestFinalReport() {
     }
   };
 
-  // 开始轮询
+  // Start polling
   const startPolling = (sessionId = null, isStarting = false) => {
     console.log('🔄 Starting polling', { sessionId, isStarting, workflowState });
     
-    // 先清理现有轮询
+    // Clear existing polling first
     stopPolling();
     
     const targetSessionId = sessionId || currentSessionId;
     
-    // 设置Session History轮询
+    // Set Session History polling
     const historyInterval = setInterval(() => {
       console.log('📊 Polling session history');
       loadSessionHistory(true);
@@ -595,7 +595,7 @@ export default function TestFinalReport() {
     let startingInterval = null;
     
     if (isStarting && targetSessionId) {
-      // Starting状态的密集轮询
+      // Intensive polling for the starting state
       startingInterval = setInterval(async () => {
         console.log('🔍 Starting state polling for session:', targetSessionId);
         const found = await loadWorkflowProgress(targetSessionId, true);
@@ -604,7 +604,7 @@ export default function TestFinalReport() {
         }
       }, 2000);
       
-      // 3分钟超时
+      // 3 minute timeout
       const timeout = setTimeout(() => {
         console.log('⏰ Starting timeout reached');
         if (startingInterval) clearInterval(startingInterval);
@@ -622,14 +622,14 @@ export default function TestFinalReport() {
       
       setStartingTimeout(timeout);
     } else if (targetSessionId && workflowState !== 'starting') {
-      // 常规workflow状态轮询
+      // Regular workflow status polling
       workflowInterval = setInterval(() => {
         console.log('📈 Regular workflow polling for session:', targetSessionId);
         loadWorkflowProgress(targetSessionId, true);
       }, 3000);
     }
     
-    // 更新轮询状态
+    // Update polling state
     setPollingState({
       isPolling: true,
       intervals: {
@@ -642,10 +642,10 @@ export default function TestFinalReport() {
   };
 
 
-  // 检查并恢复进行中的workflow状态
+  // Check and restore in-progress workflow state
   const checkAndRestoreWorkflowState = async () => {
     try {
-      // 获取当前会话信息用于认证
+      // Get current session information for authentication
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         console.error('No active session for checking workflow state');
@@ -658,7 +658,7 @@ export default function TestFinalReport() {
         }
       });
       if (response.data.success && response.data.data.length > 0) {
-        // 查找最新的进行中workflow
+        // Find the latest in-progress workflow
         const activeWorkflow = response.data.data.find(session => 
           session.status === 'processing' || session.status === 'starting'
         );
@@ -666,7 +666,7 @@ export default function TestFinalReport() {
         if (activeWorkflow) {
           console.log('🔄 Found active workflow on page load:', activeWorkflow.session_id);
           
-          // 恢复API Testing状态
+          // Restore API Testing state
           setCurrentSessionId(activeWorkflow.session_id);
           setResult({
             sessionId: activeWorkflow.session_id,
@@ -674,14 +674,14 @@ export default function TestFinalReport() {
             message: 'Workflow restored from previous session'
           });
           
-          // 设置workflow状态
+          // Set workflow state
           if (activeWorkflow.status === 'processing') {
             setWorkflowState('processing');
           } else if (activeWorkflow.status === 'starting') {
             setWorkflowState('starting');
           }
           
-          // 开始轮询这个workflow
+          // Start polling this workflow
           startPolling(activeWorkflow.session_id, activeWorkflow.status === 'starting');
           return true;
         }
@@ -692,19 +692,19 @@ export default function TestFinalReport() {
     return false;
   };
 
-  // 用户认证检查
+  // User authentication check
   useEffect(() => {
     const checkAuth = async () => {
       try {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          setAuthError('认证检查失败');
+          setAuthError('Authentication check failed');
           return;
         }
 
         if (!session) {
-          setAuthError('请先登录访问此页面');
+          setAuthError('Please log in to access this page');
           return;
         }
 
@@ -712,7 +712,7 @@ export default function TestFinalReport() {
         setAuthError(null);
       } catch (error) {
         console.error('Auth check error:', error);
-        setAuthError('认证检查出错');
+        setAuthError('Error checking authentication');
       } finally {
         setIsAuthLoading(false);
       }
@@ -720,11 +720,11 @@ export default function TestFinalReport() {
 
     checkAuth();
 
-    // 监听认证状态变化
+    // Listen for authentication state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
         setUser(null);
-        setAuthError('会话已过期，请重新登录');
+        setAuthError('Session has expired, please log in again');
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         setUser(session.user);
         setAuthError(null);
@@ -734,33 +734,33 @@ export default function TestFinalReport() {
     return () => subscription?.unsubscribe();
   }, []);
 
-  // 页面加载时自动获取prompts、历史和恢复workflow状态
+  // Automatically get prompts, history, and restore workflow state on page load
   useEffect(() => {
-    // 只有用户认证成功后才初始化页面
+    // Only initialize the page after the user is authenticated
     if (!user || isAuthLoading) return;
 
     const initializePage = async () => {
       loadPromptsFromFile();
       loadSessionHistory();
       
-      // 尝试恢复进行中的workflow
+      // Try to restore in-progress workflow
       const hasActiveWorkflow = await checkAndRestoreWorkflowState();
       
       if (!hasActiveWorkflow) {
-        // 没有进行中的workflow，开始基础轮询（仅Session History）
+        // No in-progress workflow, start basic polling (Session History only)
         startPolling();
       }
     };
     
     initializePage();
     
-    // 清理函数
+    // Cleanup function
     return () => {
       stopPolling();
     };
-  }, [user, isAuthLoading]); // 依赖用户状态
+  }, [user, isAuthLoading]); // Depends on user state
   
-  // 监听workflow状态变化，更新Session History
+  // Listen for workflow state changes and update Session History
   useEffect(() => {
     if (workflowState) {
       console.log('🔄 Workflow state changed to:', workflowState, '- updating session history');
@@ -768,14 +768,14 @@ export default function TestFinalReport() {
     }
   }, [workflowState]);
 
-  // 当currentSessionId变化时重新设置轮询
+  // Reset polling when currentSessionId changes
   useEffect(() => {
     if (currentSessionId && currentSessionId.trim() && workflowState !== 'starting') {
       startPolling(currentSessionId, false);
     }
   }, [currentSessionId]);
 
-  // 页面可见性变化时控制轮询
+  // Control polling when page visibility changes
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -803,21 +803,21 @@ export default function TestFinalReport() {
     console.log('📊 Total questions:', totalQuestions);
     console.log('👤 Current user:', user);
     
-    // Save函数调用日志
+    // Save function call log
 
     if (Object.keys(prompts).length === 0) {
-      alert('没有prompts需要保存');
+      alert('No prompts to save');
       console.log('❌ No prompts to save - prompts object is empty');
       return;
     }
 
-    // 验证问题连续性和完整性
+    // Validate question continuity and completeness
     console.log('🔍 Starting validation...');
     const validationError = validatePrompts();
     if (validationError) {
       console.log('❌ Validation failed:', validationError);
       setApiError(validationError);
-      alert('验证失败: ' + validationError);
+      alert('Validation failed: ' + validationError);
       return;
     }
     console.log('✅ Validation passed');
@@ -828,7 +828,7 @@ export default function TestFinalReport() {
       console.log('📝 Prompts to save:', prompts);
       console.log('📊 Total questions to save:', totalQuestions);
       
-      // 获取当前会话信息用于认证
+      // Get current session information for authentication
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) {
         throw new Error('Session error: ' + sessionError.message);
@@ -860,14 +860,14 @@ export default function TestFinalReport() {
       console.log('🎉 API request successful!');
 
       console.log('✅ Save response:', response.data);
-      // 成功保存提示
+      // Success saving prompt
       setApiError(null);
       
-      // 显示成功提示
-      const successMsg = `✅ 保存成功！更新了 ${response.data.updatedQuestions?.length || Object.keys(prompts).filter(k => prompts[k]?.trim()).length} 个prompts`;
+      // Show success message
+      const successMsg = `✅ Saved successfully! Updated ${response.data.updatedQuestions?.length || Object.keys(prompts).filter(k => prompts[k]?.trim()).length} prompts`;
       console.log(successMsg);
       
-      // 可选：显示短暂的成功提示
+      // Optional: show a brief success message
       alert(successMsg);
       
     } catch (error) {
@@ -882,47 +882,47 @@ export default function TestFinalReport() {
       let errorMessage = 'Failed to save prompts to database';
       
       if (error.response?.status === 401) {
-        errorMessage = '认证失败，请重新登录';
+        errorMessage = 'Authentication failed, please log in again';
       } else if (error.response?.status === 500) {
-        errorMessage = '服务器错误：' + (error.response?.data?.error || error.message);
+        errorMessage = 'Server error: ' + (error.response?.data?.error || error.message);
       } else if (error.response?.data?.error) {
         errorMessage = error.response.data.error;
       } else {
         errorMessage = error.message;
       }
       
-      alert(`保存失败: ${errorMessage}`);
-      setApiError(`保存失败: ${errorMessage}`);
+      alert(`Save failed: ${errorMessage}`);
+      setApiError(`Save failed: ${errorMessage}`);
     } finally {
       setIsSaving(false);
     }
   };
 
-  // 认证加载中
+  // Authentication loading
   if (isAuthLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-gray-600">检查用户认证状态...</p>
+          <p className="text-gray-600">Checking user authentication status...</p>
         </div>
       </div>
     );
   }
 
-  // 认证失败
+  // Authentication failed
   if (authError || !user) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center max-w-md">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h2 className="text-xl font-semibold text-red-800 mb-2">访问受限</h2>
-            <p className="text-red-600 mb-4">{authError || '需要登录才能访问此页面'}</p>
+            <h2 className="text-xl font-semibold text-red-800 mb-2">Access Restricted</h2>
+            <p className="text-red-600 mb-4">{authError || 'Login required to access this page'}</p>
             <button
               onClick={() => window.location.href = '/auth'}
               className="bg-black text-white px-4 py-2 rounded hover:bg-gray-800 transition-colors"
             >
-              前往登录
+              Go to Login
             </button>
           </div>
         </div>
@@ -943,14 +943,14 @@ export default function TestFinalReport() {
                   }
                 `}</style>
       <div className="max-w-7xl mx-auto">
-        {/* 标题 */}
+        {/* Title */}
         <div className="border border-black bg-white p-8 mb-8">
           <div className="text-center">
             <h1 className="text-3xl font-medium text-black mb-2">
               Test Final Report API
             </h1>
             <div className="text-sm text-gray-600">
-              <span>用户: </span>
+              <span>User: </span>
               <span className="font-medium">{user?.email || 'Unknown User'}</span>
               <span className="mx-2">|</span>
               <span>ID: </span>
@@ -959,7 +959,7 @@ export default function TestFinalReport() {
           </div>
         </div>
 
-        {/* Prompt Editor - 整合模块 */}
+        {/* Prompt Editor - Integrated module */}
         <div className="bg-white border border-black p-6 mb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-medium text-black">Prompt Editor</h2>
@@ -1007,7 +1007,7 @@ export default function TestFinalReport() {
                 </div>
               </div>
               
-              {/* 问题数量管理 */}
+              {/* Question count management */}
               <div className="mb-4 p-3 bg-white border border-black">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-black">Total Questions: {totalQuestions}</span>
@@ -1035,7 +1035,7 @@ export default function TestFinalReport() {
                 </div>
               </div>
 
-              {/* 问题编辑区域 */}
+              {/* Question editing area */}
               <div>
                 {Array.from({length: totalQuestions}, (_, index) => {
                   const questionNumber = index + 1;
@@ -1081,7 +1081,7 @@ export default function TestFinalReport() {
           </div>
         </div>
 
-        {/* API测试和Workflow状态 */}
+        {/* API Testing and Workflow Status */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* API Testing */}
           <div className="bg-white border border-black p-6">
@@ -1264,9 +1264,9 @@ export default function TestFinalReport() {
                   </div>
                   <button
                     onClick={() => {
-                      // 将sessionId传递给Report Browser模块并自动加载报告
+                      // Pass the sessionId to the Report Browser module and automatically load the report
                       setSessionId(session.session_id);
-                      // 自动触发加载报告
+                      // Automatically trigger loading the report
                       setTimeout(() => {
                         handleLoadReports();
                       }, 100);
@@ -1285,7 +1285,7 @@ export default function TestFinalReport() {
           )}
         </div>
         
-        {/* 报告浏览区域 */}
+        {/* Report browsing area */}
         <div className="bg-white border border-black p-6 mb-8" style={{display: 'none'}}>
           <h2 className="text-xl font-medium text-black mb-4">Report Browser</h2>
           
@@ -1331,7 +1331,7 @@ export default function TestFinalReport() {
         </div>
 
         <div className="grid grid-cols-1 gap-8">
-          {/* 报告显示区域 */}
+          {/* Report display area */}
           <div className="bg-white border border-black p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-medium text-black">Report Content</h2>
@@ -1339,7 +1339,7 @@ export default function TestFinalReport() {
                 <button
                   onClick={() => window.open(`/test-finalreport/${sessionId}?completed=true`, '_blank')}
                   className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="在新标签页中打开报告"
+                  title="Open report in new tab"
                 >
                   <ArrowUpRightFromSquare className="h-5 w-5" />
                 </button>
@@ -1352,7 +1352,7 @@ export default function TestFinalReport() {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* iframe显示独立报告页面 */}
+                {/* iframe to display independent report page */}
                 <div className="border border-black bg-white min-h-[600px] max-h-[800px] overflow-hidden">
                   <iframe
                     src={`/test-finalreport/${sessionId}`}
@@ -1362,7 +1362,7 @@ export default function TestFinalReport() {
                   />
                 </div>
                 
-                {/* 提示信息 */}
+                {/* Prompt message */}
                 <div className="text-xs text-gray-500 text-center">
                   Report content loaded from /test-finalreport/{sessionId}
                 </div>
@@ -1373,4 +1373,4 @@ export default function TestFinalReport() {
       </div>
     </div>
   );
-} 
+}

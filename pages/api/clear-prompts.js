@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 验证用户身份
+    // Authenticate user identity
     const user = await getUserFromRequest(req);
     
     if (!user) {
@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     
     console.log('🔄 Clearing all prompts from Supabase database...');
     
-    // 删除所有当前用户的prompts记录
+    // Delete all prompt records for the current user
     const { error: deleteError } = await supabase
       .from('prompts_config')
       .delete()
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 重置当前用户的总问题数为默认值
+    // Reset the total number of questions for the current user to the default value
     const { error: settingsError } = await supabase
       .from('prompts_settings')
       .update({
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
 
     if (settingsError) {
       console.error('❌ Error resetting settings:', settingsError);
-      // 不返回错误，因为重置设置失败不是致命错误
+      // Do not return an error, as resetting settings failure is not a fatal error
     }
 
     console.log('✅ All prompts cleared from Supabase database');

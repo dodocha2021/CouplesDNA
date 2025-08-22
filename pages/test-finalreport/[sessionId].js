@@ -22,31 +22,31 @@ const WIREFRAME_COLORS = {
   GREY_FILL: '#CCCCCC'
 };
 
-// 数据规范化工具函数
+// Data normalization utility function
 const normalizeContent = (rawContent) => {
-  // 如果已经是规范化的对象，直接返回
+  // If it's already a normalized object, return directly
   if (rawContent && typeof rawContent === 'object' && rawContent.type && rawContent.data) {
     return rawContent;
   }
 
-  // 处理字符串类型的内容
+  // Handle string type content
   if (typeof rawContent === 'string') {
     try {
       const parsed = JSON.parse(rawContent);
-      // 检查是否是JSON blocks结构
+      // Check if it's a JSON blocks structure
       if (parsed && parsed.output && parsed.output.blocks) {
         return {
           type: 'json_blocks',
           data: parsed
         };
       }
-      // 其他JSON对象
+      // Other JSON objects
       return {
         type: 'json_object',
         data: parsed
       };
     } catch (e) {
-      // JSON解析失败，作为文本处理
+      // JSON parsing failed, treat as text
       return {
         type: 'text',
         data: rawContent
@@ -54,34 +54,34 @@ const normalizeContent = (rawContent) => {
     }
   }
 
-  // 处理对象类型的内容
+  // Handle object type content
   if (typeof rawContent === 'object') {
-    // 检查是否是JSON blocks结构
+    // Check if it's a JSON blocks structure
     if (rawContent && rawContent.output && rawContent.output.blocks) {
       return {
         type: 'json_blocks',
         data: rawContent
       };
     }
-    // 其他对象
+    // Other objects
     return {
       type: 'json_object', 
       data: rawContent
     };
   }
 
-  // 默认情况，作为文本处理
+  // Default case, treat as text
   return {
     type: 'text',
     data: String(rawContent || '')
   };
 };
 
-// 内容格式检测和转换工具函数
+// Content format detection and conversion utility function
 const processContentFormat = (content) => {
   if (typeof content !== 'string') return content;
   
-  // 检测是否包含 Markdown 语法
+  // Detect if it contains Markdown syntax
   const hasMarkdown = content.includes('**') || 
                      content.includes('*') || 
                      content.includes('•') || 
@@ -96,7 +96,7 @@ const processContentFormat = (content) => {
   };
 };
 
-// Markdown 渲染组件
+// Markdown Renderer Component
 const MarkdownRenderer = ({ content, className = "" }) => {
   return (
     <div className={`prose prose-sm max-w-none ${className}`}>
@@ -107,7 +107,7 @@ const MarkdownRenderer = ({ content, className = "" }) => {
   );
 };
 
-// 可交互的Accordion组件
+// Interactive Accordion Component
 const AccordionComponent = ({ items }) => {
   const [openItems, setOpenItems] = useState({});
 
@@ -167,7 +167,7 @@ export default function ReportPage() {
   const [hasInitialized, setHasInitialized] = useState(false);
   const mainRef = useRef(null);
 
-  // 内容结构识别
+  // Content structure identification
   const detectStructure = (text) => {
     const patterns = {
       timeline: /阶段\d+|Phase \d+|第\d+阶段|阶段\d+：/,
@@ -189,7 +189,7 @@ export default function ReportPage() {
     return matches.length > 0 ? matches[0][0] : 'text';
   };
 
-  // 时间线组件
+  // Timeline Component
   const TimelineBlock = ({ data }) => {
     // Wireframe style - use consistent black borders
     const timelineColors = ['border-black', 'border-black', 'border-black', 'border-black'];
@@ -215,7 +215,7 @@ export default function ReportPage() {
     );
   };
 
-  // 数据表格组件
+  // Data Table Component
   const DataTable = ({ data }) => {
     return (
       <div className="overflow-x-auto mb-8">
@@ -243,16 +243,16 @@ export default function ReportPage() {
     );
   };
 
-  // 统计组件
+  // Stats Component
   const StatsBlock = ({ data }) => {
     if (!data || !data.mainValue) return null;
 
-    // 解析百分比数值
+    // Parse percentage value
     const parsePercentage = (value) => {
       const match = value.match(/(\d+)(?:-(\d+))?%/);
       if (match) {
         if (match[2]) {
-          // 范围值，取平均值
+          // Range value, take average
           return Math.round((parseInt(match[1]) + parseInt(match[2])) / 2);
         } else {
           return parseInt(match[1]);
@@ -263,20 +263,20 @@ export default function ReportPage() {
 
     const mainPercentage = parsePercentage(data.mainValue);
 
-    // 获取进度条颜色 - wireframe style
+    // Get progress bar color - wireframe style
     const getProgressColor = (percentage) => {
       // All progress bars use black in wireframe style
       return 'bg-black';
     };
 
-    // 获取状态图标
+    // Get status icon
     const getStatusIcon = (percentage) => {
       if (percentage >= 80) return '🟢';
       if (percentage >= 60) return '🟡';
       return '🔴';
     };
 
-    // 获取状态文本
+    // Get status text
     const getStatusText = (percentage) => {
       if (percentage >= 80) return 'Excellent';
       if (percentage >= 60) return 'Good';
@@ -285,7 +285,7 @@ export default function ReportPage() {
 
     return (
       <div className="bg-white p-8 border border-black">
-        {/* 主标题 */}
+        {/* Main Title */}
         <div className="text-center mb-8">
           <h3 className="text-2xl font-medium text-black mb-2">{data.title}</h3>
           <p className="text-black">{data.description}</p>
@@ -308,7 +308,7 @@ export default function ReportPage() {
           </div>
         </div>
 
-        {/* 子指标 */}
+        {/* Sub-metrics */}
         {data.subStats && data.subStats.length > 0 && (
           <div className="space-y-4">
             <h4 className="text-lg font-medium text-black mb-4">Detailed Metrics</h4>
@@ -341,7 +341,7 @@ export default function ReportPage() {
     );
   };
 
-  // 特性卡片组件
+  // Feature Card Component
   const FeatureCards = ({ data }) => {
     // Wireframe style - consistent white background and black borders
     const cardColors = [
@@ -378,7 +378,7 @@ export default function ReportPage() {
     );
   };
 
-  // 引用块组件
+  // Quote Block Component
   const QuoteBlock = ({ data }) => {
     return (
       <div className="p-6 bg-white border border-black">
@@ -395,7 +395,7 @@ export default function ReportPage() {
     );
   };
 
-  // 总结块组件
+  // Summary Block Component
   const SummaryBlock = ({ data }) => {
     return (
       <div className="grid md:grid-cols-2 gap-8">
@@ -432,7 +432,7 @@ export default function ReportPage() {
     );
   };
 
-  // 进度指示器组件
+  // Progress Indicator Component
   const ProgressIndicator = ({ data }) => {
     // Wireframe style - all progress bars use black
     const getProgressColor = (value) => {
@@ -469,7 +469,7 @@ export default function ReportPage() {
     );
   };
 
-  // 图表组件（使用CSS实现简单图表）
+  // Chart Component (simple chart using CSS)
   const ChartBlock = ({ data }) => {
     const maxValue = Math.max(...data.items.map(item => item.value));
     
@@ -519,43 +519,43 @@ export default function ReportPage() {
 
 
 
-  // 基础文本组件
+  // Basic Text Component
   const TextBlock = ({ content }) => {
-    // 原有的格式化逻辑作为fallback
+    // Original formatting logic as fallback
     const formattedContent = React.useMemo(() => {
       if (!content) return '';
       
       let formatted = content;
       
-      // 处理标题
+      // Handle titles
       formatted = formatted.replace(/^#### (.*$)/gim, '</p><h4 class="text-base font-semibold text-gray-800 mb-2 mt-4">$1</h4><p class="text-gray-700 leading-relaxed mb-4">');
       formatted = formatted.replace(/^### (.*$)/gim, '</p><h3 class="text-lg font-semibold text-gray-800 mb-3 mt-6">$1</h3><p class="text-gray-700 leading-relaxed mb-4">');
       formatted = formatted.replace(/^## (.*$)/gim, '</p><h2 class="text-xl font-semibold text-gray-800 mb-4 mt-8 border-b-2 border-pink-200 pb-3">$1</h2><p class="text-gray-700 leading-relaxed mb-4">');
       formatted = formatted.replace(/^# (.*$)/gim, '</p><h1 class="text-2xl font-bold text-gray-800 mb-6 mt-10">$1</h1><p class="text-gray-700 leading-relaxed mb-4">');
       
-      // 处理粗体和斜体
+      // Handle bold and italics
       formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-gray-800">$1</strong>');
       formatted = formatted.replace(/\*(.*?)\*/g, '<em class="italic text-gray-600">$1</em>');
       
-      // 处理代码块和内联代码
+      // Handle code blocks and inline code
       formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre class="bg-gray-100 p-3 rounded-lg text-sm font-mono mb-4 overflow-x-auto">$1</pre>');
       formatted = formatted.replace(/`([^`]+)`/g, '<code class="bg-gray-100 px-1 py-0.5 rounded text-sm font-mono">$1</code>');
       
-      // 处理链接
+      // Handle links
       formatted = formatted.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 hover:text-blue-800 underline" target="_blank" rel="noopener noreferrer">$1</a>');
       
-      // 处理列表 - 改进版本
+      // Handle lists - improved version
       formatted = formatted.replace(/^(\*|-|\d+\.) (.*$)/gim, '<li class="text-gray-700 mb-2">$2</li>');
       formatted = formatted.replace(/(<li.*?<\/li>)/gs, '<ul class="list-disc list-inside mb-4 space-y-1">$1</ul>');
       
-      // 处理引用块
+      // Handle quote blocks
       formatted = formatted.replace(/^> (.*$)/gim, '</p><blockquote class="border-l-4 border-blue-200 pl-4 py-2 bg-blue-50 text-gray-700 italic mb-4">$1</blockquote><p class="text-gray-700 leading-relaxed mb-4">');
       
-      // 处理段落
+      // Handle paragraphs
       formatted = formatted.replace(/\n\n/g, '</p><p class="text-gray-700 leading-relaxed mb-4">');
       formatted = formatted.replace(/\n/g, '<br/>');
       
-      // 确保内容被段落包装
+      // Ensure content is wrapped in paragraphs
       if (!formatted.startsWith('<')) {
         formatted = '<p class="text-gray-700 leading-relaxed mb-4">' + formatted;
       }
@@ -566,7 +566,7 @@ export default function ReportPage() {
       return formatted;
     }, [content]);
 
-    // 使用统一的内容格式检测
+    // Use unified content format detection
     const processedContent = processContentFormat(content);
     
     if (processedContent.isMarkdown) {
@@ -581,18 +581,18 @@ export default function ReportPage() {
     );
   };
 
-  // 工具函数
+  // Utility functions
   const getCellStyle = (cell) => {
     if (cell.includes('✅') || cell.includes('平衡')) return 'text-green-600';
     if (cell.includes('❌') || cell.includes('需要')) return 'text-yellow-600';
     return '';
   };
 
-  // 内容解析函数
+  // Content parsing function
   const parseContentIntoSections = (content) => {
     if (!content) return [];
     
-    // 首先检查是否包含完整的时间线内容
+    // First, check if it contains complete timeline content
     if (content.includes('情感连接发展时间线') || content.includes('Emotional connection development timeline')) {
       return [{ type: 'timeline', content: content }];
     }
@@ -604,51 +604,51 @@ export default function ReportPage() {
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
-      // 检测表格内容
+      // Detect table content
       if (detectStructure(trimmedLine) === 'table' && 
           (trimmedLine.includes('支持') || trimmedLine.includes('贡献') || 
            trimmedLine.includes('伴侣A') || trimmedLine.includes('伴侣B'))) {
         if (currentSection.content.length > 0) sections.push(currentSection);
         currentSection = { type: 'table', content: [trimmedLine] };
       } 
-      // 检测统计内容
+      // Detect stats content
       else if (detectStructure(trimmedLine) === 'stats' && 
                (trimmedLine.includes('%') || trimmedLine.includes('概率'))) {
         if (currentSection.content.length > 0) sections.push(currentSection);
         currentSection = { type: 'stats', content: [trimmedLine] };
       }
-      // 检测特性卡片内容
+      // Detect feature card content
       else if (detectStructure(trimmedLine) === 'cards' && 
                (trimmedLine.includes('主要元素') || trimmedLine.includes('心理动态') || 
                 trimmedLine.includes('框架') || trimmedLine.includes('支柱'))) {
         if (currentSection.content.length > 0) sections.push(currentSection);
         currentSection = { type: 'cards', content: [trimmedLine] };
       }
-      // 检测引用内容
+      // Detect quote content
       else if (detectStructure(trimmedLine) === 'quote' && 
                (trimmedLine.startsWith('"') || trimmedLine.startsWith('"') || trimmedLine.startsWith('"'))) {
         if (currentSection.content.length > 0) sections.push(currentSection);
         currentSection = { type: 'quote', content: [trimmedLine] };
       }
-      // 检测总结内容
+      // Detect summary content
       else if (detectStructure(trimmedLine) === 'summary' && 
                (trimmedLine.includes('心理分析总结') || trimmedLine.includes('健康依恋') || trimmedLine.includes('可持续基础'))) {
         if (currentSection.content.length > 0) sections.push(currentSection);
         currentSection = { type: 'summary', content: [trimmedLine] };
       }
-      // 检测进度内容
+      // Detect progress content
       else if (detectStructure(trimmedLine) === 'progress' && 
                (trimmedLine.includes('进度') || trimmedLine.includes('发展') || trimmedLine.includes('成长'))) {
         if (currentSection.content.length > 0) sections.push(currentSection);
         currentSection = { type: 'progress', content: [trimmedLine] };
       }
-      // 检测图表内容
+      // Detect chart content
       else if (detectStructure(trimmedLine) === 'chart' && 
                (trimmedLine.includes('图表') || trimmedLine.includes('数据') || trimmedLine.includes('分析'))) {
         if (currentSection.content.length > 0) sections.push(currentSection);
         currentSection = { type: 'chart', content: [trimmedLine] };
       }
-      // 继续当前section
+      // Continue current section
       else {
         currentSection.content.push(trimmedLine);
       }
@@ -656,7 +656,7 @@ export default function ReportPage() {
     
     if (currentSection.content.length > 0) sections.push(currentSection);
     
-    // 如果没有识别到特殊结构，尝试智能分割
+    // If no special structure is recognized, try intelligent splitting
     if (sections.length === 1 && sections[0].type === 'text') {
       return splitTextIntoSections(sections[0].content.join('\n'));
     }
@@ -664,7 +664,7 @@ export default function ReportPage() {
     return sections;
   };
 
-  // 智能文本分割
+  // Intelligent text splitting
   const splitTextIntoSections = (content) => {
     const sections = [];
     const lines = content.split('\n');
@@ -673,7 +673,7 @@ export default function ReportPage() {
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
-      // 如果遇到标题，开始新section
+      // If a title is encountered, start a new section
       if (trimmedLine.startsWith('##') || trimmedLine.startsWith('###')) {
         if (currentSection.content.length > 0) sections.push(currentSection);
         currentSection = { type: 'text', content: [trimmedLine] };
@@ -686,7 +686,7 @@ export default function ReportPage() {
     return sections;
   };
 
-  // 数据处理函数
+  // Data processing function
   const processDataForComponent = (section) => {
     const content = section.content.join('\n');
     
@@ -712,7 +712,7 @@ export default function ReportPage() {
     }
   };
 
-  // 解析时间线数据
+  // Parse timeline data
   const parseTimelineData = (content) => {
     const stages = [];
     const lines = content.split('\n');
@@ -721,7 +721,7 @@ export default function ReportPage() {
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
-      // 匹配阶段标题 - 支持多种格式
+      // Match stage title - supports multiple formats
       const stageMatch = trimmedLine.match(/阶段(\d+)[：:]\s*(.+)/);
       const phaseMatch = trimmedLine.match(/Phase\s*(\d+)[：:]\s*(.+)/);
       const stageOnlyMatch = trimmedLine.match(/^阶段(\d+)$/);
@@ -746,7 +746,7 @@ export default function ReportPage() {
           details: []
         };
       } else if (currentStage && trimmedLine.includes('：')) {
-        // 匹配详情项
+        // Match detail items
         const [label, value] = trimmedLine.split('：');
         if (label && value) {
           currentStage.details.push({ 
@@ -755,7 +755,7 @@ export default function ReportPage() {
           });
         }
       } else if (currentStage && (trimmedLine.startsWith('•') || trimmedLine.startsWith('-'))) {
-        // 匹配列表项
+        // Match list items
         const detail = trimmedLine.replace(/^[•\-]\s*/, '').trim();
         if (detail) {
           currentStage.details.push({ 
@@ -764,7 +764,7 @@ export default function ReportPage() {
           });
         }
       } else if (currentStage && trimmedLine.includes('**') && trimmedLine.includes('**')) {
-        // 匹配粗体内容
+        // Match bold content
         const detail = trimmedLine.replace(/\*\*/g, '').trim();
         if (detail) {
           currentStage.details.push({ 
@@ -777,7 +777,7 @@ export default function ReportPage() {
     
     if (currentStage) stages.push(currentStage);
     
-    // 如果没有解析到阶段，尝试其他模式
+    // If no stage is parsed, try other patterns
     if (stages.length === 0) {
       return parseAlternativeTimeline(content);
     }
@@ -785,7 +785,7 @@ export default function ReportPage() {
     return { stages };
   };
 
-  // 备用时间线解析
+  // Alternative timeline parsing
   const parseAlternativeTimeline = (content) => {
     const stages = [];
     const lines = content.split('\n');
@@ -802,10 +802,10 @@ export default function ReportPage() {
       }
     });
     
-    return { stages: stages.slice(0, 4) }; // 限制最多4个阶段
+    return { stages: stages.slice(0, 4) }; // Limit to a maximum of 4 stages
   };
 
-  // 解析表格数据
+  // Parse table data
   const parseTableData = () => {
     // 简单的表格解析，可以根据实际数据格式调整
     const headers = ['支持类型', '伴侣A贡献', '伴侣B贡献', '平衡评估'];
@@ -819,7 +819,7 @@ export default function ReportPage() {
     return { headers, rows };
   };
 
-  // 解析统计数据
+  // Parse stats data
   const parseStatsData = (content) => {
     const lines = content.split('\n');
     const stats = {
@@ -829,9 +829,9 @@ export default function ReportPage() {
       subStats: []
     };
     
-    // 智能识别统计类型
+    // Intelligently identify stat type
     const contentLower = content.toLowerCase();
-    let statType = 'success_probability'; // 默认类型
+    let statType = 'success_probability'; // Default type
     
     if (contentLower.includes('compatibility') || contentLower.includes('兼容性')) {
       statType = 'compatibility';
@@ -866,7 +866,7 @@ export default function ReportPage() {
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
-      // 匹配主要数值
+      // Match main value
       const mainMatch = trimmedLine.match(/(\d+(-\d+)?%)/);
       if (mainMatch && !stats.mainValue) {
         stats.mainValue = mainMatch[1];
@@ -874,7 +874,7 @@ export default function ReportPage() {
         stats.description = config.description;
       }
       
-      // 匹配子统计
+      // Match sub-stats
       const subMatch = trimmedLine.match(/(\d+)%.*?([^%]+)/);
       if (subMatch && stats.subStats.length < 3) {
         stats.subStats.push({
@@ -885,7 +885,7 @@ export default function ReportPage() {
       }
     });
     
-    // 如果没有解析到数据，提供默认值
+    // If no data is parsed, provide default values
     if (!stats.mainValue) {
       stats.mainValue = '82-88%';
       stats.title = config.title;
@@ -900,7 +900,7 @@ export default function ReportPage() {
     return stats;
   };
 
-  // 解析特性卡片数据
+  // Parse feature card data
   const parseCardsData = (content) => {
     const features = [];
     const lines = content.split('\n');
@@ -909,7 +909,7 @@ export default function ReportPage() {
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
-      // 匹配特性标题
+      // Match feature title
       if (trimmedLine.includes('主要元素') || trimmedLine.includes('心理动态') || 
           trimmedLine.includes('早期吸引因素') || trimmedLine.includes('吸引因素')) {
         if (currentFeature) features.push(currentFeature);
@@ -927,7 +927,7 @@ export default function ReportPage() {
           items: []
         };
       } else if (currentFeature && (trimmedLine.startsWith('•') || trimmedLine.startsWith('*') || trimmedLine.startsWith('-'))) {
-        // 匹配列表项
+        // Match list items
         const item = trimmedLine.replace(/^[•\*\-]\s*/, '').trim();
         if (item) {
           const labelMatch = item.match(/([^：]+)：(.+)/);
@@ -944,7 +944,7 @@ export default function ReportPage() {
           }
         }
       } else if (currentFeature && /^\d+\./.test(trimmedLine)) {
-        // 匹配有序列表项
+        // Match ordered list items
         const item = trimmedLine.replace(/^\d+\.\s*/, '').trim();
         if (item) {
           const labelMatch = item.match(/([^-]+)-(.+)/);
@@ -965,7 +965,7 @@ export default function ReportPage() {
     
     if (currentFeature) features.push(currentFeature);
     
-    // 如果没有解析到数据，提供默认值
+    // If no data is parsed, provide default values
     if (features.length === 0) {
       features.push({
         title: '主要元素',
@@ -991,7 +991,7 @@ export default function ReportPage() {
     return { features };
   };
 
-  // 解析引用块数据
+  // Parse quote block data
   const parseQuoteData = (content) => {
     const lines = content.split('\n');
     let quoteContent = '';
@@ -1001,23 +1001,23 @@ export default function ReportPage() {
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
-      // 提取引用内容
+      // Extract quote content
       if (trimmedLine.startsWith('"') || trimmedLine.startsWith('"') || trimmedLine.startsWith('"')) {
         quoteContent = trimmedLine.replace(/^["""]|["""]$/g, '');
       }
       
-      // 提取作者信息
+      // Extract author information
       if (trimmedLine.includes('—') || trimmedLine.includes('-')) {
         author = trimmedLine.replace(/^[—-]\s*/, '');
       }
       
-      // 提取上下文
+      // Extract context
       if (trimmedLine && !trimmedLine.startsWith('"') && !trimmedLine.includes('—')) {
         context = trimmedLine;
       }
     });
     
-    // 确定引用类型
+    // Determine quote type
     let quoteType = 'neutral';
     if (quoteContent.includes('希望') || quoteContent.includes('成功') || quoteContent.includes('健康')) {
       quoteType = 'positive';
@@ -1035,7 +1035,7 @@ export default function ReportPage() {
     };
   };
 
-  // 解析总结块数据
+  // Parse summary block data
   const parseSummaryData = (content) => {
     const lines = content.split('\n');
     const summary = {
@@ -1079,7 +1079,7 @@ export default function ReportPage() {
       }
     });
     
-    // 如果没有解析到数据，提供默认值
+    // If no data is parsed, provide default values
     if (summary.positiveItems.length === 0) {
       summary.positiveItems = [
         { label: 'Optimal Pacing', content: 'Natural progression without rushing emotional intimacy' },
@@ -1105,7 +1105,7 @@ export default function ReportPage() {
     return summary;
   };
 
-  // 解析进度指示器数据
+  // Parse progress indicator data
   const parseProgressData = (content) => {
     const lines = content.split('\n');
     const progress = {
@@ -1116,7 +1116,7 @@ export default function ReportPage() {
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
-      // 匹配进度项
+      // Match progress items
       const progressMatch = trimmedLine.match(/([^：]+)：(\d+)%/);
       if (progressMatch) {
         progress.items.push({
@@ -1126,19 +1126,19 @@ export default function ReportPage() {
         });
       }
       
-      // 匹配描述
+      // Match description
       if (trimmedLine.startsWith('•') && progress.items.length > 0) {
         const description = trimmedLine.replace('•', '').trim();
         progress.items[progress.items.length - 1].description = description;
       }
       
-      // 匹配总结
+      // Match summary
       if (trimmedLine.includes('整体') || trimmedLine.includes('总结')) {
         progress.summary = trimmedLine;
       }
     });
     
-    // 如果没有解析到数据，提供默认值
+    // If no data is parsed, provide default values
     if (progress.items.length === 0) {
       progress.items = [
         { label: '情感连接发展', value: 85, description: '关系初期建立了良好的情感基础' },
@@ -1155,7 +1155,7 @@ export default function ReportPage() {
     return progress;
   };
 
-  // 解析图表数据
+  // Parse chart data
   const parseChartData = (content) => {
     const lines = content.split('\n');
     const chart = {
@@ -1167,7 +1167,7 @@ export default function ReportPage() {
     lines.forEach(line => {
       const trimmedLine = line.trim();
       
-      // 匹配图表项
+      // Match chart items
       const chartMatch = trimmedLine.match(/([^：]+)：(\d+)/);
       if (chartMatch) {
         chart.items.push({
@@ -1176,18 +1176,18 @@ export default function ReportPage() {
         });
       }
       
-      // 匹配标题
+      // Match title
       if (trimmedLine.includes('分析') || trimmedLine.includes('数据')) {
         chart.title = trimmedLine;
       }
       
-      // 匹配图例
+      // Match legend
       if (trimmedLine.includes('说明') || trimmedLine.includes('注释')) {
         chart.legend = trimmedLine;
       }
     });
     
-    // 如果没有解析到数据，提供默认值
+    // If no data is parsed, provide default values
     if (chart.items.length === 0) {
       chart.items = [
         { label: '情感兼容性', value: 85 },
@@ -1205,7 +1205,7 @@ export default function ReportPage() {
     return chart;
   };
 
-  // JSON Block 渲染组件
+  // JSON Block Renderer Component
   const JsonBlockRenderer = ({ block, index }) => {
     const blockProps = {
       key: `block-${index}`,
@@ -1215,10 +1215,10 @@ export default function ReportPage() {
 
     switch (block.type) {
       case 'markdown':
-        // 如果是第一个block，移除已经在页面标题中显示的部分
+        // If it's the first block, remove the part already displayed in the page title
         let content = block.content;
         if (index === 0) {
-          // 先处理转义的换行符，然后移除标题和副标题部分
+          // First, handle escaped newlines, then remove title and subtitle parts
           const processedContent = content.replace(/\\n/g, '\n');
           content = processedContent.replace(/^#\s+.+\n\*[^*]+\*\n\n?/m, '');
         }
@@ -1364,7 +1364,7 @@ export default function ReportPage() {
     }
   };
 
-  // 智能内容渲染组件
+  // Smart Content Renderer Component
   const SmartContentRenderer = ({ content, pageTitle }) => {
     if (!content) {
       return (
@@ -1374,10 +1374,10 @@ export default function ReportPage() {
       );
     }
 
-    // 确保content是规范化的数据
+    // Ensure content is normalized data
     const normalizedContent = normalizeContent(content);
 
-    // 根据数据类型渲染
+    // Render based on data type
     switch (normalizedContent.type) {
       case 'json_blocks':
         const blocks = normalizedContent.data.output.blocks;
@@ -1430,7 +1430,10 @@ export default function ReportPage() {
     }
   };
 
-  // 从n8n_chat_histories表获取数据
+  );
+  };
+
+  // Fetch data from n8n_chat_histories table
   const fetchData = async (sessionId) => {
     try {
       console.log('🔍 Fetching data for sessionId:', sessionId);
@@ -1449,7 +1452,7 @@ export default function ReportPage() {
       console.log('✅ Fetched data:', data);
       console.log('📊 Number of records:', data?.length || 0);
 
-      // 处理AI消息并解析JSON结构 - 动态处理所有AI回答
+      // Process AI messages and parse JSON structure - dynamically handle all AI responses
       const aiResponses = [];
       
       data.forEach((item, index) => {
@@ -1459,37 +1462,37 @@ export default function ReportPage() {
         if (type === 'ai') {
           console.log(`📝 Processing AI item ${aiResponses.length + 1}:`);
           
-          // 使用统一数据规范化
+          // Use unified data normalization
           const normalizedContent = normalizeContent(message.content);
           
-          // 从content中提取标题和副标题
+          // Extract title and subtitle from content
           const extractTitlesFromContent = (normalizedContent) => {
             let title = `Analysis ${aiResponses.length + 1}`;
             let subtitle = `Report Section ${aiResponses.length + 1}`;
             
             try {
-              // 检查是否是JSON blocks类型
+              // Check if it's a JSON blocks type
               if (normalizedContent.type === 'json_blocks') {
                 const blocks = normalizedContent.data.output.blocks;
                 
-                // 查找markdown类型的block
+                // Find markdown type block
                 const markdownBlock = blocks.find(block => block.type === 'markdown');
                 if (markdownBlock && markdownBlock.content) {
                   const markdownContent = markdownBlock.content;
                   
                   console.log('📝 Parsing markdown content:', markdownContent);
                   
-                  // 先将转义的\n转换为真正的换行符
+                  // First, convert escaped \n to actual newlines
                   const processedContent = markdownContent.replace(/\\n/g, '\n');
                   
-                  // 提取第一个 # 标题作为主标题
+                  // Extract the first # title as the main title
                   const h1Match = processedContent.match(/^#\s+(.+)$/m);
                   if (h1Match) {
                     title = h1Match[1].trim();
                     console.log('📝 Found title:', title);
                   }
                   
-                  // 提取紧跟在主标题后面的斜体文本作为副标题
+                  // Extract the italicized text immediately following the main title as the subtitle
                   const italicMatch = processedContent.match(/^#\s+(.+?)[\r\n]+\*([^*]+)\*/m);
                   if (italicMatch) {
                     subtitle = italicMatch[2].trim();
@@ -1501,7 +1504,7 @@ export default function ReportPage() {
               }
             } catch (error) {
               console.log('Error extracting titles:', error);
-              // 保持默认值
+              // Keep default values
             }
             
             return { title, subtitle };
@@ -1509,7 +1512,7 @@ export default function ReportPage() {
           
           const { title, subtitle } = extractTitlesFromContent(normalizedContent);
           
-          // 动态生成页面信息
+          // Dynamically generate page information
           const pageInfo = {
             id: `page_${aiResponses.length + 1}`,
             title: title,
@@ -1540,28 +1543,28 @@ export default function ReportPage() {
         setIsLoading(false);
         setHasInitialized(true);
         
-        // 如果URL参数中没有completed=true，说明是进行中的会话，可能需要轮询
-        // 如果有completed=true，说明是查看已完成的报告，不需要轮询
+        // If the URL parameter does not have completed=true, it means the session is in progress and may require polling
+        // If completed=true, it means viewing a completed report, no polling needed
         if (!completed || completed !== 'true') {
           console.log('📋 Session is in progress, may need polling logic here');
-          // TODO: 添加轮询逻辑（如果需要的话）
+          // TODO: Add polling logic (if needed)
         } else {
           console.log('📋 Viewing completed report, no polling needed');
         }
       };
       loadData();
     }
-  }, [sessionId, hasInitialized, completed]); // 添加completed依赖
+  }, [sessionId, hasInitialized, completed]); // Add completed dependency
 
-  // 滚动导航功能
+  // Scroll navigation function
   useEffect(() => {
-    if (isLoading || !hasInitialized) return; // 数据加载时跳过
+    if (isLoading || !hasInitialized) return; // Skip when data is loading
 
     const sections = document.querySelectorAll('.page-section');
     const navItems = document.querySelectorAll('.nav-item');
     const progressBar = document.getElementById('progress-bar');
 
-    if (sections.length === 0 || navItems.length === 0) return; // 确保元素存在
+    if (sections.length === 0 || navItems.length === 0) return; // Ensure elements exist
 
     let scrollTimeout;
     const updateNavigation = () => {
@@ -1577,13 +1580,13 @@ export default function ReportPage() {
           if (scrollPosition >= sectionTop - windowHeight/2 && 
               scrollPosition < sectionTop + sectionHeight - windowHeight/2) {
             
-            // 更新导航高亮
+            // Update navigation highlight
             navItems.forEach(item => item.classList.remove('active'));
             if (navItems[index]) {
               navItems[index].classList.add('active');
             }
             
-            // 更新进度条
+            // Update progress bar
             const progress = ((index + 1) / contentData.length) * 100;
             if (progressBar) {
               progressBar.style.width = progress + '%';
@@ -1592,12 +1595,12 @@ export default function ReportPage() {
             setCurrentPage(index + 1);
           }
         });
-      }, 10); // 10ms防抖
+      }, 10); // 10ms debounce
     };
 
     window.addEventListener('scroll', updateNavigation);
     
-    // 点击导航项平滑滚动
+    // Smooth scroll on navigation item click
     navItems.forEach(item => {
       item.addEventListener('click', (e) => {
         e.preventDefault();
@@ -1613,7 +1616,7 @@ export default function ReportPage() {
       window.removeEventListener('scroll', updateNavigation);
       clearTimeout(scrollTimeout);
     };
-  }, [isLoading, hasInitialized, contentData.length]); // 依赖加载状态和页面数量
+  }, [isLoading, hasInitialized, contentData.length]); // Depends on loading status and page count
 
   if (isLoading) {
     return (
@@ -1626,7 +1629,7 @@ export default function ReportPage() {
     );
   }
 
-  // 错误处理
+  // Error handling
   if (!contentData || contentData.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -1642,7 +1645,7 @@ export default function ReportPage() {
 
   return (
     <>
-      {/* 调试信息 - 开发环境显示 */}
+      {/* Debug Information - Development Environment Display */}
       {process.env.NODE_ENV === 'development' && (
         <div className="fixed top-4 right-4 bg-black bg-opacity-75 text-white p-3 rounded text-xs z-50">
           <div>Session: {sessionId}</div>
@@ -1667,7 +1670,7 @@ export default function ReportPage() {
         }
 
         
-        /* 内容样式优化 */
+        /* Content Style Optimization */
         .prose h1 {
           color: #1f2937;
           font-weight: 700;
@@ -1710,7 +1713,7 @@ export default function ReportPage() {
           font-style: italic;
         }
         
-        /* 悬停效果 - Wireframe style */
+        /* Hover Effect - Wireframe style */
         .hover-lift {
           transition: transform 0.2s ease-out, border-color 0.2s ease-out;
         }
@@ -1720,7 +1723,7 @@ export default function ReportPage() {
           border-color: #000;
         }
         
-        /* 渐进式动画 */
+        /* Progressive Animation */
         .fade-in-up {
           opacity: 0;
           transform: translateY(20px);
@@ -1734,7 +1737,7 @@ export default function ReportPage() {
           }
         }
         
-        /* 卡片悬停增强 - Wireframe style */
+        /* Card Hover Enhancement - Wireframe style */
         .card-hover {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -1744,7 +1747,7 @@ export default function ReportPage() {
           border-width: 2px;
         }
         
-        /* 响应式优化 */
+        /* Responsive Optimization */
         @media (max-width: 768px) {
           .page-section {
             padding-top: 1rem;
@@ -1758,7 +1761,7 @@ export default function ReportPage() {
       `}</style>
 
       <div className="bg-white">
-        {/* 左侧导航栏 */}
+        {/* Left Sidebar */}
         <nav className="fixed left-0 top-0 w-80 h-full bg-white border-r border-black z-10">
           <div className="p-6">
             <h1 className="text-xl font-medium text-black mb-6 flex items-center gap-2">
@@ -1789,7 +1792,7 @@ export default function ReportPage() {
               })}
             </ul>
             
-            {/* 进度指示器 */}
+            {/* Progress Indicator */}
             <div className="mt-8 pt-6 border-t">
               <div className="text-sm text-black mb-2">Reading Progress</div>
               <div className="w-full bg-white border border-black h-2">
@@ -1800,7 +1803,7 @@ export default function ReportPage() {
           </div>
         </nav>
 
-        {/* 主要内容区域 */}
+        {/* Main Content Area */}
         <main className="ml-80" ref={mainRef}>
           {contentData.map((page, index) => {
             // Wireframe style - remove gradients and use consistent styling

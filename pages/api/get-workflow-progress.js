@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 验证用户身份
+    // Authenticate user identity
     const user = await getUserFromRequest(req);
     
     if (!user) {

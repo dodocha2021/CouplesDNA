@@ -313,7 +313,7 @@ deno_version = 1
 
 [edge_runtime.secrets]
 COHERE_API_KEY = "caJwxUY3FyQ9eHuYpkJatqXtu4OWNwTCx1Y31fV9"
-# SUPABASE_URL 和 SUPABASE_ANON_KEY 由 Supabase 自动提供
+# SUPABASE_URL and SUPABASE_ANON_KEY are automatically provided by Supabase
 
 [analytics]
 enabled = true

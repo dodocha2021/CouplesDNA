@@ -180,7 +180,7 @@ handleDeleteChat={handleDeleteChat}
         </div>
       </footer>
 
-      {/* 删除确认弹窗 */}
+      {/* Delete confirmation dialog */}
       {showDeleteConfirm && (
         <ConfirmDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
           <div className="p-6">

@@ -1,6 +1,6 @@
 import React from 'react';
 
-// Message Loading Component - 通用加载动画组件
+// Message Loading Component - General purpose loading animation component
 export default function LoadingSpinner({ 
   className = "text-gray-600",
   size = 24,
@@ -51,6 +51,6 @@ export default function LoadingSpinner({
   );
 }
 
-// 别名导出，保持兼容性
+// Alias export for compatibility
 export { LoadingSpinner };
 export const MessageLoading = LoadingSpinner;

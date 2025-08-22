@@ -9,7 +9,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. 验证用户身份
+    // 1. Authenticate user identity
     const user = await getUserFromRequest(req);
     
     if (!user) {
@@ -22,20 +22,20 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'sessionId is required' });
     }
 
-    const questionsCount = totalQuestions || 5; // 默认40个问题
+    const questionsCount = totalQuestions || 5; // Default 40 questions
 
     console.log('🔄 Final Report API: Sending request to n8n webhook...');
     console.log('📋 Session ID:', sessionId);
     console.log('📊 Total Questions:', questionsCount);
     
-    // 动态构建问题对象
+    // Dynamically build the question object
     const questionsObject = {
       "sessionId": sessionId,
-      "totalQuestions": questionsCount, // 传递总问题数给n8n
-      "user_id": user.id // 传递用户ID给n8n工作流
+      "totalQuestions": questionsCount, // Pass the total number of questions to n8n
+      "user_id": user.id // Pass the user ID to the n8n workflow
     };
     
-    // 从数据库获取prompts（只获取当前用户的）
+    // Get prompts from the database (only for the current user)
     console.log('🔄 Loading prompts from database...');
     const { data: promptsData, error: promptsError } = await supabase
       .from('prompts_config')
@@ -64,7 +64,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 验证prompts数量和连续性
+    // Validate prompt quantity and continuity
     if (promptsData.length !== questionsCount) {
       console.error(`❌ Expected ${questionsCount} prompts, found ${promptsData.length}`);
       return res.status(400).json({ 
@@ -75,7 +75,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 检查连续性 (1,2,3...)
+    // Check continuity (1,2,3...)
     for (let i = 0; i < promptsData.length; i++) {
       const expectedNumber = i + 1;
       if (promptsData[i].question_number !== expectedNumber) {
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
         });
       }
 
-      // 检查内容是否为空
+      // Check if content is empty
       if (!promptsData[i].prompt_content || promptsData[i].prompt_content.trim() === '') {
         console.error(`❌ Empty prompt content for question ${expectedNumber}`);
         return res.status(400).json({ 
@@ -100,25 +100,25 @@ export default async function handler(req, res) {
       }
     }
 
-    // 动态添加从数据库获取的问题
+    // Dynamically add questions obtained from the database
     promptsData.forEach(prompt => {
       questionsObject[`question ${prompt.question_number}`] = prompt.prompt_content.trim();
     });
 
     console.log('✅ Successfully loaded', promptsData.length, 'prompts from database');
     
-    // 发送请求到 n8n 并等待响应
+    // Send request to n8n and wait for response
     try {
       const response = await axios.post(N8N_WEBHOOK, [
         questionsObject
       ], { 
         headers: { 'Content-Type': 'application/json' },
-        timeout: 90000 // 90秒超时（Cloudflare限制是100秒）
+        timeout: 90000 // 90-second timeout (Cloudflare limit is 100 seconds)
       });
 
       console.log('✅ Final Report API: n8n response received:', response.data);
       
-      // 返回成功响应
+      // Return success response
       res.status(200).json({ 
         success: true, 
         message: 'Final report generated successfully',
@@ -137,7 +137,7 @@ export default async function handler(req, res) {
         url: N8N_WEBHOOK
       });
       
-      // 检查是否是404错误（webhook不存在）
+      // Check if it's a 404 error (webhook does not exist)
       if (error.response?.status === 404) {
         res.status(500).json({ 
           success: false,
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
           details: error.response?.data
         });
       } else {
-        // 返回错误响应
+        // Return error response
         res.status(500).json({ 
           success: false,
           error: 'Failed to generate report', 

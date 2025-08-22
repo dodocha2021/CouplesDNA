@@ -6,14 +6,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 验证用户身份
+    // Authenticate user identity
     const user = await getUserFromRequest(req, res);
     
     if (!user) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    // 从数据库获取总问题数设置（只获取当前用户的）
+    // Get total question count settings from the database (only for the current user)
     const { data: settingsData, error: settingsError } = await supabase
       .from('prompts_settings')
       .select('setting_value')
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 
     const totalQuestions = settingsData?.setting_value || 1;
 
-    // 从数据库获取所有prompts（只获取当前用户的）
+    // Get all prompts from the database (only for the current user)
     const { data: promptsData, error: promptsError } = await supabase
       .from('prompts_config')
       .select('question_number, prompt_content')
@@ -40,15 +40,15 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Failed to fetch prompts' });
     }
 
-    // 构建prompts对象
+    // Build prompts object
     const prompts = {};
     
-    // 先初始化所有问题为空字符串
+    // Initialize all questions as empty strings first
     for (let i = 1; i <= totalQuestions; i++) {
       prompts[i] = '';
     }
     
-    // 填充数据库中的内容
+    // Populate content from the database
     if (promptsData) {
       promptsData.forEach(item => {
         prompts[item.question_number] = item.prompt_content || '';

@@ -21,7 +21,7 @@ export default async function handler(req, res) {
         throw error
       }
 
-      // 映射数据字段以匹配前端期望的结构
+      // Map data fields to match the structure expected by the frontend
       const mappedData = data.map(item => ({
         id: item.id,
         title: item.session_name || item.session_id || `Report ${item.id}`,
@@ -30,14 +30,18 @@ export default async function handler(req, res) {
         communication_style: item.communication_style || null,
         sentiment_score: item.sentiment_score || null,
         session_id: item.session_id,
-        // 保留原始数据以备后用
+        // Retain original data for future use
         ...item
       }))
 
       res.status(200).json({ success: true, data: mappedData })
     } catch (error) {
       res.status(500).json({ success: false, error: error.message })
-    }
+    } else {
+    res.setHeader('Allow', ['GET'])
+    res.status(405).end(`Method ${req.method} Not Allowed`)
+  }
+}
   } else {
     res.setHeader('Allow', ['GET'])
     res.status(405).end(`Method ${req.method} Not Allowed`)
