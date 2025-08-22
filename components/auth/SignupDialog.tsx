@@ -4,7 +4,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useRouter } from "next/router"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -90,37 +90,13 @@ export function SignupDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {triggerButton && <DialogTrigger asChild>{triggerButton}</DialogTrigger>}
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold text-center">Join CouplesDNA</DialogTitle>
+        </DialogHeader>
         <div className="flex flex-col gap-6">
           <Card className="border-0 shadow-none">
             <CardHeader className="text-center pb-6">
-              <div className="flex justify-center mb-4">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-full border border-zinc-200 dark:border-zinc-800">
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="stroke-zinc-800 dark:stroke-zinc-100"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="M16 7C16 9.20914 14.2091 11 12 11C9.79086 11 8 9.20914 8 7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7Z"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                    <path
-                      d="M12 14C8.13401 14 5 17.134 5 21H19C19 17.134 15.866 14 12 14Z"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <CardTitle className="text-xl">Sign up CouplesDNA</CardTitle>
               <CardDescription>
                 We just need a few details to get you started.
               </CardDescription>
@@ -158,10 +134,15 @@ export function SignupDialog({
                     </Button>
                   </div>
                   
-                  <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t after:border-border">
-                    <span className="relative z-10 bg-background px-2 text-muted-foreground">
-                      Or continue with email
-                    </span>
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-gray-300" />
+                    </div>
+                    <div className="relative flex justify-center text-sm">
+                      <span className="bg-white dark:bg-gray-900 px-2 text-gray-500">
+                        Or continue with email
+                      </span>
+                    </div>
                   </div>
                   
                   <div className="grid gap-4">
