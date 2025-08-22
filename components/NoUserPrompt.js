@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import axios from 'axios';
 
-const WEBHOOK_URL = 'https://couplesdna.app.n8n.cloud/webhook-test/e3c61533-a245-425c-84fa-00e2405ff680';
+const WEBHOOK_URL = 'https://couplesdna.app.n8n.cloud/webhook/e3c61533-a245-425c-84fa-00e2405ff680';
 
 export default function NoUserPrompt() {
   const [user, setUser] = useState(null);
@@ -47,7 +47,7 @@ export default function NoUserPrompt() {
     setImprovingPrompts(prev => ({ ...prev, [promptId]: true }));
     
     try {
-      const response = await axios.post('https://couplesdna.app.n8n.cloud/webhook-test/beae6862-96c0-42f3-86eb-4647bf6f6778', {
+      const response = await axios.post('https://couplesdna.app.n8n.cloud/webhook/beae6862-96c0-42f3-86eb-4647bf6f6778', {
         prompt: currentText,
         user_id: user?.id,
         email: user?.email,
