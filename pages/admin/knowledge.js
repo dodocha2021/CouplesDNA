@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useSupabaseClient, useUser } from '@supabase/auth-helpers-react';
+import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -27,10 +27,11 @@ const AccessDenied = () => (
 
 const KnowledgePage = () => {
   const supabase = useSupabaseClient();
-  const user = useUser();
+  const session = useSession();
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [sessionLoading, setSessionLoading] = useState(true); // 新增
 
   const [knowledge, setKnowledge] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,29 +48,73 @@ const KnowledgePage = () => {
 
   const knowledgeCategories = ['General', 'Communication', 'Psychology', 'Relationships', 'Product FAQ'];
 
+  // 新增：监听 session 加载状态
   useEffect(() => {
-    setIsAuthLoading(true);
-    if (user) {
-      const checkAdminRole = async () => {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single();
-        
-        if (profile && profile.role === 'admin') {
-          setIsAdmin(true);
-        } else {
-          setIsAdmin(false);
-        }
-        setIsAuthLoading(false);
-      };
-      checkAdminRole();
-    } else {
-      setIsAdmin(false); 
-      setIsAuthLoading(false);
+    const checkSession = async () => {
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      console.log('🔄 Session check:', currentSession);
+      setSessionLoading(false);
+    };
+    
+    checkSession();
+    
+    // 监听认证状态变化
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('🔔 Auth state changed:', session);
+      setSessionLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
+  // 修改原有的权限检查 useEffect
+  useEffect(() => {
+    // 等待 session 加载完成
+    if (sessionLoading) {
+      console.log('⏳ Waiting for session to load...');
+      return;
     }
-  }, [user, supabase]);
+
+    setIsAuthLoading(true);
+    
+    const checkAdminRole = async () => {
+      // 重新获取 session（更可靠）
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      const user = currentSession?.user;
+      
+      console.log('🔐 Current session:', currentSession);
+      console.log('👤 Current user:', user);
+      
+      if (!user) {
+        console.log('⚠️ No user in session');
+        setIsAdmin(false);
+        setIsAuthLoading(false);
+        return;
+      }
+
+      console.log('🔍 Checking admin role for user:', user.id);
+      
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+      
+      console.log('📊 Profile data:', profile);
+      console.log('❌ Query error:', error);
+      
+      if (profile && profile.role === 'admin') {
+        setIsAdmin(true);
+        console.log('✅ Admin access granted');
+      } else {
+        setIsAdmin(false);
+        console.log('❌ Not admin, role:', profile?.role);
+      }
+      setIsAuthLoading(false);
+    };
+
+    checkAdminRole();
+  }, [sessionLoading, supabase]); // 依赖 sessionLoading
 
   useEffect(() => {
     if (isAdmin) {
@@ -200,8 +245,16 @@ const KnowledgePage = () => {
     }
   }
 
-  if (isAuthLoading) {
-    return <div className="container mx-auto p-4 text-center">Checking permissions...</div>;
+  // 修改加载状态的判断
+  if (sessionLoading || isAuthLoading) {
+    return (
+      <div className="container mx-auto p-4 text-center">
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p>Checking permissions...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!isAdmin) {
@@ -310,3 +363,19 @@ const KnowledgePage = () => {
 };
 
 export default KnowledgePage;
+
+export async function getServerSideProps(context) {
+  const { createPagesServerClient } = require('@supabase/auth-helpers-nextjs');
+  
+  const supabase = createPagesServerClient(context);
+  
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  
+  return {
+    props: {
+      initialSession: session,
+    },
+  };
+}
