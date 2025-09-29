@@ -11,6 +11,7 @@ import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ChevronRight, ChevronDown, Bot, TestTube2, AlertTriangle } from 'lucide-react';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 
 const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION.\nThe CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say "I could not find an answer in the provided knowledge base."\nDo not make up information. Be concise and clear in your response.`;
 const defaultUserPromptTemplate = `CONTEXT:\n{context}\n\n---\n\nQUESTION:\n{question}`;
@@ -35,16 +36,16 @@ const TreeItem = ({ children, ...props }) => {
                     {label}
                 </label>
                 {level === 0 && (
-                    <div className="flex-grow flex items-center space-x-2 pl-4">
+                    <div className="flex-grow flex items-center justify-end space-x-2">
                         <Label htmlFor={`slider-${id}`} className="text-xs">Threshold</Label>
                         <Slider
                             id={`slider-${id}`}
                             min={0} max={1} step={0.05}
                             value={[threshold]} 
                             onValueChange={(value) => onThresholdChange(value[0])}
-                            className="w-24"
+                            className="w-32"
                         />
-                        <span className="text-xs w-8">{threshold.toFixed(2)}</span>
+                        <span className="text-xs w-8 text-right">{threshold.toFixed(2)}</span>
                     </div>
                 )}
             </div>
@@ -58,6 +59,7 @@ const TreeItem = ({ children, ...props }) => {
 };
 
 const PromptStudioPage = () => {
+    const supabase = useSupabaseClient(); // 在组件顶部调用
     const [knowledgeItems, setKnowledgeItems] = useState([]);
     const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState([]);
     const [question, setQuestion] = useState('What are the main features of our product?');
@@ -74,44 +76,60 @@ const PromptStudioPage = () => {
     const [fallbackAnswer, setFallbackAnswer] = useState(defaultFallbackAnswer);
 
     useEffect(() => {
-        const fetchAllKnowledge = async () => {
+        const fetchKnowledgeUploads = async () => {
             try {
-                const res = await fetch('/api/knowledge?limit=1000'); // Fetch a large number of items
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Failed to fetch knowledge items');
+                console.log('Fetching knowledge uploads...');
                 
-                const items = data.data || [];
-                setKnowledgeItems(items);
-
-                // Set initial thresholds for all unique categories found
+                const { data, error } = await supabase
+                    .from('knowledge_uploads')
+                    .select('id, file_name, file_size, metadata, updated_at, status')
+                    .eq('status', 'completed')
+                    .order('updated_at', { ascending: false });
+                
+                console.log('Query result:', { data, error });
+                
+                if (error) {
+                    console.error('Query error:', error);
+                    throw error;
+                }
+                
+                console.log(`Found ${data?.length || 0} completed uploads`);
+                setKnowledgeItems(data || []);
+                
+                // 按 category 设置初始 threshold
                 const initialThresholds = {};
-                items.forEach(item => {
-                    const category = item.category || 'Uncategorized';
+                (data || []).forEach(item => {
+                    const category = item.metadata?.category || 'Uncategorized';
                     if (!initialThresholds[category]) {
-                        initialThresholds[category] = 0.45; // Default threshold
+                        initialThresholds[category] = 0.45;
                     }
                 });
                 setCategoryThresholds(initialThresholds);
-
+                
             } catch (error) {
-                toast({ variant: "destructive", title: "Error", description: `Could not load knowledge base: ${error.message}` });
+                console.error('Fetch error:', error);
+                toast({ 
+                    variant: "destructive", 
+                    title: "Error", 
+                    description: `Could not load knowledge base: ${error.message}` 
+                });
             }
         };
-        fetchAllKnowledge();
-    }, [toast]);
+        
+        fetchKnowledgeUploads();
+    }, [supabase, toast]); // 添加 supabase 到依赖
 
     const knowledgeTree = useMemo(() => {
-        // Group all items by category and source without any static filtering
         return knowledgeItems.reduce((acc, item) => {
-            const category = item.category || 'Uncategorized'; // Group items without a category under 'Uncategorized'
-            const source = item.source || 'Unknown Source';
-
-            if (!acc[category]) acc[category] = { sources: {}, itemIds: [] };
-            if (!acc[category].sources[source]) acc[category].sources[source] = { items: [], itemIds: [] };
-
-            acc[category].sources[source].items.push(item);
-            acc[category].sources[source].itemIds.push(item.id);
+            const category = item.metadata?.category || 'Uncategorized';
+            
+            if (!acc[category]) {
+                acc[category] = { files: [], itemIds: [] };
+            }
+            
+            acc[category].files.push(item);
             acc[category].itemIds.push(item.id);
+            
             return acc;
         }, {});
     }, [knowledgeItems]);
@@ -142,10 +160,11 @@ const PromptStudioPage = () => {
         try {
             const scopeWithThresholds = selectedKnowledgeIds.map(id => {
                 const item = knowledgeItems.find(k => k.id === id);
-                const category = item.category || 'Uncategorized';
+                const category = item.metadata?.category || 'Uncategorized';
                 return {
                     id: item.id,
-                    threshold: categoryThresholds[category] || 0.45
+                    threshold: categoryThresholds[category] || 0.45,
+                    type: 'file'
                 };
             });
 
@@ -176,49 +195,7 @@ const PromptStudioPage = () => {
     };
     
     const handleRunManualContext = async () => {
-        if (!question || selectedKnowledgeIds.length === 0) {
-            toast({ variant: "destructive", title: "Error", description: "A question and at least one selected item are required for a manual run." });
-            return;
-        }
-        setIsLoading(true);
-        setResponse('');
-        try {
-            // 1. Find the content of all selected items
-            const manualContext = knowledgeItems
-                .filter(item => selectedKnowledgeIds.includes(item.id))
-                .map(item => item.content)
-                .join('\n\n---\n\n');
-
-            if (!manualContext) {
-                toast({ variant: "destructive", title: "Error", description: "Could not find content for the selected items." });
-                return;
-            }
-
-            // 2. Call the API in manual mode
-            const res = await fetch('/api/run-rag-query', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    question,
-                    systemPrompt,
-                    userPromptTemplate,
-                    model,
-                    manualContext, // Pass the manually assembled context
-                }),
-            });
-
-            if (!res.ok) {
-                const err = await res.json();
-                throw new Error(err.error || 'Manual run API request failed');
-            }
-            const data = await res.json();
-            setResponse(data.response);
-
-        } catch (error) {
-            toast({ variant: "destructive", title: "Manual Run Error", description: error.message });
-        } finally {
-            setIsLoading(false);
-        }
+        toast({ variant: "destructive", title: "Not Implemented", description: "This functionality needs to be updated for file-based context." });
     };
 
     return (
@@ -251,34 +228,42 @@ const PromptStudioPage = () => {
                      <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
                      <CardContent className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)
+                            </label>
                             <ScrollArea className="border rounded-md p-2 h-64">
-                                {Object.entries(knowledgeTree).map(([category, { sources, itemIds: categoryIds }]) => {
-                                    const isCategorySelected = categoryIds.every(id => selectedKnowledgeIds.includes(id));
+                                {Object.entries(knowledgeTree).map(([category, { files, itemIds }]) => {
+                                    const isCategorySelected = itemIds.every(id => selectedKnowledgeIds.includes(id));
                                     return (
                                         <TreeItem 
                                             key={category} 
                                             id={`cat-${category}`} 
-                                            label={`${category} (${categoryIds.length})`} 
+                                            label={`${category} (${files.length})`} 
                                             isSelected={isCategorySelected} 
-                                            onSelect={(checked) => handleSelect(categoryIds, checked)} 
+                                            onSelect={(checked) => handleSelect(itemIds, checked)} 
                                             isBranch 
                                             initiallyOpen={true}
                                             level={0}
                                             threshold={categoryThresholds[category] || 0.45}
                                             onThresholdChange={(value) => handleThresholdChange(category, value)}
                                         >
-                                            {Object.entries(sources).map(([source, { items, itemIds: sourceIds }]) => {
-                                                const isSourceSelected = sourceIds.every(id => selectedKnowledgeIds.includes(id));
-                                                return (
-                                                    <TreeItem key={source} id={`src-${category}-${source}`} label={`${source} (${sourceIds.length})`} isSelected={isSourceSelected} onSelect={(checked) => handleSelect(sourceIds, checked)} isBranch level={1}>
-                                                        {items.map(item => {
-                                                            const isItemSelected = selectedKnowledgeIds.includes(item.id);
-                                                            return <TreeItem key={item.id} id={`item-${item.id}`} label={item.content.substring(0, 100) + '...'} isSelected={isItemSelected} onSelect={(checked) => handleSelect([item.id], checked)} level={2}/>;
-                                                        })}
-                                                    </TreeItem>
-                                                );
-                                            })}
+                                            {files.map(file => (
+                                                <TreeItem
+                                                    key={file.id}
+                                                    id={file.id}
+                                                    label={
+                                                        <div className="flex items-center justify-between w-full">
+                                                            <span className="truncate">{file.file_name}</span>
+                                                            <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                                                                {(file.file_size / 1024).toFixed(1)}KB · {new Date(file.updated_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                    }
+                                                    isSelected={selectedKnowledgeIds.includes(file.id)}
+                                                    onSelect={(checked) => handleSelect([file.id], checked)}
+                                                    level={1}
+                                                />
+                                            ))}
                                         </TreeItem>
                                     );
                                 })}

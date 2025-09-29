@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react'; // 确保有 React
 import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,7 +31,7 @@ const KnowledgePage = () => {
   
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [sessionLoading, setSessionLoading] = useState(true); // 新增
+  const [sessionLoading, setSessionLoading] = useState(true);
 
   const [knowledge, setKnowledge] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,52 +47,41 @@ const KnowledgePage = () => {
   const { toast } = useToast();
 
   const knowledgeCategories = ['General', 'Communication', 'Psychology', 'Relationships', 'Product FAQ'];
+  
+  const [expandedFiles, setExpandedFiles] = useState({}); // { file_id: { isExpanded, chunks } }
+  const [loadingChunks, setLoadingChunks] = useState({});
 
-  // 新增：监听 session 加载状态
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session: currentSession } } = await supabase.auth.getSession();
-      console.log('🔄 Session check:', currentSession);
       setSessionLoading(false);
     };
     
     checkSession();
     
-    // 监听认证状态变化
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('🔔 Auth state changed:', session);
       setSessionLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, [supabase]);
 
-  // 修改原有的权限检查 useEffect
   useEffect(() => {
-    // 等待 session 加载完成
     if (sessionLoading) {
-      console.log('⏳ Waiting for session to load...');
       return;
     }
 
     setIsAuthLoading(true);
     
     const checkAdminRole = async () => {
-      // 重新获取 session（更可靠）
       const { data: { session: currentSession } } = await supabase.auth.getSession();
       const user = currentSession?.user;
       
-      console.log('🔐 Current session:', currentSession);
-      console.log('👤 Current user:', user);
-      
       if (!user) {
-        console.log('⚠️ No user in session');
         setIsAdmin(false);
         setIsAuthLoading(false);
         return;
       }
-
-      console.log('🔍 Checking admin role for user:', user.id);
       
       const { data: profile, error } = await supabase
         .from('profiles')
@@ -100,21 +89,16 @@ const KnowledgePage = () => {
         .eq('id', user.id)
         .single();
       
-      console.log('📊 Profile data:', profile);
-      console.log('❌ Query error:', error);
-      
       if (profile && profile.role === 'admin') {
         setIsAdmin(true);
-        console.log('✅ Admin access granted');
       } else {
         setIsAdmin(false);
-        console.log('❌ Not admin, role:', profile?.role);
       }
       setIsAuthLoading(false);
     };
 
     checkAdminRole();
-  }, [sessionLoading, supabase]); // 依赖 sessionLoading
+  }, [sessionLoading, supabase]);
 
   useEffect(() => {
     if (isAdmin) {
@@ -145,6 +129,62 @@ const KnowledgePage = () => {
       setKnowledge(data);
     }
     setIsLoading(false);
+  };
+
+  const fetchChunks = async (fileId) => {
+    setLoadingChunks(prev => ({ ...prev, [fileId]: true }));
+    try {
+        // 1. 移除查询中的 .order()
+        const { data, error } = await supabase
+            .from('knowledge_vectors')
+            .select('id, content, metadata, created_at')
+            .eq('metadata->>file_id', fileId);
+        
+        if (error) throw error;
+
+        // 2. 在客户端对结果进行排序
+        const sortedChunks = (data || []).sort((a, b) => {
+            const indexA = a.metadata?.chunk_index || 0;
+            const indexB = b.metadata?.chunk_index || 0;
+            return indexA - indexB;
+        });
+        
+        // 3. 使用排序后的数据更新状态
+        setExpandedFiles(prev => ({
+            ...prev,
+            [fileId]: {
+                isExpanded: true,
+                chunks: sortedChunks
+            }
+        }));
+    } catch (error) {
+        toast({ 
+            variant: "destructive", 
+            title: "Error loading chunks", 
+            description: error.message 
+        });
+    } finally {
+        setLoadingChunks(prev => ({ ...prev, [fileId]: false }));
+    }
+  };
+
+  const toggleFileExpansion = async (fileId) => {
+      if (expandedFiles[fileId]?.isExpanded) {
+          // 折叠
+          setExpandedFiles(prev => ({
+              ...prev,
+              [fileId]: { ...prev[fileId], isExpanded: false }
+          }));
+      } else if (expandedFiles[fileId]?.chunks) {
+          // 已经加载过，直接展开
+          setExpandedFiles(prev => ({
+              ...prev,
+              [fileId]: { ...prev[fileId], isExpanded: true }
+          }));
+      } else {
+          // 首次加载
+          await fetchChunks(fileId);
+      }
   };
 
   const handleAddNew = async () => {
@@ -245,7 +285,6 @@ const KnowledgePage = () => {
     }
   }
 
-  // 修改加载状态的判断
   if (sessionLoading || isAuthLoading) {
     return (
       <div className="container mx-auto p-4 text-center">
@@ -337,24 +376,84 @@ const KnowledgePage = () => {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                  <TableRow><TableCell colSpan={6} className="text-center">Loading data...</TableCell></TableRow>
+                    <TableRow>
+                        <TableCell colSpan={6} className="text-center">Loading data...</TableCell>
+                    </TableRow>
                 ) : knowledge.length > 0 ? (
-                  knowledge.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.file_name}</TableCell>
-                    <TableCell><Badge variant={getStatusBadgeVariant(item.status)}>{item.status}</Badge></TableCell>
-                    <TableCell><Badge>{item.metadata?.category || 'N/A'}</Badge></TableCell>
-                    <TableCell><Badge variant="secondary">{item.metadata?.type || 'N/A'}</Badge></TableCell>
-                    <TableCell>{new Date(item.created_at).toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="destructive" size="sm" onClick={() => handleDelete(item.id)}>Delete</Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                    knowledge.map((item) => (
+                        <React.Fragment key={item.id}>
+                            <TableRow>
+                                <TableCell>
+                                    <button
+                                        onClick={() => toggleFileExpansion(item.id)}
+                                        className="text-blue-600 hover:text-blue-800 underline text-left"
+                                    >
+                                        {item.file_name}
+                                    </button>
+                                </TableCell>
+                                <TableCell>
+                                    <Badge variant={getStatusBadgeVariant(item.status)}>
+                                        {item.status}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell>{item.metadata?.category || 'N/A'}</TableCell>
+                                <TableCell>{item.metadata?.type || 'N/A'}</TableCell>
+                                <TableCell>{new Date(item.created_at).toLocaleString()}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button 
+                                        variant="destructive" 
+                                        size="sm" 
+                                        onClick={() => handleDelete(item.id)}
+                                    >
+                                        Delete
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                            
+                            {/* 展开的 chunks 行 */}
+                            {expandedFiles[item.id]?.isExpanded && (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="bg-gray-50 p-4">
+                                        {loadingChunks[item.id] ? (
+                                            <p className="text-center text-gray-500">Loading chunks...</p>
+                                        ) : expandedFiles[item.id]?.chunks?.length > 0 ? (
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold text-sm mb-2">
+                                                    Chunks ({expandedFiles[item.id].chunks.length})
+                                                </h4>
+                                                {expandedFiles[item.id].chunks.map((chunk, idx) => (
+                                                    <div 
+                                                        key={chunk.id} 
+                                                        className="border rounded p-3 bg-white"
+                                                    >
+                                                        <div className="flex justify-between items-start mb-1">
+                                                            <span className="text-xs font-medium text-gray-600">
+                                                                Chunk {idx + 1}
+                                                            </span>
+                                                            <span className="text-xs text-gray-400">
+                                                                {new Date(chunk.created_at).toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                                            {chunk.content}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-center text-gray-500">No chunks found</p>
+                                        )}
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </React.Fragment>
+                    ))
                 ) : (
-                  <TableRow><TableCell colSpan={6} className="text-center">No knowledge items found.</TableCell></TableRow>
+                    <TableRow>
+                        <TableCell colSpan={6} className="text-center">No knowledge items found.</TableCell>
+                    </TableRow>
                 )}
-              </TableBody>
+            </TableBody>
             </Table>
           </CardContent>
       </Card>
