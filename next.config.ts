@@ -11,6 +11,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  devIndicators: {
+    allowedDevOrigins: [
+        '3000-firebase-couplesdna-1758776227643.cluster-igoqaqpofbdxiwb7tjmkpssdzc.cloudworkstations.dev'
+    ]
+  }
 };
 
 export default nextConfig;

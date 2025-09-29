@@ -2,33 +2,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { HfInference } from '@huggingface/inference';
 
-// This function determines if a user is an admin based on the request.
-// It should be adapted to your actual user role logic.
-// For this example, it checks a 'profiles' table for an 'admin' role.
-async function isAdmin(req) {
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_KEY
-  );
-
-  // You might need a more robust way to get the user ID,
-  // depending on how your authentication is set up.
-  // This is a placeholder for getting the user from the request.
-  const { data: { user } } = await supabaseAdmin.auth.getUser(req.headers.authorization.split(' ')[1]);
-
-  if (!user) {
-    return false;
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single();
-
-  return !error && data && data.role === 'admin';
-}
-
 // Initialize the Hugging Face client
 const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
 const embeddingModel = 'sentence-transformers/all-mpnet-base-v2';
@@ -47,13 +20,19 @@ async function getEmbedding(text) {
   return response;
 }
 
-export default async function handler(req, res) {
-  // Uncomment the following lines to enforce admin-only access
-  // const userIsAdmin = await isAdmin(req);
-  // if (!userIsAdmin) {
-  //   return res.status(403).json({ error: 'Forbidden: Admins only.' });
-  // }
+// Text splitter function (borrowed from ingest.js for consistency)
+function splitText(text, chunkSize = 500, overlap = 50) {
+    const chunks = [];
+    let i = 0;
+    while (i < text.length) {
+        const end = i + chunkSize;
+        chunks.push(text.substring(i, end));
+        i += chunkSize - overlap;
+    }
+    return chunks;
+}
 
+export default async function handler(req, res) {
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_KEY
@@ -86,11 +65,54 @@ export default async function handler(req, res) {
           totalCount: count
         });
       } catch (error) {
+        console.error("Error in GET /api/knowledge:", error);
         res.status(500).json({ error: error.message });
       }
       break;
 
-    case 'PUT':
+    case 'POST': // Add new knowledge with chunking
+      try {
+        const { content, category } = req.body;
+        if (!content) {
+          return res.status(400).json({ error: 'Content is required.' });
+        }
+        if (!category) {
+          return res.status(400).json({ error: 'Category is required.' });
+        }
+
+        const source = 'Manual Entry'; // Default source for manual additions
+        const chunks = splitText(content);
+        let processedCount = 0;
+
+        console.log(`Splitting content into ${chunks.length} chunks for manual entry.`);
+
+        for (const chunk of chunks) {
+            const embedding = await getEmbedding(chunk);
+            const { error } = await supabaseAdmin.from('knowledge_vectors').insert({
+                content: chunk,
+                embedding,
+                category,
+                source
+            });
+
+            if (error) {
+                console.error('Supabase insert error during chunking:', error.message);
+                // Continue processing other chunks even if one fails
+            } else {
+                processedCount++;
+            }
+        }
+        
+        console.log(`Successfully inserted ${processedCount} chunks from manual entry.`);
+        res.status(201).json({ message: `Successfully processed and inserted ${processedCount} out of ${chunks.length} chunks.` });
+
+      } catch (error) {
+        console.error("Error in POST /api/knowledge:", error);
+        res.status(500).json({ error: error.message });
+      }
+      break;
+
+    case 'PUT': // This endpoint updates a single chunk. For simplicity, we don't re-chunk on update.
       try {
         const { id, content } = req.body;
         if (!id || !content) {
@@ -109,6 +131,7 @@ export default async function handler(req, res) {
         if (error) throw error;
         res.status(200).json(data);
       } catch (error) {
+        console.error("Error in PUT /api/knowledge:", error);
         res.status(500).json({ error: error.message });
       }
       break;
@@ -125,12 +148,13 @@ export default async function handler(req, res) {
         if (error) throw error;
         res.status(204).end();
       } catch (error) {
+        console.error("Error in DELETE /api/knowledge:", error);
         res.status(500).json({ error: error.message });
       }
       break;
 
     default:
-      res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
+      res.setHeader('Allow', ['GET', 'POST', 'PUT', 'DELETE']);
       res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 }
