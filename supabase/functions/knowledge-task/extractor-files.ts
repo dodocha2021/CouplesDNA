@@ -1,12 +1,16 @@
 import * as mammoth from "https://esm.sh/mammoth@1.6.0";
 import * as pdfjsLib from "https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://esm.sh/pdfjs-dist@4.0.379/legacy/build/pdf.worker.mjs";
+// 禁用 worker,使用主线程模式
+pdfjsLib.GlobalWorkerOptions.workerSrc = '';
 
 async function extractPdfText(buffer: ArrayBuffer): Promise<string> {
   try {
-    const loadingTask = pdfjsLib.getDocument({ data: buffer });
+    // 使用 disableWorker 选项
+    const loadingTask = pdfjsLib.getDocument({ 
+      data: buffer,
+      disableWorker: true  // 关键:禁用 worker
+    });
     const pdf = await loadingTask.promise;
     
     let fullText = '';
