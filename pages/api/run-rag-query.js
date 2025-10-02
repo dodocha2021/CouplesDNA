@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import { HfInference } from '@huggingface/inference';
 import Anthropic from '@anthropic-ai/sdk';
@@ -43,8 +42,8 @@ export default async function handler(req, res) {
       systemPrompt,
       userPromptTemplate,
       model,
-      scope, // Array of {id, threshold} - Used for Vector Search
-      manualContext, // Optional string - Used for Manual Run
+      scope,
+      manualContext,
       topK = 5,
       strictMode = false,
       fallbackAnswer = "I could not find an answer in the provided knowledge base.",
@@ -54,16 +53,15 @@ export default async function handler(req, res) {
     const isManualMode = manualContext !== undefined;
 
     if (isManualMode) {
-        // MANUAL MODE: Use the user-provided context directly
         console.log('[1/3] Running in MANUAL mode.');
         context = manualContext;
         console.log('[1/3] Using provided manual context.');
 
     } else {
-        // VECTOR SEARCH MODE: Go through the RAG retrieval process
+        // VECTOR SEARCH MODE
         console.log('\n--- RAG Query Start ---\n');
         console.log(`[1/5] Received question: "${question}" for model ${model}`);
-        console.log(`[1/5] Scope includes ${scope?.length || 0} items. Strict Mode: ${strictMode}.`);
+        console.log(`[1/5] Scope includes ${scope?.length || 0} files. Strict Mode: ${strictMode}.`);
 
         if (!question || !Array.isArray(scope) || scope.length === 0) {
           return res.status(400).json({ error: "A question and a valid search scope are required for vector search." });
@@ -72,39 +70,61 @@ export default async function handler(req, res) {
         const questionVector = await getEmbedding(question);
         console.log('[2/5] Successfully vectorized question.');
 
-        const groupedByThreshold = scope.reduce((acc, item) => {
-            const { id, threshold } = item;
-            if (!acc[threshold]) acc[threshold] = [];
-            acc[threshold].push(id);
-            return acc;
-        }, {});
-
-        console.log('[3/5] Starting parallel vector search queries...');
-        const searchPromises = Object.entries(groupedByThreshold).map(([threshold, ids]) => {
-            return supabaseAdmin.rpc('match_knowledge', {
-                query_embedding: questionVector,
-                match_threshold: parseFloat(threshold),
-                match_count: topK,
-            }).in('id', ids);
+        // New search logic - supports different thresholds per file
+        console.log('[3/5] Starting vector search queries...');
+        
+        const searchPromises = scope.map(({ file_id, threshold }) => {
+            console.log(`  - Searching file_id: ${file_id} with threshold: ${threshold}`);
+            
+            return supabaseAdmin
+                .rpc('match_knowledge', {
+                    query_embedding: questionVector,
+                    match_threshold: parseFloat(threshold),
+                    match_count: topK,
+                })
+                .contains('metadata', { file_id: file_id })
+                .then(result => {
+                    if (result.error) {
+                        console.error(`  ❌ Error for file ${file_id}:`, result.error);
+                        return { data: [], file_id, threshold, error: result.error };
+                    }
+                    console.log(`  ✅ File ${file_id}: ${result.data?.length || 0} chunks found`);
+                    return { 
+                        data: result.data || [], 
+                        file_id, 
+                        threshold 
+                    };
+                });
         });
 
-        const promiseResults = await Promise.allSettled(searchPromises);
+        const results = await Promise.all(searchPromises);
+        
+        // Combine all results
         let combinedResults = [];
-        promiseResults.forEach(result => {
-            if (result.status === 'fulfilled' && result.value.data) {
-                combinedResults.push(...result.value.data);
-            } else if (result.status === 'rejected') {
-                console.error("A parallel vector search query failed:", result.reason);
+        results.forEach(({ data, file_id, error }) => {
+            if (error) {
+                console.error(`Search failed for file ${file_id}:`, error);
+            } else if (data && data.length > 0) {
+                combinedResults.push(...data);
             }
         });
 
-        const uniqueResults = Array.from(new Map(combinedResults.map(item => [item.id, item])).values());
-        const sortedResults = uniqueResults.sort((a, b) => b.similarity - a.similarity).slice(0, topK);
+        // Deduplicate and sort
+        const uniqueResults = Array.from(
+            new Map(combinedResults.map(item => [item.id, item])).values()
+        );
+        const sortedResults = uniqueResults
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, topK);
         
         console.log(`[3/5] Vector search completed. Found ${sortedResults.length} relevant chunks.`);
+        
         if (sortedResults.length > 0) {
             console.log(`--- Found Chunks (Top ${sortedResults.length}) ---`);
-            sortedResults.forEach(r => console.log(`  - [Sim: ${r.similarity.toFixed(4)}] [Src: ${r.source}] ${r.content.substring(0, 80)}...`));
+            sortedResults.forEach(r => {
+                const fileId = r.metadata?.file_id || 'unknown';
+                console.log(`  - [Sim: ${r.similarity.toFixed(4)}] [File: ${fileId.substring(0, 8)}...] ${r.content.substring(0, 80)}...`);
+            });
             console.log('---------------------------\n');
         }
 
@@ -116,6 +136,7 @@ export default async function handler(req, res) {
         context = sortedResults.length > 0
             ? sortedResults.map(result => result.content).join('\n\n---\n\n')
             : "No context was found in the knowledge base for this question.";
+        
         console.log('[4/5] Assembled context for LLM.');
     }
 

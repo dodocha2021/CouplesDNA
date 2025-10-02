@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -167,18 +166,35 @@ const PromptStudioPage = () => {
             toast({ variant: "destructive", title: "Error", description: "A question and at least one item in the search scope are required for vector search." });
             return;
         }
+        
         setIsLoading(true);
         setResponse('');
+        
         try {
             const scopeWithThresholds = selectedKnowledgeIds.map(id => {
                 const item = knowledgeItems.find(k => k.id === id);
                 const category = item.metadata?.category || 'Uncategorized';
-                return {
+                const fileId = item.metadata?.file_id;
+                
+                console.log('Selected item:', {
                     id: item.id,
-                    threshold: categoryThresholds[category] || 0.30,
+                    file_id: fileId,
+                    category,
+                    threshold: categoryThresholds[category] || 0.55
+                });
+                
+                if (!fileId) {
+                    console.warn(`Warning: Item ${id} has no file_id in metadata`);
+                }
+                
+                return {
+                    file_id: fileId,
+                    threshold: categoryThresholds[category] || 0.55,
                     type: 'file'
                 };
             });
+
+            console.log('Sending scope to API:', scopeWithThresholds);
 
             const res = await fetch('/api/run-rag-query', {
                 method: 'POST',
@@ -193,10 +209,12 @@ const PromptStudioPage = () => {
                     fallbackAnswer,
                 }),
             });
+            
             if (!res.ok) {
                 const err = await res.json();
                 throw new Error(err.error || 'Vector search API request failed');
             }
+            
             const data = await res.json();
             setResponse(data.response);
         } catch (error) {

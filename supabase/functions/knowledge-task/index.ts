@@ -6,7 +6,7 @@ import { generateEmbeddings } from "./service-embeddings.ts";
 import { SupabaseClient } from "./service-supabase.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': '*', 
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
@@ -16,13 +16,15 @@ serve(async (req) => {
   }
 
   let step = "init";
-  
+  let fileId = ""; // Declare fileId here to be accessible in catch block
+
   try {
     step = "parse request";
     const { record } = await req.json();
+    fileId = record.id; // Assign fileId from the record
     const db = new SupabaseClient();
     
-    console.log(`Processing: ${record.file_name}`);
+    console.log(`Processing: ${record.file_name} (ID: ${fileId})`);
     
     step = "download file";
     const buffer = await downloadFile(record.storage_path);
@@ -41,11 +43,11 @@ serve(async (req) => {
     console.log(`Generated ${embeddings.length} embeddings`);
     
     step = "insert vectors";
-    await db.insertVectors(record.id, chunks, embeddings);
+    await db.insertVectors(fileId, chunks, embeddings);
     console.log(`Inserted vectors`);
     
-    step = "update status";
-    await db.updateStatus(record.id, 'completed');
+    step = "update status with file_id";
+    await db.updateUploadRecord(fileId, 'completed', { file_id: fileId });
     console.log(`Completed successfully`);
     
     return new Response(JSON.stringify({ 
@@ -57,10 +59,14 @@ serve(async (req) => {
   } catch (e) {
     console.error(`Error at step: ${step}`, e.message);
     
-    try {
-      const db = new SupabaseClient();
-      await db.updateStatus((await req.json()).record.id, 'failed');
-    } catch {}
+    if (fileId) { // Only try to update status if fileId was parsed
+      try {
+        const db = new SupabaseClient();
+        await db.updateUploadRecord(fileId, 'failed');
+      } catch (dbError) {
+        console.error("Failed to update status to 'failed'", dbError);
+      }
+    }
     
     return new Response(JSON.stringify({ 
       error: e.message, 

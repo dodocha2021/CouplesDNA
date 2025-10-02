@@ -4,7 +4,7 @@ import { HfInference } from 'https://esm.sh/@huggingface/inference@2.6.4'
 
 // Initialize Hugging Face client using the environment secret
 const hf = new HfInference(Deno.env.get('HUGGINGFACE_API_TOKEN'))
-const embeddingModel = 'sentence-transformers/all-mpnet-base-v2'
+const embeddingModel = 'BAAI/bge-base-en-v1.5'
 
 console.log('Edge Function Initialized with model:', embeddingModel)
 
