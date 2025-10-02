@@ -12,7 +12,7 @@ const supabaseAdmin = createClient(
 );
 
 const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
-const embeddingModel = 'sentence-transformers/all-mpnet-base-v2';
+const embeddingModel = 'BAAI/bge-base-en-v1.5';
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  console.log('\n--- RAG Query Start ---');
+  console.log('\n--- RAG Query Start ---\n');
 
   try {
     const {
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
 
     } else {
         // VECTOR SEARCH MODE: Go through the RAG retrieval process
-        console.log('\n--- RAG Query Start ---');
+        console.log('\n--- RAG Query Start ---\n');
         console.log(`[1/5] Received question: "${question}" for model ${model}`);
         console.log(`[1/5] Scope includes ${scope?.length || 0} items. Strict Mode: ${strictMode}.`);
 

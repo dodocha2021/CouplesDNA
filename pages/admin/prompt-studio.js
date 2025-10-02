@@ -36,16 +36,28 @@ const TreeItem = ({ children, ...props }) => {
                     {label}
                 </label>
                 {level === 0 && (
-                    <div className="flex-grow flex items-center justify-end space-x-2">
-                        <Label htmlFor={`slider-${id}`} className="text-xs">Threshold</Label>
+                    <div className="flex-grow ml-4">
+                        <div className="flex items-center justify-between mb-1">
+                            <Label htmlFor={`slider-${id}`} className="text-sm font-medium">
+                                Threshold: <span className="font-bold">{threshold.toFixed(2)}</span>
+                            </Label>
+                            <span className="text-xs text-gray-500">
+                                推荐: 0.30
+                            </span>
+                        </div>
                         <Slider
                             id={`slider-${id}`}
-                            min={0} max={1} step={0.05}
+                            min={0.15}
+                            max={0.80}
+                            step={0.01}
                             value={[threshold]} 
                             onValueChange={(value) => onThresholdChange(value[0])}
-                            className="w-32"
+                            className="w-full"
                         />
-                        <span className="text-xs w-8 text-right">{threshold.toFixed(2)}</span>
+                        <div className="flex justify-between text-xs text-gray-400 mt-1">
+                            <span>宽松 (0.15)</span>
+                            <span>严格 (0.80)</span>
+                        </div>
                     </div>
                 )}
             </div>
@@ -101,7 +113,7 @@ const PromptStudioPage = () => {
                 (data || []).forEach(item => {
                     const category = item.metadata?.category || 'Uncategorized';
                     if (!initialThresholds[category]) {
-                        initialThresholds[category] = 0.45;
+                        initialThresholds[category] = 0.30;
                     }
                 });
                 setCategoryThresholds(initialThresholds);
@@ -163,7 +175,7 @@ const PromptStudioPage = () => {
                 const category = item.metadata?.category || 'Uncategorized';
                 return {
                     id: item.id,
-                    threshold: categoryThresholds[category] || 0.45,
+                    threshold: categoryThresholds[category] || 0.30,
                     type: 'file'
                 };
             });
@@ -244,7 +256,7 @@ const PromptStudioPage = () => {
                                             isBranch 
                                             initiallyOpen={true}
                                             level={0}
-                                            threshold={categoryThresholds[category] || 0.45}
+                                            threshold={categoryThresholds[category] || 0.30}
                                             onThresholdChange={(value) => handleThresholdChange(category, value)}
                                         >
                                             {files.map(file => (

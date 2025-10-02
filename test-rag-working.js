@@ -8,7 +8,7 @@ const supabase = createClient(
 );
 
 const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
-const MODEL = 'sentence-transformers/all-mpnet-base-v2';
+const MODEL = 'BAAI/bge-base-en-v1.5';
 
 async function testRAG() {
   console.log('=== RAG 测试（使用原始 SQL）===\n');

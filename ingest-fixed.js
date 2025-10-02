@@ -9,7 +9,7 @@ const supabase = createClient(
 );
 
 const hf = new HfInference(process.env.HUGGINGFACE_API_TOKEN);
-const MODEL = 'sentence-transformers/all-mpnet-base-v2';
+const MODEL = 'BAAI/bge-base-en-v1.5';
 
 async function getEmbedding(text) {
   const response = await hf.featureExtraction({
