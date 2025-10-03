@@ -37,6 +37,7 @@ export default async function handler(req, res) {
   console.log('\n--- RAG Query Start ---\n');
 
   try {
+    // ✅ Default topK changed to 10
     const {
       question,
       systemPrompt,
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
       model,
       scope,
       manualContext,
-      topK = 5,
+      topK = 10, 
       strictMode = false,
       fallbackAnswer = "I could not find an answer in the provided knowledge base.",
     } = req.body;
@@ -59,9 +60,9 @@ export default async function handler(req, res) {
 
     } else {
         // VECTOR SEARCH MODE
-        console.log('\n--- RAG Query Start ---\n');
+        // ✅ topK added to log
         console.log(`[1/5] Received question: "${question}" for model ${model}`);
-        console.log(`[1/5] Scope includes ${scope?.length || 0} files. Strict Mode: ${strictMode}.`);
+        console.log(`[1/5] Scope includes ${scope?.length || 0} files. Top K: ${topK}. Strict Mode: ${strictMode}.`);
 
         if (!question || !Array.isArray(scope) || scope.length === 0) {
           return res.status(400).json({ error: "A question and a valid search scope are required for vector search." });
@@ -70,7 +71,6 @@ export default async function handler(req, res) {
         const questionVector = await getEmbedding(question);
         console.log('[2/5] Successfully vectorized question.');
 
-        // New search logic - supports different thresholds per file
         console.log('[3/5] Starting vector search queries...');
         
         const searchPromises = scope.map(({ file_id, threshold }) => {
@@ -82,15 +82,20 @@ export default async function handler(req, res) {
                     match_threshold: parseFloat(threshold),
                     match_count: topK,
                 })
-                .contains('metadata', { file_id: file_id })
                 .then(result => {
                     if (result.error) {
                         console.error(`  ❌ Error for file ${file_id}:`, result.error);
                         return { data: [], file_id, threshold, error: result.error };
                     }
-                    console.log(`  ✅ File ${file_id}: ${result.data?.length || 0} chunks found`);
+                    
+                    // ✅ Manually filter by file_id
+                    const filteredData = (result.data || []).filter(
+                        item => item.metadata?.file_id === file_id
+                    );
+                    
+                    console.log(`  ✅ File ${file_id}: ${filteredData.length} chunks found (total from RPC: ${result.data?.length || 0})`);
                     return { 
-                        data: result.data || [], 
+                        data: filteredData, 
                         file_id, 
                         threshold 
                     };
@@ -99,20 +104,18 @@ export default async function handler(req, res) {
 
         const results = await Promise.all(searchPromises);
         
-        // Combine all results
         let combinedResults = [];
-        results.forEach(({ data, file_id, error }) => {
-            if (error) {
-                console.error(`Search failed for file ${file_id}:`, error);
-            } else if (data && data.length > 0) {
+        results.forEach(({ data }) => {
+            if (data && data.length > 0) {
                 combinedResults.push(...data);
             }
         });
 
-        // Deduplicate and sort
         const uniqueResults = Array.from(
             new Map(combinedResults.map(item => [item.id, item])).values()
         );
+        
+        // ✅ Final sort and slice uses the dynamic topK value
         const sortedResults = uniqueResults
             .sort((a, b) => b.similarity - a.similarity)
             .slice(0, topK);
@@ -139,8 +142,6 @@ export default async function handler(req, res) {
         
         console.log('[4/5] Assembled context for LLM.');
     }
-
-    // --- The rest of the process is common for both modes ---
 
     const finalUserPrompt = userPromptTemplate
       .replace('{context}', context)

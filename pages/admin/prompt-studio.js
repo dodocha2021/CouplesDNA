@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -70,7 +70,7 @@ const TreeItem = ({ children, ...props }) => {
 };
 
 const PromptStudioPage = () => {
-    const supabase = useSupabaseClient(); // 在组件顶部调用
+    const supabase = useSupabaseClient();
     const [knowledgeItems, setKnowledgeItems] = useState([]);
     const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState([]);
     const [question, setQuestion] = useState('What are the main features of our product?');
@@ -85,29 +85,24 @@ const PromptStudioPage = () => {
 
     const [strictMode, setStrictMode] = useState(true);
     const [fallbackAnswer, setFallbackAnswer] = useState(defaultFallbackAnswer);
+    
+    const [topK, setTopK] = useState(10); 
 
     useEffect(() => {
         const fetchKnowledgeUploads = async () => {
             try {
-                console.log('Fetching knowledge uploads...');
-                
                 const { data, error } = await supabase
                     .from('knowledge_uploads')
                     .select('id, file_name, file_size, metadata, updated_at, status')
                     .eq('status', 'completed')
                     .order('updated_at', { ascending: false });
                 
-                console.log('Query result:', { data, error });
-                
                 if (error) {
-                    console.error('Query error:', error);
                     throw error;
                 }
                 
-                console.log(`Found ${data?.length || 0} completed uploads`);
                 setKnowledgeItems(data || []);
                 
-                // 按 category 设置初始 threshold
                 const initialThresholds = {};
                 (data || []).forEach(item => {
                     const category = item.metadata?.category || 'Uncategorized';
@@ -118,7 +113,6 @@ const PromptStudioPage = () => {
                 setCategoryThresholds(initialThresholds);
                 
             } catch (error) {
-                console.error('Fetch error:', error);
                 toast({ 
                     variant: "destructive", 
                     title: "Error", 
@@ -128,7 +122,7 @@ const PromptStudioPage = () => {
         };
         
         fetchKnowledgeUploads();
-    }, [supabase, toast]); // 添加 supabase 到依赖
+    }, [supabase, toast]);
 
     const knowledgeTree = useMemo(() => {
         return knowledgeItems.reduce((acc, item) => {
@@ -176,13 +170,6 @@ const PromptStudioPage = () => {
                 const category = item.metadata?.category || 'Uncategorized';
                 const fileId = item.metadata?.file_id;
                 
-                console.log('Selected item:', {
-                    id: item.id,
-                    file_id: fileId,
-                    category,
-                    threshold: categoryThresholds[category] || 0.55
-                });
-                
                 if (!fileId) {
                     console.warn(`Warning: Item ${id} has no file_id in metadata`);
                 }
@@ -194,8 +181,6 @@ const PromptStudioPage = () => {
                 };
             });
 
-            console.log('Sending scope to API:', scopeWithThresholds);
-
             const res = await fetch('/api/run-rag-query', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -205,6 +190,7 @@ const PromptStudioPage = () => {
                     userPromptTemplate,
                     model,
                     scope: scopeWithThresholds,
+                    topK: topK,
                     strictMode,
                     fallbackAnswer,
                 }),
@@ -231,6 +217,7 @@ const PromptStudioPage = () => {
     return (
         <div className="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
             <div className="lg:col-span-2 space-y-6">
+                {/* Prompt & Behavior Card */}
                 <Card>
                     <CardHeader>
                         <CardTitle>Prompt & Behavior</CardTitle>
@@ -254,9 +241,12 @@ const PromptStudioPage = () => {
                         </div>
                     </CardContent>
                 </Card>
+                
+                {/* Inputs & Model Card */}
                 <Card>
                      <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
                      <CardContent className="space-y-4">
+                        {/* Knowledge Base Scope */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)
@@ -299,20 +289,71 @@ const PromptStudioPage = () => {
                                 })}
                             </ScrollArea>
                         </div>
+                        
+                        {/* Test Question */}
                         <div><label className="block text-sm font-medium text-gamma-700 mb-1">Test Question</label><Textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} /></div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">AI Model</label>
+
+                        {/* Top K Slider */}
+                        <div className="space-y-2 pt-2">
+                            <div className="flex items-center justify-between mb-1">
+                                <Label htmlFor="top-k-slider" className="text-sm font-medium">
+                                    Top K: <span className="font-bold">{topK}</span>
+                                </Label>
+                                <span className="text-xs text-gray-500">
+                                    Number of chunks to retrieve
+                                </span>
+                            </div>
+                            <Slider
+                                id="top-k-slider"
+                                min={1}
+                                max={100}
+                                step={1}
+                                value={[topK]}
+                                onValueChange={(value) => setTopK(value[0])}
+                                className="w-full"
+                            />
+                            <div className="flex justify-between text-xs text-gray-400 mt-1">
+                                <span>Fewer (1)</span>
+                                <span>More (100)</span>
+                            </div>
+                        </div>
+                        
+                        {/* AI Model Selection (Corrected) */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">AI Model</label>
                             <Select value={model} onValueChange={setModel}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="gpt-4o">OpenAI GPT-4o</SelectItem>
-                                    <SelectItem value="gpt-3.5-turbo">OpenAI GPT-3.5 Turbo</SelectItem>
-                                    <SelectItem value="gemini-1.0-pro">Google Gemini 1.0 Pro</SelectItem>
-                                    <SelectItem value="claude-3-sonnet-20240229">Claude 3 Sonnet</SelectItem>
-                                    <SelectItem value="claude-3-opus-20240229">Claude 3 Opus</SelectItem>
-                                    <SelectItem value="claude-2.1">Claude 2.1</SelectItem>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select AI Model" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-white">
+                                    <SelectGroup>
+                                        <SelectLabel>OpenAI</SelectLabel>
+                                        <SelectItem value="gpt-4o">GPT-4o (Recommended)</SelectItem>
+                                        <SelectItem value="gpt-4o-mini">GPT-4o Mini (Fast & Cheap)</SelectItem>
+                                        <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                                        <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo (Legacy)</SelectItem>
+                                    </SelectGroup>
+                                    <SelectGroup>
+                                        <SelectLabel>Anthropic Claude</SelectLabel>
+                                        <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4 (Latest)</SelectItem>
+                                        <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                                        <SelectItem value="claude-opus-4-20250514">Claude Opus 4 (Most Capable)</SelectItem>
+                                        <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku (Fast)</SelectItem>
+                                    </SelectGroup>
+                                    <SelectGroup>
+                                        <SelectLabel>Google Gemini</SelectLabel>
+                                        <SelectItem value="gemini-2.0-flash-exp">Gemini 2.0 Flash (Experimental)</SelectItem>
+                                        <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                                        <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                                        <SelectItem value="gemini-1.5-flash-8b">Gemini 1.5 Flash-8B (Ultra Fast)</SelectItem>
+                                    </SelectGroup>
                                 </SelectContent>
                             </Select>
+                            <p className="text-xs text-gray-500">
+                                {model.includes('claude') && 'Claude models excel at nuanced reasoning and following instructions'}
+                                {model.includes('gpt') && 'GPT models are versatile and widely tested'}
+                                {model.includes('gemini') && 'Gemini models offer strong multimodal capabilities'}
+                            </p>
                         </div>
                      </CardContent>
                 </Card>

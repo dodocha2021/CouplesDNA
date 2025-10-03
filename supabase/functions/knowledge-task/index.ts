@@ -16,39 +16,55 @@ serve(async (req) => {
   }
 
   let step = "init";
-  let fileId = ""; // Declare fileId here to be accessible in catch block
+  let fileId = "";
 
   try {
     step = "parse request";
     const { record } = await req.json();
-    fileId = record.id; // Assign fileId from the record
+    fileId = record.id;
     const db = new SupabaseClient();
     
-    console.log(`Processing: ${record.file_name} (ID: ${fileId})`);
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`📄 Processing: ${record.file_name} (ID: ${fileId})`);
+    console.log(`📂 Storage path: ${record.storage_path}`);
+    console.log(`${'='.repeat(60)}\n`);
     
     step = "download file";
+    console.log(`📥 Step 1: Downloading file from R2...`);
     const buffer = await downloadFile(record.storage_path);
-    console.log(`Downloaded: ${buffer.byteLength} bytes`);
+    console.log(`✅ Downloaded: ${(buffer.byteLength / 1024).toFixed(2)} KB`);
     
     step = "extract text";
+    console.log(`\n📝 Step 2: Extracting text...`);
     const text = await extractText(buffer, record.file_name);
-    console.log(`Extracted: ${text.length} characters`);
+    console.log(`✅ Extracted: ${text.length} characters`);
     
     step = "process chunks";
+    console.log(`\n✂️  Step 3: Chunking text...`);
     const chunks = splitChunks(cleanText(text));
-    console.log(`Created ${chunks.length} chunks`);
+    console.log(`✅ Created ${chunks.length} chunks`);
     
     step = "generate embeddings";
+    console.log(`\n🧠 Step 4: Generating embeddings...`);
     const embeddings = await generateEmbeddings(chunks);
-    console.log(`Generated ${embeddings.length} embeddings`);
+    console.log(`✅ Generated ${embeddings.length} embeddings`);
     
     step = "insert vectors";
+    console.log(`\n💾 Step 5: Inserting vectors into database...`);
     await db.insertVectors(fileId, chunks, embeddings);
-    console.log(`Inserted vectors`);
+    console.log(`✅ All vectors inserted successfully`);
     
-    step = "update status with file_id";
-    await db.updateUploadRecord(fileId, 'completed', { file_id: fileId });
-    console.log(`Completed successfully`);
+    step = "update status";
+    await db.updateUploadRecord(fileId, 'completed', { 
+      file_id: fileId,
+      processed_at: new Date().toISOString(),
+      chunk_count: chunks.length
+    });
+    console.log(`✅ Status updated to 'completed'`);
+    
+    console.log(`\n${'='.repeat(60)}`);
+    console.log(`🎉 Processing completed successfully!`);
+    console.log(`${'='.repeat(60)}\n`);
     
     return new Response(JSON.stringify({ 
       success: true,
@@ -56,15 +72,24 @@ serve(async (req) => {
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
-  } catch (e) {
-    console.error(`Error at step: ${step}`, e.message);
     
-    if (fileId) { // Only try to update status if fileId was parsed
+  } catch (e) {
+    console.error(`\n${'!'.repeat(60)}`);
+    console.error(`💥 Error at step: ${step}`);
+    console.error(`Error message: ${e.message}`);
+    console.error(`${'!'.repeat(60)}\n`);
+    
+    if (fileId) {
       try {
         const db = new SupabaseClient();
-        await db.updateUploadRecord(fileId, 'failed');
+        await db.updateUploadRecord(fileId, 'failed', {
+          error_message: e.message,
+          error_step: step,
+          failed_at: new Date().toISOString()
+        });
+        console.log(`✅ Status updated to 'failed' in database`);
       } catch (dbError) {
-        console.error("Failed to update status to 'failed'", dbError);
+        console.error(`❌ Failed to update status: ${dbError.message}`);
       }
     }
     
