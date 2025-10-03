@@ -71,6 +71,9 @@ export default async function handler(req, res) {
         const questionVector = await getEmbedding(question);
         console.log('[2/5] Successfully vectorized question.');
 
+        // ✅ Convert array to Postgres-compatible vector string
+        const vectorString = `[${questionVector.join(',')}]`;
+
         console.log('[3/5] Starting vector search queries...');
         
         const searchPromises = scope.map(({ file_id, threshold }) => {
@@ -78,7 +81,7 @@ export default async function handler(req, res) {
             
             return supabaseAdmin
                 .rpc('match_knowledge', {
-                    query_embedding: questionVector,
+                    query_embedding: vectorString, // ← Use the vector string here
                     match_threshold: parseFloat(threshold),
                     match_count: topK,
                 })
