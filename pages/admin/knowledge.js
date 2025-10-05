@@ -38,6 +38,7 @@ const KnowledgePage = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isIngestDialogOpen, setIsIngestDialogOpen] = useState(false);
   
+  const [newKnowledgeTitle, setNewKnowledgeTitle] = useState('');
   const [newKnowledgeContent, setNewKnowledgeContent] = useState('');
   const [newKnowledgeCategory, setNewKnowledgeCategory] = useState('General');
   
@@ -134,7 +135,6 @@ const KnowledgePage = () => {
   const fetchChunks = async (fileId) => {
     setLoadingChunks(prev => ({ ...prev, [fileId]: true }));
     try {
-        // 1. 移除查询中的 .order()
         const { data, error } = await supabase
             .from('knowledge_vectors')
             .select('id, content, metadata, created_at')
@@ -142,14 +142,12 @@ const KnowledgePage = () => {
         
         if (error) throw error;
 
-        // 2. 在客户端对结果进行排序
         const sortedChunks = (data || []).sort((a, b) => {
             const indexA = a.metadata?.chunk_index || 0;
             const indexB = b.metadata?.chunk_index || 0;
             return indexA - indexB;
         });
         
-        // 3. 使用排序后的数据更新状态
         setExpandedFiles(prev => ({
             ...prev,
             [fileId]: {
@@ -170,25 +168,81 @@ const KnowledgePage = () => {
 
   const toggleFileExpansion = async (fileId) => {
       if (expandedFiles[fileId]?.isExpanded) {
-          // 折叠
           setExpandedFiles(prev => ({
               ...prev,
               [fileId]: { ...prev[fileId], isExpanded: false }
           }));
       } else if (expandedFiles[fileId]?.chunks) {
-          // 已经加载过，直接展开
           setExpandedFiles(prev => ({
               ...prev,
               [fileId]: { ...prev[fileId], isExpanded: true }
           }));
       } else {
-          // 首次加载
           await fetchChunks(fileId);
       }
   };
 
   const handleAddNew = async () => {
-    toast({ variant: "destructive", title: "Not Implemented", description: "Manual entry via R2 is not yet configured." });
+    if (!newKnowledgeTitle || !newKnowledgeContent || !newKnowledgeCategory) {
+      toast({ variant: "destructive", title: "Error", description: "Title, content and category are required." });
+      return;
+    }
+    
+    setIsLoading(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error("Not authenticated. Please log in again.");
+      }
+
+      const timestamp = Date.now();
+      const uuid = crypto.randomUUID();
+      const sanitizedTitle = newKnowledgeTitle
+        .replace(/[^a-zA-Z0-9._-]/g, '_')
+        .replace(/_{2,}/g, '_')
+        .replace(/^_+|_+$/g, '');
+      const storagePath = `admin/manual/${timestamp}-${uuid}-${sanitizedTitle}.txt`;
+
+      const encoder = new TextEncoder();
+      const fileSize = encoder.encode(newKnowledgeContent).length;
+
+      const { error: insertError } = await supabase
+        .from('knowledge_uploads')
+        .insert({
+          user_id: session.user.id,
+          file_name: newKnowledgeTitle,
+          file_size: fileSize,
+          storage_path: storagePath,
+          status: 'pending',
+          storage_provider: 'manual_entry',
+          metadata: {
+            source: 'manual_entry',
+            category: newKnowledgeCategory,
+            manual_content: newKnowledgeContent
+          }
+        });
+
+      if (insertError) {
+        throw new Error(`Failed to save: ${insertError.message}`);
+      }
+
+      toast({ 
+        title: "Success", 
+        description: "Knowledge is being processed. Status will update shortly." 
+      });
+      
+      setIsAddDialogOpen(false);
+      setNewKnowledgeTitle('');
+      setNewKnowledgeContent('');
+      fetchKnowledge();
+
+    } catch (error) {
+      console.error("Add Manual Error:", error);
+      toast({ variant: "destructive", title: "Save Failed", description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleIngestData = async () => {
@@ -318,22 +372,32 @@ const KnowledgePage = () => {
                           Manually add a new piece of knowledge. This will be processed and embedded like a file.
                       </DialogDescription>
                       <div className="grid gap-4 py-4">
-                          <Textarea 
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Title (required)</label>
+                          <Input 
+                            placeholder="Enter a title for this knowledge entry..."
+                            value={newKnowledgeTitle}
+                            onChange={(e) => setNewKnowledgeTitle(e.target.value)}
+                          />
+                        </div>
+                        <Textarea 
                           placeholder="Enter knowledge content here..."
                           value={newKnowledgeContent} 
                           onChange={(e) => setNewKnowledgeContent(e.target.value)}
                           rows={10}
-                          />
-                          <Select value={newKnowledgeCategory} onValueChange={setNewKnowledgeCategory}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent className="bg-white">
-                              {knowledgeCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                              </SelectContent>
-                          </Select>
+                        />
+                        <Select value={newKnowledgeCategory} onValueChange={setNewKnowledgeCategory}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent className="bg-white">
+                            {knowledgeCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                       </div>
                       <DialogFooter>
                           <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                          <Button onClick={handleAddNew} disabled={isLoading}>{isLoading ? 'Saving...' : 'Save Knowledge'}</Button>
+                          <Button onClick={handleAddNew} disabled={isLoading || !newKnowledgeTitle || !newKnowledgeContent}>
+                            {isLoading ? 'Saving...' : 'Save Knowledge'}
+                          </Button>
                       </DialogFooter>
                       </DialogContent>
                   </Dialog>
@@ -376,84 +440,83 @@ const KnowledgePage = () => {
               </TableHeader>
               <TableBody>
                 {isLoading ? (
-                    <TableRow>
-                        <TableCell colSpan={6} className="text-center">Loading data...</TableCell>
-                    </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center">Loading data...</TableCell>
+                  </TableRow>
                 ) : knowledge.length > 0 ? (
-                    knowledge.map((item) => (
-                        <React.Fragment key={item.id}>
-                            <TableRow>
-                                <TableCell>
-                                    <button
-                                        onClick={() => toggleFileExpansion(item.id)}
-                                        className="text-blue-600 hover:text-blue-800 underline text-left"
-                                    >
-                                        {item.file_name}
-                                    </button>
-                                </TableCell>
-                                <TableCell>
-                                    <Badge variant={getStatusBadgeVariant(item.status)}>
-                                        {item.status}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell>{item.metadata?.category || 'N/A'}</TableCell>
-                                <TableCell>{item.metadata?.type || 'N/A'}</TableCell>
-                                <TableCell>{new Date(item.created_at).toLocaleString()}</TableCell>
-                                <TableCell className="text-right">
-                                    <Button 
-                                        variant="destructive" 
-                                        size="sm" 
-                                        onClick={() => handleDelete(item.id)}
-                                    >
-                                        Delete
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                            
-                            {/* 展开的 chunks 行 */}
-                            {expandedFiles[item.id]?.isExpanded && (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="bg-gray-50 p-4">
-                                        {loadingChunks[item.id] ? (
-                                            <p className="text-center text-gray-500">Loading chunks...</p>
-                                        ) : expandedFiles[item.id]?.chunks?.length > 0 ? (
-                                            <div className="space-y-2">
-                                                <h4 className="font-semibold text-sm mb-2">
-                                                    Chunks ({expandedFiles[item.id].chunks.length})
-                                                </h4>
-                                                {expandedFiles[item.id].chunks.map((chunk, idx) => (
-                                                    <div 
-                                                        key={chunk.id} 
-                                                        className="border rounded p-3 bg-white"
-                                                    >
-                                                        <div className="flex justify-between items-start mb-1">
-                                                            <span className="text-xs font-medium text-gray-600">
-                                                                Chunk {idx + 1}
-                                                            </span>
-                                                            <span className="text-xs text-gray-400">
-                                                                {new Date(chunk.created_at).toLocaleString()}
-                                                            </span>
-                                                        </div>
-                                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                                            {chunk.content}
-                                                        </p>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-center text-gray-500">No chunks found</p>
-                                        )}
-                                    </TableCell>
-                                </TableRow>
+                  knowledge.map((item) => (
+                    <React.Fragment key={item.id}>
+                      <TableRow>
+                        <TableCell>
+                          <button
+                            onClick={() => toggleFileExpansion(item.id)}
+                            className="text-blue-600 hover:text-blue-800 underline text-left"
+                          >
+                            {item.file_name}
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={getStatusBadgeVariant(item.status)}>
+                            {item.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{item.metadata?.category || 'N/A'}</TableCell>
+                        <TableCell>{item.metadata?.source === 'manual_entry' ? 'Manual Entry' : (item.metadata?.type || 'N/A')}</TableCell>
+                        <TableCell>{new Date(item.created_at).toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            Delete
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                      
+                      {expandedFiles[item.id]?.isExpanded && (
+                        <TableRow>
+                          <TableCell colSpan={6} className="bg-gray-50 p-4">
+                            {loadingChunks[item.id] ? (
+                              <p className="text-center text-gray-500">Loading chunks...</p>
+                            ) : expandedFiles[item.id]?.chunks?.length > 0 ? (
+                              <div className="space-y-2">
+                                <h4 className="font-semibold text-sm mb-2">
+                                  Chunks ({expandedFiles[item.id].chunks.length})
+                                </h4>
+                                {expandedFiles[item.id].chunks.map((chunk, idx) => (
+                                  <div 
+                                    key={chunk.id} 
+                                    className="border rounded p-3 bg-white"
+                                  >
+                                    <div className="flex justify-between items-start mb-1">
+                                      <span className="text-xs font-medium text-gray-600">
+                                        Chunk {idx + 1}
+                                      </span>
+                                      <span className="text-xs text-gray-400">
+                                        {new Date(chunk.created_at).toLocaleString()}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                      {chunk.content}
+                                    </p>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-center text-gray-500">No chunks found</p>
                             )}
-                        </React.Fragment>
-                    ))
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </React.Fragment>
+                  ))
                 ) : (
-                    <TableRow>
-                        <TableCell colSpan={6} className="text-center">No knowledge items found.</TableCell>
-                    </TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center">No knowledge items found.</TableCell>
+                  </TableRow>
                 )}
-            </TableBody>
+              </TableBody>
             </Table>
           </CardContent>
       </Card>

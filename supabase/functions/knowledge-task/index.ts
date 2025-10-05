@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { downloadFile } from "./service-r2.ts";
 import { extractText } from "./extractor-files.ts";
@@ -26,19 +27,31 @@ serve(async (req) => {
     
     console.log(`\n${'='.repeat(60)}`);
     console.log(`📄 Processing: ${record.file_name} (ID: ${fileId})`);
-    console.log(`📂 Storage path: ${record.storage_path}`);
+    console.log(`📂 Source: ${record.metadata?.source || 'file_upload'}`);
     console.log(`${'='.repeat(60)}\n`);
     
-    step = "download file";
-    console.log(`📥 Step 1: Downloading file from R2...`);
-    const buffer = await downloadFile(record.storage_path);
-    console.log(`✅ Downloaded: ${(buffer.byteLength / 1024).toFixed(2)} KB`);
+    let text: string;
     
-    step = "extract text";
-    console.log(`\n📝 Step 2: Extracting text...`);
-    const text = await extractText(buffer, record.file_name);
-    console.log(`✅ Extracted: ${text.length} characters`);
+    // Check if it's a manual entry
+    if (record.metadata?.source === 'manual_entry' && record.metadata?.manual_content) {
+      step = "extract manual content";
+      console.log(`✍️  Step 1: Using manual content (skipping R2 download)`);
+      text = record.metadata.manual_content;
+      console.log(`✅ Content length: ${text.length} characters`);
+    } else {
+      // Original file download logic
+      step = "download file";
+      console.log(`📥 Step 1: Downloading file from R2...`);
+      const buffer = await downloadFile(record.storage_path);
+      console.log(`✅ Downloaded: ${(buffer.byteLength / 1024).toFixed(2)} KB`);
+      
+      step = "extract text";
+      console.log(`\n📝 Step 2: Extracting text...`);
+      text = await extractText(buffer, record.file_name);
+      console.log(`✅ Extracted: ${text.length} characters`);
+    }
     
+    // Subsequent processing is the same
     step = "process chunks";
     console.log(`\n✂️  Step 3: Chunking text...`);
     const chunks = splitChunks(cleanText(text));
@@ -74,6 +87,7 @@ serve(async (req) => {
     });
     
   } catch (e) {
+    // Error handling remains unchanged
     console.error(`\n${'!'.repeat(60)}`);
     console.error(`💥 Error at step: ${step}`);
     console.error(`Error message: ${e.message}`);

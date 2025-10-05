@@ -251,6 +251,7 @@ WITH CHECK (
 
 - 用户上传：`users/{user_id}/{timestamp}-{uuid}-{filename}`
 - 管理员上传：`admin/{timestamp}-{uuid}-{filename}`
+- 手动输入：`admin/manual/{timestamp}-{uuid}-{sanitized-title}.txt` (虚拟路径,R2 中不存在)
 
 ## 三、自动化处理流程
 
@@ -327,6 +328,10 @@ EXECUTE FUNCTION public.handle_knowledge_upload();
 - 路径：`supabase/functions/knowledge-task/`
 - 功能：处理 knowledge_uploads，存入 knowledge_vectors
 - URL: `https://bdabfjjhumnrioysmsjo.supabase.co/functions/v1/knowledge-task`
+
+#### 处理来源识别
+- `metadata.source === 'manual_entry'`: 从 `metadata.manual_content` 读取文本
+- `metadata.source === 'file_upload'`: 从 R2 下载文件并提取文本
 
 #### 处理流程
 1. 从 R2 下载文件
