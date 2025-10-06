@@ -3,7 +3,7 @@ export class SupabaseClient {
   private key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
   async insertVectors(
-    userId: string, 
+    userId: string,
     fileId: string, 
     chunks: string[], 
     embeddings: number[][]
@@ -34,7 +34,27 @@ export class SupabaseClient {
     }
   }
 
-  async updateStatus(fileId: string, status: string): Promise<void> {
+  async updateUploadRecord(
+    fileId: string,
+    status: string,
+    metadataUpdate?: Record<string, any>
+  ): Promise<void> {
+    const getResponse = await fetch(
+      `${this.url}/rest/v1/user_uploads?id=eq.${fileId}&select=metadata`,
+      {
+        method: "GET",
+        headers: { "apikey": this.key, "Authorization": `Bearer ${this.key}` },
+      }
+    );
+    if (!getResponse.ok) throw new Error("Failed to fetch existing metadata");
+    const existingData = await getResponse.json();
+    const existingMetadata = existingData[0]?.metadata || {};
+
+    const updateBody = {
+      status,
+      metadata: { ...existingMetadata, ...metadataUpdate },
+    };
+
     const response = await fetch(
       `${this.url}/rest/v1/user_uploads?id=eq.${fileId}`,
       {
@@ -42,15 +62,15 @@ export class SupabaseClient {
         headers: {
           "apikey": this.key,
           "Authorization": `Bearer ${this.key}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ status })
+        body: JSON.stringify(updateBody),
       }
     );
 
     if (!response.ok) {
       const error = await response.text();
-      throw new Error(`Failed to update status: ${error}`);
+      throw new Error(`Failed to update record: ${error}`);
     }
   }
 }
