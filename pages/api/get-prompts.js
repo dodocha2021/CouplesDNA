@@ -13,62 +13,27 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    // Get total question count settings from the database (only for the current user)
-    const { data: settingsData, error: settingsError } = await supabase
-      .from('prompts_settings')
-      .select('setting_value')
-      .eq('setting_key', 'total_questions')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (settingsError) {
-      console.error('❌ Error fetching settings:', settingsError);
-      return res.status(500).json({ error: 'Failed to fetch settings' });
-    }
-
-    const totalQuestions = settingsData?.setting_value || 1;
-
-    // Get all prompts from the database (only for the current user)
-    const { data: promptsData, error: promptsError } = await supabase
-      .from('prompts_config')
-      .select('question_number, prompt_content')
-      .eq('user_id', user.id)
-      .order('question_number', { ascending: true });
-
-    if (promptsError) {
-      console.error('❌ Error fetching prompts:', promptsError);
-      return res.status(500).json({ error: 'Failed to fetch prompts' });
-    }
-
-    // Build prompts object
-    const prompts = {};
+    // --- Temporarily disabled database query ---
+    // The user indicated the tables do not exist yet.
+    // Returning a default object to allow the UI to render without errors.
     
-    // Initialize all questions as empty strings first
-    for (let i = 1; i <= totalQuestions; i++) {
-      prompts[i] = '';
-    }
-    
-    // Populate content from the database
-    if (promptsData) {
-      promptsData.forEach(item => {
-        prompts[item.question_number] = item.prompt_content || '';
-      });
-    }
+    const defaultPrompts = {
+        1: "How to maintain a long-term healthy relationship"
+    };
+    const defaultTotalQuestions = 1;
 
-    console.log('✅ Retrieved prompts from Supabase database');
-    console.log('📊 Total questions:', totalQuestions);
-    console.log('📋 Found prompts for questions:', Object.keys(prompts).filter(key => prompts[key] !== ''));
+    console.log('✅ Bypassing database. Returning default prompts.');
 
     res.status(200).json({ 
       success: true, 
-      prompts: prompts,
-      totalQuestions: totalQuestions
+      prompts: defaultPrompts,
+      totalQuestions: defaultTotalQuestions
     });
 
   } catch (error) {
-    console.error('❌ Error reading prompts:', error);
+    console.error('❌ Error in get-prompts (bypassed):', error);
     res.status(500).json({ 
-      error: 'Failed to read prompts', 
+      error: 'Failed to process request', 
       message: error.message 
     });
   }
