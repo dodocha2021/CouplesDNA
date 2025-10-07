@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { downloadFile } from "./service-r2.ts";
 import { extractText } from "./extractor-files.ts";
@@ -126,4 +125,4 @@ ${'!'.repeat(60)}`);
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
-});
+});gen
