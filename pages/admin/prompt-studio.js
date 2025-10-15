@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from \'react\';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,18 +9,26 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ChevronRight, ChevronDown, Bot, TestTube2 } from 'lucide-react';
-import { useSupabaseClient } from '@supabase/auth-helpers-react';
+import { ChevronRight, ChevronDown, Bot, TestTube2 } from \'lucide-react\';
+import { useSupabaseClient } from \'@supabase/auth-helpers-react\';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import ReactMarkdown from \'react-markdown\';
 
-const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say \"I could not find an answer in the provided knowledge base.\" Do not make up information. Be concise and clear in your response.`;
-const defaultUserPromptTemplate = `CONTEXT:\n{context}\n\n---\n\nQUESTION:\n{question}`;
-const defaultFallbackAnswer = "The information you're looking for couldn't be found in the current knowledge base. Please try rephrasing your question or selecting a different set of documents.";
-const defaultReportSystemPrompt = `You are a professional relationship counselor assistant.\n\nCONTEXT TYPES:\n- [K#] = Professional Knowledge (evidence-based theories)\n- [U#] = User Data (this user's chat history)\n\nRESPONSE RULES:\n1. If ONLY [K#] found: \"Based on professional knowledge (without your personal data)...\"\n2. If ONLY [U#] found: \"Based on your data (without professional validation)...\"\n3. If BOTH found: Provide comprehensive personalized advice\n4. If NEITHER found: Return exactly: {\"answer\": \"I could not find an answer\", \"context_used\": {\"knowledge\": false, \"userdata\": false}}\n\nOUTPUT FORMAT (JSON):\n{\n  \"answer\": \"your response here\",\n  \"context_used\": {\n    \"knowledge\": true/false,\n    \"userdata\": true/false\n  },\n  \"confidence\": \"high/medium/low\",\n  \"sources\": [\"K1\", \"U2\", ...]\n}`;
+const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say \\\"I could not find an answer in the provided knowledge base.\\\" Do not make up information. Be concise and clear in your response.`;
+const defaultUserPromptTemplate = `CONTEXT (Knowledge Base):
+{context}
 
+USER DATA (Personal History):
+{userdata}
+
+---
+
+QUESTION:
+{question}`;
+const defaultFallbackAnswer = "The information you\'re looking for couldn\'t be found in the current knowledge base. Please try rephrasing your question or selecting a different set of documents.";
 
 const TreeItem = ({ children, ...props }) => {
     const { label, id, isSelected, onSelect, isBranch, initiallyOpen = false, level, threshold, onThresholdChange } = props;
@@ -79,8 +87,8 @@ const PromptStudioPage = () => {
     const supabase = useSupabaseClient();
     const [knowledgeItems, setKnowledgeItems] = useState([]);
     const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState([]);
-    const [question, setQuestion] = useState('What are the main features of our product?');
-    const [model, setModel] = useState('gpt-4o');
+    const [question, setQuestion] = useState(\'What are the main features of our product?\');
+    const [model, setModel] = useState(\'gpt-4o\');
     const [response, setResponse] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
@@ -94,7 +102,7 @@ const PromptStudioPage = () => {
 
     const [topK, setTopK] = useState(10);
     
-    const [mode, setMode] = useState('prompt');
+    const [mode, setMode] = useState(\'prompt\');
     const [reportConfig, setReportConfig] = useState({
         userData: {
             selectedUserId: null,
@@ -105,7 +113,6 @@ const PromptStudioPage = () => {
             topK: 5
         }
     });
-    const [reportSystemPrompt, setReportSystemPrompt] = useState(defaultReportSystemPrompt);
     const [users, setUsers] = useState([]);
     const [userFiles, setUserFiles] = useState([]);
 
@@ -113,10 +120,10 @@ const PromptStudioPage = () => {
         const fetchInitialData = async () => {
             try {
                 const { data: knowledgeData, error: knowledgeError } = await supabase
-                    .from('knowledge_uploads')
-                    .select('id, file_name, file_size, metadata, updated_at, status')
-                    .eq('status', 'completed')
-                    .order('updated_at', { ascending: false });
+                    .from(\'knowledge_uploads\')
+                    .select(\'id, file_name, file_size, metadata, updated_at, status\')
+                    .eq(\'status\', \'completed\')
+                    .order(\'updated_at\', { ascending: false });
                 
                 if (knowledgeError) throw knowledgeError;
                 
@@ -124,7 +131,7 @@ const PromptStudioPage = () => {
                 
                 const initialThresholds = {};
                 (knowledgeData || []).forEach(item => {
-                    const category = item.metadata?.category || 'Uncategorized';
+                    const category = item.metadata?.category || \'Uncategorized\';
                     if (!initialThresholds[category]) {
                         initialThresholds[category] = 0.30;
                     }
@@ -137,9 +144,9 @@ const PromptStudioPage = () => {
 
             try {
                 const { data: usersData, error: usersError } = await supabase
-                    .from('profiles')
-                    .select('id, email')
-                    .order('email');
+                    .from(\'profiles\')
+                    .select(\'id, email\')
+                    .order(\'email\');
                 if (usersError) throw usersError;
                 setUsers(usersData || []);
             } catch (error) {
@@ -155,11 +162,11 @@ const PromptStudioPage = () => {
             const fetchUserFiles = async () => {
                 try {
                     const { data, error } = await supabase
-                        .from('user_uploads')
-                        .select('id, file_name')
-                        .eq('user_id', reportConfig.userData.selectedUserId)
-                        .eq('status', 'completed');
-                    console.log('查询结果:', data, '错误:', error);
+                        .from(\'user_uploads\')
+                        .select(\'id, file_name\')
+                        .eq(\'user_id\', reportConfig.userData.selectedUserId)
+                        .eq(\'status\', \'completed\');
+                    console.log(\'查询结果:\', data, \'错误:\', error);
                     if (error) throw error;
                     setUserFiles(data || []);
                 } catch (error) {
@@ -175,7 +182,7 @@ const PromptStudioPage = () => {
 
     const knowledgeTree = useMemo(() => {
         return knowledgeItems.reduce((acc, item) => {
-            const category = item.metadata?.category || 'Uncategorized';
+            const category = item.metadata?.category || \'Uncategorized\';
             if (!acc[category]) {
                 acc[category] = { files: [], itemIds: [] };
             }
@@ -213,36 +220,38 @@ const PromptStudioPage = () => {
         try {
             const scopeWithThresholds = selectedKnowledgeIds.map(id => {
                 const item = knowledgeItems.find(k => k.id === id);
-                const category = item.metadata?.category || 'Uncategorized';
-                const fileId = item.metadata?.file_id;
+                if (!item) return null;
+                
+                const category = item.metadata?.category || \'Uncategorized\';
+                
                 return {
-                    file_id: fileId,
+                    file_id: item.id,  // ✅ 直接使用 item.id
                     threshold: categoryThresholds[category] || 0.30,
                 };
-            });
+            }).filter(Boolean);
 
-            const res = await fetch('/api/run-rag-query', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+            const res = await fetch(\'/api/run-rag-query\', {
+                method: \'POST\',
+                headers: { \'Content-Type\': \'application/json\' },
                 body: JSON.stringify({
                     question,
-                    systemPrompt: mode === 'report' ? reportSystemPrompt : systemPrompt,
+                    systemPrompt: systemPrompt,
                     userPromptTemplate,
                     model,
                     strictMode,
                     fallbackAnswer,
                     
                     mode: mode,
-                    reportConfig: mode === 'report' ? reportConfig : null,
+                    reportConfig: mode === \'report\' ? reportConfig : null,
                     
                     scope: scopeWithThresholds,
-                    knowledgeTopK: mode === 'report' ? reportConfig.knowledge.topK : topK,
+                    knowledgeTopK: mode === \'report\' ? reportConfig.knowledge.topK : topK,
                 }),
             });
             
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || 'API request failed');
+                throw new Error(err.error || \'API request failed\');
             }
             
             const data = await res.json();
@@ -263,296 +272,167 @@ return (
                 <TabsTrigger value="report">Report Generation</TabsTrigger>
             </TabsList>
         </Tabs>
-
-        {/* Report Generation Mode */}
-        {mode === 'report' && (
-            <div className="space-y-4">
-                {/* Report System Prompt Template */}
-                <Card>
-                    <CardHeader><CardTitle>Report System Prompt Template</CardTitle></CardHeader>
-                    <CardContent>
-                        <Textarea
-                            value={reportSystemPrompt}
-                            onChange={(e) => setReportSystemPrompt(e.target.value)}
-                            rows={15}
-                            className="font-mono text-sm"
-                        />
-                    </CardContent>
-                </Card>
-
-                {/* Behavior Settings */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Behavior Settings</CardTitle>
-                        <CardDescription>Define how the AI should behave when context is not found</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="pt-4">
-                            <div className="flex items-center space-x-2">
-                                <Switch id="strict-mode-report" checked={strictMode} onCheckedChange={setStrictMode} />
-                                <Label htmlFor="strict-mode-report" className="font-medium">Strict Mode</Label>
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">When enabled, if no relevant context is found, the AI will return a structured "not found" response.</p>
-                            {strictMode && (
-                                <div className="mt-4">
-                                    <Label htmlFor="fallback-answer-report" className="block text-sm font-medium text-gray-700 mb-1">Fallback Answer</Label>
-                                    <Textarea 
-                                        id="fallback-answer-report" 
-                                        value={fallbackAnswer} 
-                                        onChange={(e) => setFallbackAnswer(e.target.value)} 
-                                        rows={3} 
-                                        placeholder="e.g., The information you're looking for couldn't be found..." 
-                                    />
-                                </div>
-                            )}
+        
+        <Card>
+            <CardHeader>
+                <CardTitle>Prompt & Behavior</CardTitle>
+                <CardDescription>
+                    {mode === \'prompt\' 
+                        ? "Design prompts and define how the AI should behave." 
+                        : "Design prompts for report generation. Use {context} for knowledge, {userdata} for user data, and {question} for the question."}
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">System Prompt</label><Textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={6} className="font-mono"/></div>
+                <div><label className="block text-sm font-medium text-gray-700 mb-1">User Prompt (Template)</label><Textarea value={userPromptTemplate} onChange={(e) => setUserPromptTemplate(e.target.value)} rows={8} className="font-mono"/></div>
+                <div className="pt-4">
+                    <div className="flex items-center space-x-2">
+                        <Switch id="strict-mode" checked={strictMode} onCheckedChange={setStrictMode} />
+                        <Label htmlFor="strict-mode" className="font-medium">Strict Mode</Label>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">When enabled, if no relevant knowledge is found, the AI will return the custom fallback answer instead of using its general knowledge.</p>
+                    {strictMode && (
+                        <div className="mt-4">
+                            <Label htmlFor="fallback-answer" className="block text-sm font-medium text-gray-700 mb-1">Fallback Answer</Label>
+                            <Textarea id="fallback-answer" value={fallbackAnswer} onChange={(e) => setFallbackAnswer(e.target.value)} rows={3} placeholder="e.g., I could not find an answer..." />
                         </div>
-                    </CardContent>
-                </Card>
-
-                {/* 并排布局: User Data Settings 和 Inputs & Model */}
-                <div className="grid grid-cols-2 gap-6">
-                    {/* User Data Settings */}
-                    <Card>
-                        <CardHeader><CardTitle>User Data Settings</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label>Select User</Label>
-                                <Select
-                                    value={reportConfig.userData.selectedUserId || ''}
-                                    onValueChange={(val) => setReportConfig({
-                                        ...reportConfig,
-                                        userData: { ...reportConfig.userData, selectedUserId: val, selectedFileIds: [] }
-                                    })}
-                                >
-                                    <SelectTrigger><SelectValue placeholder="Choose a user" /></SelectTrigger>
-                                    <SelectContent>
-                                        {users.map(user => (
-                                            <SelectItem key={user.id} value={user.id}>
-                                                {user.email}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            
-                            <div>
-                                <Label>User Files (optional)</Label>
-                                <div className="space-y-2 border rounded p-3 max-h-40 overflow-y-auto">
-                                    {userFiles.length === 0 ? (
-                                        <p className="text-sm text-gray-500">No files found</p>
-                                    ) : (
-                                        userFiles.map(file => (
-                                            <div key={file.id} className="flex items-center space-x-2">
-                                                <Checkbox
-                                                    id={file.id}
-                                                    checked={reportConfig.userData.selectedFileIds.includes(file.id)}
-                                                    onCheckedChange={(checked) => {
-                                                        const newIds = checked
-                                                            ? [...reportConfig.userData.selectedFileIds, file.id]
-                                                            : reportConfig.userData.selectedFileIds.filter(id => id !== file.id);
-                                                        setReportConfig({
-                                                            ...reportConfig,
-                                                            userData: { ...reportConfig.userData, selectedFileIds: newIds }
-                                                        });
-                                                    }}
-                                                />
-                                                <label htmlFor={file.id} className="text-sm cursor-pointer">
-                                                    {file.file_name}
-                                                </label>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <Label>Top K Results</Label>
-                                <Input
-                                    type="number" min={1} max={20}
-                                    value={reportConfig.userData.topK}
-                                    onChange={(e) => setReportConfig({
-                                        ...reportConfig,
-                                        userData: { ...reportConfig.userData, topK: parseInt(e.target.value) || 5 }
-                                    })}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Inputs & Model */}
-                    <Card>
-                        <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label>Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)</Label>
-                                <div className="border rounded-md p-4 max-h-64 overflow-y-auto">
-                                    {Object.entries(knowledgeTree).map(([category, { files, itemIds }]) => (
-                                        <TreeItem
-                                            key={category}
-                                            label={`${category} (${files.length})`}
-                                            id={category}
-                                            isBranch
-                                            initiallyOpen
-                                            level={0}
-                                            isSelected={itemIds.every(id => selectedKnowledgeIds.includes(id))}
-                                            onSelect={(isSelected) => handleSelect(itemIds, isSelected)}
-                                            threshold={categoryThresholds[category] || 0.30}
-                                            onThresholdChange={(value) => handleThresholdChange(category, value)}
-                                        >
-                                            {files.map(file => (
-                                                <TreeItem
-                                                    key={file.id}
-                                                    label={`${file.file_name} ${(file.file_size / 1024).toFixed(1)}KB · ${new Date(file.updated_at).toLocaleDateString()}`}
-                                                    id={file.id}
-                                                    level={1}
-                                                    isSelected={selectedKnowledgeIds.includes(file.id)}
-                                                    onSelect={(isSelected) => handleSelect([file.id], isSelected)}
-                                                />
-                                            ))}
-                                        </TreeItem>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div>
-                                <Label>Knowledge Base Top K Results</Label>
-                                <Input
-                                    type="number" 
-                                    min={1} 
-                                    max={20}
-                                    value={reportConfig.knowledge.topK}
-                                    onChange={(e) => setReportConfig({
-                                        ...reportConfig,
-                                        knowledge: { ...reportConfig.knowledge, topK: parseInt(e.target.value) || 5 }
-                                    })}
-                                />
-                            </div>
-
-                            <div>
-                                <Label>Test Question</Label>
-                                <Textarea
-                                    value={question}
-                                    onChange={(e) => setQuestion(e.target.value)}
-                                    rows={4}
-                                    placeholder="Ask a question..."
-                                />
-                            </div>
-
-                            <div>
-                                <Label>AI Model</Label>
-                                <Select value={model} onValueChange={setModel}>
-                                    <SelectTrigger><SelectValue placeholder="Select AI Model" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectGroup>
-                                            <SelectLabel>Anthropic</SelectLabel>
-                                            <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
-                                            <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
-                                            <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
-                                        </SelectGroup>
-                                        <SelectGroup>
-                                            <SelectLabel>OpenAI</SelectLabel>
-                                            <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                                            <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
-                                            <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
-                                        </SelectGroup>
-                                        <SelectGroup>
-                                            <SelectLabel>Google</SelectLabel>
-                                            <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
-                                            <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
-                                        </SelectGroup>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    )}
                 </div>
-            </div>
-        )}
+            </CardContent>
+        </Card>
 
-        {/* Prompt Testing Mode */}
-        {mode === 'prompt' && (
-            <>
+        {/* Report Generation Mode specific settings */}
+        {mode === \'report\' && (
+            <div className="grid grid-cols-2 gap-6">
+                {/* User Data Settings */}
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Prompt & Behavior</CardTitle>
-                        <CardDescription>{"Design prompts and define how the AI should behave."}</CardDescription>
-                    </CardHeader>
+                    <CardHeader><CardTitle>User Data Settings</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">System Prompt</label><Textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={6} className="font-mono"/></div>
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">User Prompt (Template)</label><Textarea value={userPromptTemplate} onChange={(e) => setUserPromptTemplate(e.target.value)} rows={8} className="font-mono"/></div>
-                        <div className="pt-4">
-                            <div className="flex items-center space-x-2">
-                                <Switch id="strict-mode" checked={strictMode} onCheckedChange={setStrictMode} />
-                                <Label htmlFor="strict-mode" className="font-medium">Strict Mode</Label>
+                        <div>
+                            <Label>Select User</Label>
+                            <Select
+                                value={reportConfig.userData.selectedUserId || \'\'}
+                                onValueChange={(val) => setReportConfig({
+                                    ...reportConfig,
+                                    userData: { ...reportConfig.userData, selectedUserId: val, selectedFileIds: [] }
+                                })}
+                            >
+                                <SelectTrigger><SelectValue placeholder="Choose a user" /></SelectTrigger>
+                                <SelectContent>
+                                    {users.map(user => (
+                                        <SelectItem key={user.id} value={user.id}>
+                                            {user.email}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        
+                        <div>
+                            <Label>User Files (optional)</Label>
+                            <div className="space-y-2 border rounded p-3 max-h-40 overflow-y-auto">
+                                {userFiles.length === 0 ? (
+                                    <p className="text-sm text-gray-500">No files found</p>
+                                ) : (
+                                    userFiles.map(file => (
+                                        <div key={file.id} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={file.id}
+                                                checked={reportConfig.userData.selectedFileIds.includes(file.id)}
+                                                onCheckedChange={(checked) => {
+                                                    const newIds = checked
+                                                        ? [...reportConfig.userData.selectedFileIds, file.id]
+                                                        : reportConfig.userData.selectedFileIds.filter(id => id !== file.id);
+                                                    setReportConfig({
+                                                        ...reportConfig,
+                                                        userData: { ...reportConfig.userData, selectedFileIds: newIds }
+                                                    });
+                                                }}
+                                            />
+                                            <label htmlFor={file.id} className="text-sm cursor-pointer">
+                                                {file.file_name}
+                                            </label>
+                                        </div>
+                                    ))
+                                )}
                             </div>
-                            <p className="text-sm text-gray-500 mt-1">When enabled, if no relevant knowledge is found, the AI will return the custom fallback answer instead of using its general knowledge.</p>
-                            {strictMode && (
-                                <div className="mt-4">
-                                    <Label htmlFor="fallback-answer" className="block text-sm font-medium text-gray-700 mb-1">Fallback Answer</Label>
-                                    <Textarea id="fallback-answer" value={fallbackAnswer} onChange={(e) => setFallbackAnswer(e.target.value)} rows={3} placeholder="e.g., I could not find an answer..." />
-                                </div>
-                            )}
+                        </div>
+                        
+                        <div>
+                            <Label>Top K Results</Label>
+                            <Input
+                                type="number" min={1} max={20}
+                                value={reportConfig.userData.topK}
+                                onChange={(e) => setReportConfig({
+                                    ...reportConfig,
+                                    userData: { ...reportConfig.userData, topK: parseInt(e.target.value) || 5 }
+                                })}
+                            />
                         </div>
                     </CardContent>
                 </Card>
-                
+
+                {/* Inputs & Model */}
                 <Card>
                     <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                                Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)
-                            </label>
-                            <ScrollArea className="border rounded-md p-2 h-64">
-                                {Object.entries(knowledgeTree).map(([category, data]) => {
-                                    const { files, itemIds } = data;
-                                    const isCategorySelected = itemIds.every(id => selectedKnowledgeIds.includes(id));
-                                    return (
-                                        <TreeItem 
-                                            key={category} 
-                                            id={`cat-${category}`} 
-                                            label={`${category} (${files.length})`} 
-                                            isSelected={isCategorySelected} 
-                                            onSelect={(checked) => handleSelect(itemIds, checked)} 
-                                            isBranch initiallyOpen={true} level={0}
-                                            threshold={categoryThresholds[category] || 0.30}
-                                            onThresholdChange={(value) => handleThresholdChange(category, value)}
-                                        >
-                                            {files.map(file => (
-                                                <TreeItem
-                                                    key={file.id} id={file.id}
-                                                    label={
-                                                        <div className="flex items-center justify-between w-full">
-                                                            <span className="truncate">{file.file_name}</span>
-                                                            <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                                                                {(file.file_size / 1024).toFixed(1)}KB · {new Date(file.updated_at).toLocaleDateString()}
-                                                            </span>
-                                                        </div>
-                                                    }
-                                                    isSelected={selectedKnowledgeIds.includes(file.id)}
-                                                    onSelect={(checked) => handleSelect([file.id], checked)}
-                                                    level={1}
-                                                />
-                                            ))}
-                                        </TreeItem>
-                                    );
-                                })}
-                            </ScrollArea>
-                        </div>
-                        
-                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Test Question</label><Textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} /></div>
-
-                        <div className="space-y-2 pt-2">
-                            <div className="flex items-center justify-between mb-1">
-                                <Label htmlFor="top-k-slider" className="text-sm font-medium">Top K: <span className="font-bold">{topK}</span></Label>
-                                <span className="text-xs text-gray-500">Number of chunks to retrieve</span>
+                            <Label>Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)</Label>
+                            <div className="border rounded-md p-4 max-h-64 overflow-y-auto">
+                                {Object.entries(knowledgeTree).map(([category, { files, itemIds }]) => (
+                                    <TreeItem
+                                        key={category}
+                                        label={`${category} (${files.length})`}
+                                        id={category}
+                                        isBranch
+                                        initiallyOpen
+                                        level={0}
+                                        isSelected={itemIds.every(id => selectedKnowledgeIds.includes(id))}
+                                        onSelect={(isSelected) => handleSelect(itemIds, isSelected)}
+                                        threshold={categoryThresholds[category] || 0.30}
+                                        onThresholdChange={(value) => handleThresholdChange(category, value)}
+                                    >
+                                        {files.map(file => (
+                                            <TreeItem
+                                                key={file.id}
+                                                label={`${file.file_name} ${(file.file_size / 1024).toFixed(1)}KB · ${new Date(file.updated_at).toLocaleDateString()}`}
+                                                id={file.id}
+                                                level={1}
+                                                isSelected={selectedKnowledgeIds.includes(file.id)}
+                                                onSelect={(isSelected) => handleSelect([file.id], isSelected)}
+                                            />
+                                        ))}
+                                    </TreeItem>
+                                ))}\
                             </div>
-                            <Slider id="top-k-slider" min={1} max={100} step={1} value={[topK]} onValueChange={(value) => setTopK(value[0])} className="w-full"/>
-                            <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Fewer (1)</span><span>More (100)</span></div>
                         </div>
-                        
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">AI Model</label>
+
+                        <div>
+                            <Label>Knowledge Base Top K Results</Label>
+                            <Input
+                                type="number" 
+                                min={1} 
+                                max={20}
+                                value={reportConfig.knowledge.topK}
+                                onChange={(e) => setReportConfig({
+                                    ...reportConfig,
+                                    knowledge: { ...reportConfig.knowledge, topK: parseInt(e.target.value) || 5 }
+                                })}
+                            />
+                        </div>
+
+                        <div>
+                            <Label>Test Question</Label>
+                            <Textarea
+                                value={question}
+                                onChange={(e) => setQuestion(e.target.value)}
+                                rows={4}
+                                placeholder="Ask a question..."
+                            />
+                        </div>
+
+                        <div>
+                            <Label>AI Model</Label>
                             <Select value={model} onValueChange={setModel}>
                                 <SelectTrigger><SelectValue placeholder="Select AI Model" /></SelectTrigger>
                                 <SelectContent>
@@ -578,66 +458,109 @@ return (
                         </div>
                     </CardContent>
                 </Card>
-            </>
+            </div>
+        )}
+
+        {/* Prompt Testing Mode */}
+        {mode === \'prompt\' && (
+            <Card>
+                <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)
+                        </label>
+                        <ScrollArea className="border rounded-md p-2 h-64">
+                            {Object.entries(knowledgeTree).map(([category, data]) => {
+                                const { files, itemIds } = data;
+                                const isCategorySelected = itemIds.every(id => selectedKnowledgeIds.includes(id));
+                                return (
+                                    <TreeItem 
+                                        key={category} 
+                                        id={`cat-${category}`} 
+                                        label={`${category} (${files.length})`} 
+                                        isSelected={isCategorySelected} 
+                                        onSelect={(checked) => handleSelect(itemIds, checked)} 
+                                        isBranch initiallyOpen={true} level={0}
+                                        threshold={categoryThresholds[category] || 0.30}
+                                        onThresholdChange={(value) => handleThresholdChange(category, value)}
+                                    >
+                                        {files.map(file => (
+                                            <TreeItem
+                                                key={file.id} id={file.id}
+                                                label={
+                                                    <div className="flex items-center justify-between w-full">
+                                                        <span className="truncate">{file.file_name}</span>
+                                                        <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                                                            {(file.file_size / 1024).toFixed(1)}KB · {new Date(file.updated_at).toLocaleDateString()}
+                                                        </span>
+                                                    </div>
+                                                }
+                                                isSelected={selectedKnowledgeIds.includes(file.id)}
+                                                onSelect={(checked) => handleSelect([file.id], checked)}
+                                                level={1}
+                                            />
+                                        ))}
+                                    </TreeItem>
+                                );
+                            })}
+                        </ScrollArea>
+                    </div>
+                    
+                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Test Question</label><Textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} /></div>
+
+                    <div className="space-y-2 pt-2">
+                        <div className="flex items-center justify-between mb-1">
+                            <Label htmlFor="top-k-slider" className="text-sm font-medium">Top K: <span className="font-bold">{topK}</span></Label>
+                            <span className="text-xs text-gray-500">Number of chunks to retrieve</span>
+                        </div>
+                        <Slider id="top-k-slider" min={1} max={100} step={1} value={[topK]} onValueChange={(value) => setTopK(value[0])} className="w-full"/>
+                        <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Fewer (1)</span><span>More (100)</span></div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">AI Model</label>
+                        <Select value={model} onValueChange={setModel}>
+                            <SelectTrigger><SelectValue placeholder="Select AI Model" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectGroup>
+                                    <SelectLabel>Anthropic</SelectLabel>
+                                    <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
+                                    <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                                    <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
+                                </SelectGroup>
+                                <SelectGroup>
+                                    <SelectLabel>OpenAI</SelectLabel>
+                                    <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                                    <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                                    <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                                </SelectGroup>
+                                <SelectGroup>
+                                    <SelectLabel>Google</SelectLabel>
+                                    <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                                    <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                                </SelectGroup>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </CardContent>
+            </Card>
         )}
 
         {/* Run Test Button */}
         <Button onClick={handleRunTest} disabled={isLoading} size="lg" className="w-full">
-            <Bot className="mr-2 h-5 w-5"/> {isLoading ? 'Running...' : 'Run Test'}
+            <Bot className="mr-2 h-5 w-5"/> {isLoading ? \'Running...\' : \'Run Test\'}
         </Button>
 
-        {/* Generated Response - 移到最下方,全宽 */}
+        {/* Generated Response */}
         <Card>
             <CardHeader><CardTitle>Generated Response</CardTitle></CardHeader>
             <CardContent>
-                <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[40rem] bg-gray-50/50">
+                <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[20rem] bg-gray-50/50">
                     {isLoading && <div className="flex items-center justify-center h-full"><p>Generating...</p></div>}
                     {!isLoading && !response && <p>Response will appear here.</p>}
                     {!isLoading && response && (
-                        mode === 'prompt' ? (
-                            <p style={{ whiteSpace: 'pre-wrap' }}>{response.response}</p>
-                        ) : (
-                            <div className="space-y-4">
-                                <Collapsible>
-                                    <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">
-                                        <ChevronRight className="h-4 w-4" />
-                                        <Badge variant={response.context?.knowledge?.found ? "default" : "secondary"}>Knowledge Context ({response.context?.knowledge?.count || 0})</Badge>
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent className="mt-2 space-y-2 pl-6">
-                                        {response.context?.knowledge?.chunks?.map((chunk, i) => (
-                                        <Card key={`k-${i}`} className="p-3">
-                                            <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>
-                                            <div className="text-sm">{chunk.content}</div>
-                                        </Card>
-                                        ))}
-                                    </CollapsibleContent>
-                                </Collapsible>
-
-                                <Collapsible>
-                                    <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">
-                                        <ChevronRight className="h-4 w-4" />
-                                        <Badge variant={response.context?.userData?.found ? "default" : "secondary"}>User Data Context ({response.context?.userData?.count || 0})</Badge>
-                                    </CollapsibleTrigger>
-                                    <CollapsibleContent className="mt-2 space-y-2 pl-6">
-                                        {response.context?.userData?.chunks?.map((chunk, i) => (
-                                        <Card key={`u-${i}`} className="p-3">
-                                            <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>
-                                            <div className="text-sm">{chunk.content}</div>
-                                        </Card>
-                                        ))}
-                                    </CollapsibleContent>
-                                </Collapsible>
-
-                                <Card>
-                                    <CardHeader><CardTitle className="text-base">AI Response</CardTitle></CardHeader>
-                                    <CardContent>
-                                        <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm overflow-auto font-mono">
-                                        {JSON.stringify(response.answer, null, 2)}
-                                        </pre>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        )
+                        <ReactMarkdown>{response.response}</ReactMarkdown>
                     )}
                 </ScrollArea>
             </CardContent>

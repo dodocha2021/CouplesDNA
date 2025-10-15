@@ -1,6 +1,5 @@
 
 import { retrieveKnowledge, retrieveUserData } from '@/lib/retrieval';
-import { buildReportContext, buildReportPrompt } from '@/lib/report-helpers';
 import { generateEmbedding } from '@/lib/embedding';
 import { callAI } from '@/lib/ai';
 import { createClient } from '@supabase/supabase-js';
@@ -34,65 +33,93 @@ export default async function handler(req, res) {
 // Handler for the new 'Report' mode
 async function handleReportMode(req, res) {
   console.log('\n--- Report Mode Start ---\n');
-  const { question, reportConfig, model, systemPrompt, userPromptTemplate } = req.body;
+  const { question, reportConfig, model, systemPrompt, userPromptTemplate, scope, knowledgeTopK } = req.body;
+
+  console.log('🔍 DEBUG - scope:', JSON.stringify(scope, null, 2));
 
   if (!question || !reportConfig) {
     throw new Error("Missing required parameters for report mode.");
   }
 
-    const knowledgeConfig = {
-        selectedFileIds: req.body.scope.map(s => s.file_id),
-        threshold: req.body.scope[0]?.threshold || 0.3, // Using first threshold for all
-        topK: req.body.knowledgeTopK
-    };
-
-  // 1. Generate embedding for the question
+  // 1. Vectorize question
   console.log('[1/5] Vectorizing question...');
   const questionEmbedding = await generateEmbedding(question);
+  const vectorString = `[${questionEmbedding.join(',')}]`;
 
-  // 2. Retrieve knowledge and user data in parallel
+  // 2. Retrieve knowledge - ✅ 使用与 Prompt Mode 相同的逻辑
   console.log('[2/5] Retrieving knowledge and user data...');
-  const [knowledgeResults, userDataResults] = await Promise.all([
-    retrieveKnowledge(questionEmbedding, knowledgeConfig),
-    retrieveUserData(questionEmbedding, reportConfig.userData)
-  ]);
+  
+  // 为每个文件分别搜索（和 Prompt Mode 一样）
+  const knowledgePromises = scope.map(({ file_id, threshold }) =>
+    supabaseAdmin.rpc('match_knowledge', {
+      query_embedding: vectorString,
+      match_threshold: parseFloat(threshold),
+      match_count: knowledgeTopK || 5,
+      p_file_id: file_id  // ✅ 单个 file_id
+    })
+  );
+  
+  const knowledgeSearchResults = await Promise.all(knowledgePromises);
+  
+  // 合并结果
+  let knowledgeResults = [];
+  knowledgeSearchResults.forEach(result => {
+    if (result.data) knowledgeResults.push(...result.data);
+  });
+  
+  // 去重并排序
+  const uniqueKnowledge = Array.from(new Map(knowledgeResults.map(item => [item.id, item])).values());
+  knowledgeResults = uniqueKnowledge.sort((a, b) => b.similarity - a.similarity).slice(0, knowledgeTopK || 5);
+  
+  // Retrieve user data
+  const userDataResults = await retrieveUserData(questionEmbedding, reportConfig.userData);
+  
   console.log(`  > Found ${knowledgeResults.length} knowledge chunks and ${userDataResults.length} user data chunks.`);
 
-  // 3. Build context from results
-  console.log('[3/5] Building context for AI...');
-  const context = buildReportContext(knowledgeResults, userDataResults);
+  // 3. Build context
+  console.log('[3/5] Building context...');
+  
+  const knowledgeContext = knowledgeResults.length > 0
+    ? knowledgeResults.map((r, i) => `[K${i+1}] ${r.content}`).join('\n\n---\n\n')
+    : "No knowledge found.";
+  
+  const userDataContext = userDataResults.length > 0
+    ? userDataResults.map((r, i) => `[U${i+1}] ${r.content}`).join('\n\n---\n\n')
+    : "No user data found.";
 
-  // 4. Build the final prompt
+  // 4. Build final prompt
   console.log('[4/5] Building final prompt...');
-  const finalPrompt = buildReportPrompt(systemPrompt, userPromptTemplate, context, question);
+  const finalUserPrompt = userPromptTemplate
+    .replace('{context}', knowledgeContext)
+    .replace('{userdata}', userDataContext)
+    .replace('{question}', question);
 
-  // ===== 新增：打印 Report Mode 的 Request =====
+  // 5. Print debug info
   console.log('\n========== REPORT MODE - AI REQUEST ==========');
   console.log('Model:', model);
-  console.log('\n--- Final Prompt ---');
-  console.log(finalPrompt);
+  console.log('\n--- System Prompt ---');
+  console.log(systemPrompt);
+  console.log('\n--- User Prompt ---');
+  console.log(finalUserPrompt);
   console.log('\n--- Knowledge Results ---');
   console.log(`Found ${knowledgeResults.length} chunks`);
   console.log('\n--- User Data Results ---');
   console.log(`Found ${userDataResults.length} chunks`);
   console.log('==============================================\n');
-  // ===== 结束新增 =====
 
-  // 5. Call AI and get a structured JSON response
+  // 6. Call AI
   console.log('[5/5] Sending request to AI model...');
-  const aiResponse = await callAI(finalPrompt, model, null); // System prompt is already in finalPrompt
+  const aiResponse = await callAI(finalUserPrompt, model, systemPrompt);
 
-  // ===== 新增：打印 Report Mode 的 Response =====
   console.log('\n========== REPORT MODE - AI RESPONSE ==========');
   console.log(aiResponse);
   console.log('===============================================\n');
-  // ===== 结束新增 =====
 
   console.log('--- Report Mode End ---\n');
 
-  // 6. Return the structured response
+  // 7. Return the response
   return res.status(200).json({
-    answer: JSON.parse(aiResponse), // Expecting a JSON string from the AI
+    response: aiResponse,
     context: {
       knowledge: {
         found: knowledgeResults.length > 0,
@@ -160,7 +187,13 @@ async function handlePromptMode(req, res) {
 
     // 4. Call AI Model
     console.log('[4/4] Sending request to AI model...');
-    const finalUserPrompt = userPromptTemplate.replace('{context}', context).replace('{question}', question);
+    let finalUserPrompt = userPromptTemplate
+      .replace('{context}', context)
+      .replace('{question}', question)
+      .replace('{userdata}', '')
+      .replace(/USER DATA \(Personal History\):\s*\n*/gi, '')
+      .replace(/\n\n\n+/g, '\n\n')
+      .trim();
 
     // ===== 新增：打印完整的 Request =====
     console.log('\n========== AI REQUEST ==========');
