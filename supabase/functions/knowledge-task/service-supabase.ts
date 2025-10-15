@@ -10,8 +10,9 @@ export class SupabaseClient {
     const vectors = chunks.map((chunk, i) => ({
       content: chunk,
       embedding: embeddings[i],
+      upload_id: fileId,
       metadata: { 
-        file_id: fileId, 
+        file_id: fileId,
         chunk_index: i 
       }
     }));
@@ -21,7 +22,8 @@ export class SupabaseClient {
       headers: {
         "apikey": this.key,
         "Authorization": `Bearer ${this.key}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
       },
       body: JSON.stringify(vectors)
     });

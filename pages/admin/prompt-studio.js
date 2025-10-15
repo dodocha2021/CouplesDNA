@@ -254,31 +254,64 @@ const PromptStudioPage = () => {
         }
     };
     
-    return (
-        <div className="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-            <div className="lg:col-span-2 space-y-6">
-                
-                <Tabs value={mode} onValueChange={setMode} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="prompt">Prompt Testing</TabsTrigger>
-                        <TabsTrigger value="report">Report Generation</TabsTrigger>
-                    </TabsList>
-                </Tabs>
+return (
+    <div className="container mx-auto p-4 space-y-6">
+        {/* Tabs */}
+        <Tabs value={mode} onValueChange={setMode} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="prompt">Prompt Testing</TabsTrigger>
+                <TabsTrigger value="report">Report Generation</TabsTrigger>
+            </TabsList>
+        </Tabs>
 
-                {mode === 'report' && (
-                  <div className="space-y-4">
-                    <Card>
-                        <CardHeader><CardTitle>Report System Prompt Template</CardTitle></CardHeader>
-                        <CardContent>
-                            <Textarea
+        {/* Report Generation Mode */}
+        {mode === 'report' && (
+            <div className="space-y-4">
+                {/* Report System Prompt Template */}
+                <Card>
+                    <CardHeader><CardTitle>Report System Prompt Template</CardTitle></CardHeader>
+                    <CardContent>
+                        <Textarea
                             value={reportSystemPrompt}
                             onChange={(e) => setReportSystemPrompt(e.target.value)}
                             rows={15}
                             className="font-mono text-sm"
-                            />
-                        </CardContent>
-                    </Card>
+                        />
+                    </CardContent>
+                </Card>
 
+                {/* Behavior Settings */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Behavior Settings</CardTitle>
+                        <CardDescription>Define how the AI should behave when context is not found</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="pt-4">
+                            <div className="flex items-center space-x-2">
+                                <Switch id="strict-mode-report" checked={strictMode} onCheckedChange={setStrictMode} />
+                                <Label htmlFor="strict-mode-report" className="font-medium">Strict Mode</Label>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">When enabled, if no relevant context is found, the AI will return a structured "not found" response.</p>
+                            {strictMode && (
+                                <div className="mt-4">
+                                    <Label htmlFor="fallback-answer-report" className="block text-sm font-medium text-gray-700 mb-1">Fallback Answer</Label>
+                                    <Textarea 
+                                        id="fallback-answer-report" 
+                                        value={fallbackAnswer} 
+                                        onChange={(e) => setFallbackAnswer(e.target.value)} 
+                                        rows={3} 
+                                        placeholder="e.g., The information you're looking for couldn't be found..." 
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* 并排布局: User Data Settings 和 Inputs & Model */}
+                <div className="grid grid-cols-2 gap-6">
+                    {/* User Data Settings */}
                     <Card>
                         <CardHeader><CardTitle>User Data Settings</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
@@ -293,15 +326,16 @@ const PromptStudioPage = () => {
                                 >
                                     <SelectTrigger><SelectValue placeholder="Choose a user" /></SelectTrigger>
                                     <SelectContent>
-                                    {users.map(user => (
-                                        <SelectItem key={user.id} value={user.id}>
-                                        {user.email}
-                                        </SelectItem>
-                                    ))}
+                                        {users.map(user => (
+                                            <SelectItem key={user.id} value={user.id}>
+                                                {user.email}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                             </div>
-                             <div>
+                            
+                            <div>
                                 <Label>User Files (optional)</Label>
                                 <div className="space-y-2 border rounded p-3 max-h-40 overflow-y-auto">
                                     {userFiles.length === 0 ? (
@@ -330,100 +364,141 @@ const PromptStudioPage = () => {
                                     )}
                                 </div>
                             </div>
+                            
                             <div>
                                 <Label>Top K Results</Label>
                                 <Input
                                     type="number" min={1} max={20}
                                     value={reportConfig.userData.topK}
                                     onChange={(e) => setReportConfig({
-                                    ...reportConfig,
-                                    userData: { ...reportConfig.userData, topK: parseInt(e.target.value) || 0 }
-                                    })}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card>
-                    
-                    <Card>
-                        <CardHeader><CardTitle>Knowledge Base Settings (Report Mode)</CardTitle></CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <Label>Top K Results</Label>
-                                <Input
-                                    type="number" min={1} max={20}
-                                    value={reportConfig.knowledge.topK}
-                                    onChange={(e) => setReportConfig({
-                                    ...reportConfig,
-                                    knowledge: { ...reportConfig.knowledge, topK: parseInt(e.target.value) || 0 }
+                                        ...reportConfig,
+                                        userData: { ...reportConfig.userData, topK: parseInt(e.target.value) || 5 }
                                     })}
                                 />
                             </div>
                         </CardContent>
                     </Card>
 
+                    {/* Inputs & Model */}
                     <Card>
-                        <CardHeader>
-                        <CardTitle>Behavior Settings</CardTitle>
-                        </CardHeader>
+                        <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
                         <CardContent className="space-y-4">
-                        <div className="flex items-center space-x-2">
-                            <Switch 
-                            id="report-strict-mode" 
-                            checked={strictMode} 
-                            onCheckedChange={setStrictMode} 
-                            />
-                            <Label htmlFor="report-strict-mode" className="font-medium">
-                            Strict Mode
-                            </Label>
-                        </div>
-                        <p className="text-sm text-gray-500">
-                            When enabled, if no relevant context is found, the AI will return a structured "not found" response.
-                        </p>
-                        {strictMode && (
                             <div>
-                            <Label>Fallback Answer</Label>
-                            <Textarea
-                                value={fallbackAnswer}
-                                onChange={(e) => setFallbackAnswer(e.target.value)}
-                                rows={3}
-                                placeholder="e.g., I could not find an answer..."
-                            />
-                            </div>
-                        )}
-                        </CardContent>
-                    </Card>
-                  </div>
-                )}
-                
-                {mode === 'prompt' && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Prompt & Behavior</CardTitle>
-                            <CardDescription>{"Design prompts and define how the AI should behave."}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div><label className="block text-sm font-medium text-gray-700 mb-1">System Prompt</label><Textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={6} className="font-mono"/></div>
-                            <div><label className="block text-sm font-medium text-gray-700 mb-1">User Prompt (Template)</label><Textarea value={userPromptTemplate} onChange={(e) => setUserPromptTemplate(e.target.value)} rows={8} className="font-mono"/></div>
-                            <div className="pt-4">
-                                <div className="flex items-center space-x-2">
-                                    <Switch id="strict-mode" checked={strictMode} onCheckedChange={setStrictMode} />
-                                    <Label htmlFor="strict-mode" className="font-medium">Strict Mode</Label>
+                                <Label>Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)</Label>
+                                <div className="border rounded-md p-4 max-h-64 overflow-y-auto">
+                                    {Object.entries(knowledgeTree).map(([category, { files, itemIds }]) => (
+                                        <TreeItem
+                                            key={category}
+                                            label={`${category} (${files.length})`}
+                                            id={category}
+                                            isBranch
+                                            initiallyOpen
+                                            level={0}
+                                            isSelected={itemIds.every(id => selectedKnowledgeIds.includes(id))}
+                                            onSelect={(isSelected) => handleSelect(itemIds, isSelected)}
+                                            threshold={categoryThresholds[category] || 0.30}
+                                            onThresholdChange={(value) => handleThresholdChange(category, value)}
+                                        >
+                                            {files.map(file => (
+                                                <TreeItem
+                                                    key={file.id}
+                                                    label={`${file.file_name} ${(file.file_size / 1024).toFixed(1)}KB · ${new Date(file.updated_at).toLocaleDateString()}`}
+                                                    id={file.id}
+                                                    level={1}
+                                                    isSelected={selectedKnowledgeIds.includes(file.id)}
+                                                    onSelect={(isSelected) => handleSelect([file.id], isSelected)}
+                                                />
+                                            ))}
+                                        </TreeItem>
+                                    ))}
                                 </div>
-                                <p className="text-sm text-gray-500 mt-1">When enabled, if no relevant knowledge is found, the AI will return the custom fallback answer instead of using its general knowledge.</p>
-                                {strictMode && (
-                                    <div className="mt-4">
-                                        <Label htmlFor="fallback-answer" className="block text-sm font-medium text-gray-700 mb-1">Fallback Answer</Label>
-                                        <Textarea id="fallback-answer" value={fallbackAnswer} onChange={(e) => setFallbackAnswer(e.target.value)} rows={3} placeholder="e.g., I could not find an answer..." />
-                                    </div>
-                                )}
+                            </div>
+
+                            <div>
+                                <Label>Knowledge Base Top K Results</Label>
+                                <Input
+                                    type="number" 
+                                    min={1} 
+                                    max={20}
+                                    value={reportConfig.knowledge.topK}
+                                    onChange={(e) => setReportConfig({
+                                        ...reportConfig,
+                                        knowledge: { ...reportConfig.knowledge, topK: parseInt(e.target.value) || 5 }
+                                    })}
+                                />
+                            </div>
+
+                            <div>
+                                <Label>Test Question</Label>
+                                <Textarea
+                                    value={question}
+                                    onChange={(e) => setQuestion(e.target.value)}
+                                    rows={4}
+                                    placeholder="Ask a question..."
+                                />
+                            </div>
+
+                            <div>
+                                <Label>AI Model</Label>
+                                <Select value={model} onValueChange={setModel}>
+                                    <SelectTrigger><SelectValue placeholder="Select AI Model" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectGroup>
+                                            <SelectLabel>Anthropic</SelectLabel>
+                                            <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
+                                            <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                                            <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
+                                        </SelectGroup>
+                                        <SelectGroup>
+                                            <SelectLabel>OpenAI</SelectLabel>
+                                            <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                                            <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                                            <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                                        </SelectGroup>
+                                        <SelectGroup>
+                                            <SelectLabel>Google</SelectLabel>
+                                            <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                                            <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                                        </SelectGroup>
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </CardContent>
                     </Card>
-                )}
+                </div>
+            </div>
+        )}
+
+        {/* Prompt Testing Mode */}
+        {mode === 'prompt' && (
+            <>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Prompt & Behavior</CardTitle>
+                        <CardDescription>{"Design prompts and define how the AI should behave."}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">System Prompt</label><Textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} rows={6} className="font-mono"/></div>
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">User Prompt (Template)</label><Textarea value={userPromptTemplate} onChange={(e) => setUserPromptTemplate(e.target.value)} rows={8} className="font-mono"/></div>
+                        <div className="pt-4">
+                            <div className="flex items-center space-x-2">
+                                <Switch id="strict-mode" checked={strictMode} onCheckedChange={setStrictMode} />
+                                <Label htmlFor="strict-mode" className="font-medium">Strict Mode</Label>
+                            </div>
+                            <p className="text-sm text-gray-500 mt-1">When enabled, if no relevant knowledge is found, the AI will return the custom fallback answer instead of using its general knowledge.</p>
+                            {strictMode && (
+                                <div className="mt-4">
+                                    <Label htmlFor="fallback-answer" className="block text-sm font-medium text-gray-700 mb-1">Fallback Answer</Label>
+                                    <Textarea id="fallback-answer" value={fallbackAnswer} onChange={(e) => setFallbackAnswer(e.target.value)} rows={3} placeholder="e.g., I could not find an answer..." />
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
                 
                 <Card>
-                     <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
-                     <CardContent className="space-y-4">
+                    <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 mb-1">
                                 Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)
@@ -467,16 +542,14 @@ const PromptStudioPage = () => {
                         
                         <div><label className="block text-sm font-medium text-gray-700 mb-1">Test Question</label><Textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} /></div>
 
-                        {mode === 'prompt' && (
-                            <div className="space-y-2 pt-2">
-                                <div className="flex items-center justify-between mb-1">
-                                    <Label htmlFor="top-k-slider" className="text-sm font-medium">Top K: <span className="font-bold">{topK}</span></Label>
-                                    <span className="text-xs text-gray-500">Number of chunks to retrieve</span>
-                                </div>
-                                <Slider id="top-k-slider" min={1} max={100} step={1} value={[topK]} onValueChange={(value) => setTopK(value[0])} className="w-full"/>
-                                <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Fewer (1)</span><span>More (100)</span></div>
+                        <div className="space-y-2 pt-2">
+                            <div className="flex items-center justify-between mb-1">
+                                <Label htmlFor="top-k-slider" className="text-sm font-medium">Top K: <span className="font-bold">{topK}</span></Label>
+                                <span className="text-xs text-gray-500">Number of chunks to retrieve</span>
                             </div>
-                        )}
+                            <Slider id="top-k-slider" min={1} max={100} step={1} value={[topK]} onValueChange={(value) => setTopK(value[0])} className="w-full"/>
+                            <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Fewer (1)</span><span>More (100)</span></div>
+                        </div>
                         
                         <div className="space-y-2">
                             <label className="text-sm font-medium">AI Model</label>
@@ -496,80 +569,81 @@ const PromptStudioPage = () => {
                                         <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
                                     </SelectGroup>
                                     <SelectGroup>
-                                    <SelectLabel>Google</SelectLabel>
+                                        <SelectLabel>Google</SelectLabel>
                                         <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
                                         <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
                                     </SelectGroup>
                                 </SelectContent>
                             </Select>
                         </div>
-                     </CardContent>
-                </Card>
-                <div className="flex space-x-4">
-                    <Button onClick={handleRunTest} disabled={isLoading} size="lg" className="w-full">
-                        <Bot className="mr-2 h-5 w-5"/> {isLoading ? 'Running...' : 'Run Test'}
-                    </Button>
-                </div>
-            </div>
-            <div className="lg:col-span-1">
-                <Card className="sticky top-4">
-                    <CardHeader><CardTitle>Generated Response</CardTitle></CardHeader>
-                    <CardContent>
-                        <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[40rem] bg-gray-50/50">
-                            {isLoading && <div className="flex items-center justify-center h-full"><p>Generating...</p></div>}
-                            {!isLoading && !response && <p>Response will appear here.</p>}
-                            {!isLoading && response && (
-                                mode === 'prompt' ? (
-                                    <p style={{ whiteSpace: 'pre-wrap' }}>{response.response}</p>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <Collapsible>
-                                            <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">
-                                                <ChevronRight className="h-4 w-4" />
-                                                <Badge variant={response.context?.knowledge?.found ? "default" : "secondary"}>Knowledge Context ({response.context?.knowledge?.count || 0})</Badge>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="mt-2 space-y-2 pl-6">
-                                                {response.context?.knowledge?.chunks?.map((chunk, i) => (
-                                                <Card key={`k-${i}`} className="p-3">
-                                                    <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>
-                                                    <div className="text-sm">{chunk.content}</div>
-                                                </Card>
-                                                ))}
-                                            </CollapsibleContent>
-                                        </Collapsible>
-
-                                        <Collapsible>
-                                            <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">
-                                                <ChevronRight className="h-4 w-4" />
-                                                <Badge variant={response.context?.userData?.found ? "default" : "secondary"}>User Data Context ({response.context?.userData?.count || 0})</Badge>
-                                            </CollapsibleTrigger>
-                                            <CollapsibleContent className="mt-2 space-y-2 pl-6">
-                                                {response.context?.userData?.chunks?.map((chunk, i) => (
-                                                <Card key={`u-${i}`} className="p-3">
-                                                    <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>
-                                                    <div className="text-sm">{chunk.content}</div>
-                                                </Card>
-                                                ))}
-                                            </CollapsibleContent>
-                                        </Collapsible>
-
-                                        <Card>
-                                            <CardHeader><CardTitle className="text-base">AI Response</CardTitle></CardHeader>
-                                            <CardContent>
-                                                <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm overflow-auto font-mono">
-                                                {JSON.stringify(response.answer, null, 2)}
-                                                </pre>
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                )
-                            )}
-                        </ScrollArea>
                     </CardContent>
                 </Card>
-            </div>
-        </div>
-    );
+            </>
+        )}
+
+        {/* Run Test Button */}
+        <Button onClick={handleRunTest} disabled={isLoading} size="lg" className="w-full">
+            <Bot className="mr-2 h-5 w-5"/> {isLoading ? 'Running...' : 'Run Test'}
+        </Button>
+
+        {/* Generated Response - 移到最下方,全宽 */}
+        <Card>
+            <CardHeader><CardTitle>Generated Response</CardTitle></CardHeader>
+            <CardContent>
+                <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[40rem] bg-gray-50/50">
+                    {isLoading && <div className="flex items-center justify-center h-full"><p>Generating...</p></div>}
+                    {!isLoading && !response && <p>Response will appear here.</p>}
+                    {!isLoading && response && (
+                        mode === 'prompt' ? (
+                            <p style={{ whiteSpace: 'pre-wrap' }}>{response.response}</p>
+                        ) : (
+                            <div className="space-y-4">
+                                <Collapsible>
+                                    <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">
+                                        <ChevronRight className="h-4 w-4" />
+                                        <Badge variant={response.context?.knowledge?.found ? "default" : "secondary"}>Knowledge Context ({response.context?.knowledge?.count || 0})</Badge>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="mt-2 space-y-2 pl-6">
+                                        {response.context?.knowledge?.chunks?.map((chunk, i) => (
+                                        <Card key={`k-${i}`} className="p-3">
+                                            <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>
+                                            <div className="text-sm">{chunk.content}</div>
+                                        </Card>
+                                        ))}
+                                    </CollapsibleContent>
+                                </Collapsible>
+
+                                <Collapsible>
+                                    <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">
+                                        <ChevronRight className="h-4 w-4" />
+                                        <Badge variant={response.context?.userData?.found ? "default" : "secondary"}>User Data Context ({response.context?.userData?.count || 0})</Badge>
+                                    </CollapsibleTrigger>
+                                    <CollapsibleContent className="mt-2 space-y-2 pl-6">
+                                        {response.context?.userData?.chunks?.map((chunk, i) => (
+                                        <Card key={`u-${i}`} className="p-3">
+                                            <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>
+                                            <div className="text-sm">{chunk.content}</div>
+                                        </Card>
+                                        ))}
+                                    </CollapsibleContent>
+                                </Collapsible>
+
+                                <Card>
+                                    <CardHeader><CardTitle className="text-base">AI Response</CardTitle></CardHeader>
+                                    <CardContent>
+                                        <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm overflow-auto font-mono">
+                                        {JSON.stringify(response.answer, null, 2)}
+                                        </pre>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        )
+                    )}
+                </ScrollArea>
+            </CardContent>
+        </Card>
+    </div>
+);
 };
 
 export default PromptStudioPage;
