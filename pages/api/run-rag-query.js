@@ -32,52 +32,63 @@ export default async function handler(req, res) {
 
 // Handler for the new 'Report' mode
 async function handleReportMode(req, res) {
-  console.log('\n--- Report Mode Start ---\n');
+  const debugLogs = [];
+  const log = (message, ...optionalParams) => {
+    // Construct the log message by joining all arguments.
+    // This handles cases like console.log('Message:', object)
+    const logMessage = [message, ...optionalParams].map(p => {
+        if (typeof p === 'object' && p !== null) {
+            return JSON.stringify(p, null, 2);
+        }
+        return p;
+    }).join(' ');
+    
+    console.log(logMessage);
+    debugLogs.push(logMessage);
+  };
+
+  log('\n--- Report Mode Start ---\n');
   const { question, reportConfig, model, systemPrompt, userPromptTemplate, scope, knowledgeTopK } = req.body;
 
-  console.log('🔍 DEBUG - scope:', JSON.stringify(scope, null, 2));
+  log('🔍 DEBUG - scope:', scope);
 
   if (!question || !reportConfig) {
     throw new Error("Missing required parameters for report mode.");
   }
 
   // 1. Vectorize question
-  console.log('[1/5] Vectorizing question...');
+  log('[1/5] Vectorizing question...');
   const questionEmbedding = await generateEmbedding(question);
   const vectorString = `[${questionEmbedding.join(',')}]`;
 
-  // 2. Retrieve knowledge - ✅ 使用与 Prompt Mode 相同的逻辑
-  console.log('[2/5] Retrieving knowledge and user data...');
+  // 2. Retrieve knowledge
+  log('[2/5] Retrieving knowledge and user data...');
   
-  // 为每个文件分别搜索（和 Prompt Mode 一样）
   const knowledgePromises = scope.map(({ file_id, threshold }) =>
     supabaseAdmin.rpc('match_knowledge', {
       query_embedding: vectorString,
       match_threshold: parseFloat(threshold),
       match_count: knowledgeTopK || 5,
-      p_file_id: file_id  // ✅ 单个 file_id
+      p_file_id: file_id
     })
   );
   
   const knowledgeSearchResults = await Promise.all(knowledgePromises);
   
-  // 合并结果
   let knowledgeResults = [];
   knowledgeSearchResults.forEach(result => {
     if (result.data) knowledgeResults.push(...result.data);
   });
   
-  // 去重并排序
   const uniqueKnowledge = Array.from(new Map(knowledgeResults.map(item => [item.id, item])).values());
   knowledgeResults = uniqueKnowledge.sort((a, b) => b.similarity - a.similarity).slice(0, knowledgeTopK || 5);
   
-  // Retrieve user data
   const userDataResults = await retrieveUserData(questionEmbedding, reportConfig.userData);
   
-  console.log(`  > Found ${knowledgeResults.length} knowledge chunks and ${userDataResults.length} user data chunks.`);
+  log(`  > Found ${knowledgeResults.length} knowledge chunks and ${userDataResults.length} user data chunks.`);
 
   // 3. Build context
-  console.log('[3/5] Building context...');
+  log('[3/5] Building context...');
   
   const knowledgeContext = knowledgeResults.length > 0
     ? knowledgeResults.map((r, i) => `[K${i+1}] ${r.content}`).join('\n\n---\n\n')
@@ -88,38 +99,39 @@ async function handleReportMode(req, res) {
     : "No user data found.";
 
   // 4. Build final prompt
-  console.log('[4/5] Building final prompt...');
+  log('[4/5] Building final prompt...');
   const finalUserPrompt = userPromptTemplate
     .replace('{context}', knowledgeContext)
     .replace('{userdata}', userDataContext)
     .replace('{question}', question);
 
   // 5. Print debug info
-  console.log('\n========== REPORT MODE - AI REQUEST ==========');
-  console.log('Model:', model);
-  console.log('\n--- System Prompt ---');
-  console.log(systemPrompt);
-  console.log('\n--- User Prompt ---');
-  console.log(finalUserPrompt);
-  console.log('\n--- Knowledge Results ---');
-  console.log(`Found ${knowledgeResults.length} chunks`);
-  console.log('\n--- User Data Results ---');
-  console.log(`Found ${userDataResults.length} chunks`);
-  console.log('==============================================\n');
+  log('\n========== REPORT MODE - AI REQUEST ==========');
+  log('Model:', model);
+  log('\n--- System Prompt ---');
+  log(systemPrompt);
+  log('\n--- User Prompt ---');
+  log(finalUserPrompt);
+  log('\n--- Knowledge Results ---');
+  log(`Found ${knowledgeResults.length} chunks`);
+  log('\n--- User Data Results ---');
+  log(`Found ${userDataResults.length} chunks`);
+  log('==============================================\n');
 
   // 6. Call AI
-  console.log('[5/5] Sending request to AI model...');
+  log('[5/5] Sending request to AI model...');
   const aiResponse = await callAI(finalUserPrompt, model, systemPrompt);
 
-  console.log('\n========== REPORT MODE - AI RESPONSE ==========');
-  console.log(aiResponse);
-  console.log('===============================================\n');
+  log('\n========== REPORT MODE - AI RESPONSE ==========');
+  log(aiResponse);
+  log('===============================================\n');
 
-  console.log('--- Report Mode End ---\n');
+  log('--- Report Mode End ---\n');
 
   // 7. Return the response
   return res.status(200).json({
     response: aiResponse,
+    debugLogs: debugLogs.join('\n'),
     context: {
       knowledge: {
         found: knowledgeResults.length > 0,
@@ -138,7 +150,20 @@ async function handleReportMode(req, res) {
 
 // Handler for the existing 'Prompt' mode (Vector Search part)
 async function handlePromptMode(req, res) {
-    console.log('\n--- Prompt Mode Start ---\n');
+    const debugLogs = [];
+    const log = (message, ...optionalParams) => {
+        const logMessage = [message, ...optionalParams].map(p => {
+            if (typeof p === 'object' && p !== null) {
+                return JSON.stringify(p, null, 2);
+            }
+            return p;
+        }).join(' ');
+        
+        console.log(logMessage);
+        debugLogs.push(logMessage);
+    };
+
+    log('\n--- Prompt Mode Start ---\n');
     const {
         question, systemPrompt, userPromptTemplate, model, scope,
         topK = 10, strictMode = false, fallbackAnswer
@@ -149,12 +174,12 @@ async function handlePromptMode(req, res) {
     }
 
     // 1. Vectorize question
-    console.log(`[1/4] Vectorizing question for model ${model}...`);
+    log(`[1/4] Vectorizing question for model ${model}...`);
     const questionVector = await generateEmbedding(question);
     const vectorString = `[${questionVector.join(',')}]`;
 
     // 2. Perform vector search
-    console.log(`[2/4] Starting vector search with ${scope.length} files...`);
+    log(`[2/4] Starting vector search with ${scope.length} files...`);
     const searchPromises = scope.map(({ file_id, threshold }) =>
         supabaseAdmin.rpc('match_knowledge', {
             query_embedding: vectorString,
@@ -172,21 +197,21 @@ async function handlePromptMode(req, res) {
 
     const uniqueResults = Array.from(new Map(combinedResults.map(item => [item.id, item])).values());
     const sortedResults = uniqueResults.sort((a, b) => b.similarity - a.similarity).slice(0, topK);
-    console.log(`  > Found ${sortedResults.length} relevant chunks.`);
+    log(`  > Found ${sortedResults.length} relevant chunks.`);
 
     // 3. Assemble Context & Handle Strict Mode
-    console.log('[3/4] Assembling context...');
+    log('[3/4] Assembling context...');
     if (strictMode && sortedResults.length === 0) {
-        console.log('  > Strict mode ON, no results found. Returning fallback.');
-        console.log('--- Prompt Mode End ---\n');
-        return res.status(200).json({ response: fallbackAnswer });
+        log('  > Strict mode ON, no results found. Returning fallback.');
+        log('--- Prompt Mode End ---\n');
+        return res.status(200).json({ response: fallbackAnswer, debugLogs: debugLogs.join('\n') });
     }
     const context = sortedResults.length > 0
         ? sortedResults.map(r => r.content).join('\n\n---\n\n')
         : "No context was found.";
 
     // 4. Call AI Model
-    console.log('[4/4] Sending request to AI model...');
+    log('[4/4] Sending request to AI model...');
     let finalUserPrompt = userPromptTemplate
       .replace('{context}', context)
       .replace('{question}', question)
@@ -195,30 +220,26 @@ async function handlePromptMode(req, res) {
       .replace(/\n\n\n+/g, '\n\n')
       .trim();
 
-    // ===== 新增：打印完整的 Request =====
-    console.log('\n========== AI REQUEST ==========');
-    console.log('Model:', model);
-    console.log('\n--- System Prompt ---');
-    console.log(systemPrompt || '(No system prompt)');
-    console.log('\n--- User Prompt ---');
-    console.log(finalUserPrompt);
-    console.log('\n--- Context Preview (first 500 chars) ---');
-    console.log(context.substring(0, 500) + '...');
-    console.log('\n--- Search Results Metadata ---');
+    log('\n========== AI REQUEST ==========');
+    log('Model:', model);
+    log('\n--- System Prompt ---');
+    log(systemPrompt || '(No system prompt)');
+    log('\n--- User Prompt ---');
+    log(finalUserPrompt);
+    log('\n--- Context Preview (first 500 chars) ---');
+    log(context.substring(0, 500) + '...');
+    log('\n--- Search Results Metadata ---');
     sortedResults.forEach((r, i) => {
-        console.log(`  [${i+1}] ID: ${r.id}, Similarity: ${r.similarity.toFixed(4)}, Length: ${r.content.length} chars`);
+        log(`  [${i+1}] ID: ${r.id}, Similarity: ${r.similarity.toFixed(4)}, Length: ${r.content.length} chars`);
     });
-    console.log('================================\n');
-    // ===== 结束新增 =====
+    log('================================\\n');
 
     const generatedResponse = await callAI(finalUserPrompt, model, systemPrompt);
 
-    // ===== 新增：打印完整的 Response =====
-    console.log('\n========== AI RESPONSE ==========');
-    console.log(generatedResponse);
-    console.log('=================================\n');
-    // ===== 结束新增 =====
+    log('\n========== AI RESPONSE ==========');
+    log(generatedResponse);
+    log('=================================\n');
 
-    console.log('--- Prompt Mode End ---\n');
-    return res.status(200).json({ response: generatedResponse });
+    log('--- Prompt Mode End ---\n');
+    return res.status(200).json({ response: generatedResponse, debugLogs: debugLogs.join('\n') });
 }

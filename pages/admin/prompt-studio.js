@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import ReactMarkdown from 'react-markdown';
 
-const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say \\\"I could not find an answer in the provided knowledge base.\\\" Do not make up information. Be concise and clear in your response.`;
+const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say "I could not find an answer in the provided knowledge base." Do not make up information. Be concise and clear in your response.`;
 const defaultUserPromptTemplate = `CONTEXT (Knowledge Base):
 {context}
 
@@ -87,8 +87,8 @@ const PromptStudioPage = () => {
     const supabase = useSupabaseClient();
     const [knowledgeItems, setKnowledgeItems] = useState([]);
     const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState([]);
-    const [question, setQuestion] = useState(\'What are the main features of our product?\');
-    const [model, setModel] = useState(\'gpt-4o\');
+    const [question, setQuestion] = useState('What are the main features of our product?');
+    const [model, setModel] = useState('gpt-4o');
     const [response, setResponse] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const { toast } = useToast();
@@ -102,7 +102,7 @@ const PromptStudioPage = () => {
 
     const [topK, setTopK] = useState(10);
     
-    const [mode, setMode] = useState(\'prompt\');
+    const [mode, setMode] = useState('prompt');
     const [reportConfig, setReportConfig] = useState({
         userData: {
             selectedUserId: null,
@@ -120,10 +120,10 @@ const PromptStudioPage = () => {
         const fetchInitialData = async () => {
             try {
                 const { data: knowledgeData, error: knowledgeError } = await supabase
-                    .from(\'knowledge_uploads\')
-                    .select(\'id, file_name, file_size, metadata, updated_at, status\')
-                    .eq(\'status\', \'completed\')
-                    .order(\'updated_at\', { ascending: false });
+                    .from('knowledge_uploads')
+                    .select('id, file_name, file_size, metadata, updated_at, status')
+                    .eq('status', 'completed')
+                    .order('updated_at', { ascending: false });
                 
                 if (knowledgeError) throw knowledgeError;
                 
@@ -131,7 +131,7 @@ const PromptStudioPage = () => {
                 
                 const initialThresholds = {};
                 (knowledgeData || []).forEach(item => {
-                    const category = item.metadata?.category || \'Uncategorized\';
+                    const category = item.metadata?.category || 'Uncategorized';
                     if (!initialThresholds[category]) {
                         initialThresholds[category] = 0.30;
                     }
@@ -144,9 +144,9 @@ const PromptStudioPage = () => {
 
             try {
                 const { data: usersData, error: usersError } = await supabase
-                    .from(\'profiles\')
-                    .select(\'id, email\')
-                    .order(\'email\');
+                    .from('profiles')
+                    .select('id, email')
+                    .order('email');
                 if (usersError) throw usersError;
                 setUsers(usersData || []);
             } catch (error) {
@@ -162,11 +162,11 @@ const PromptStudioPage = () => {
             const fetchUserFiles = async () => {
                 try {
                     const { data, error } = await supabase
-                        .from(\'user_uploads\')
-                        .select(\'id, file_name\')
-                        .eq(\'user_id\', reportConfig.userData.selectedUserId)
-                        .eq(\'status\', \'completed\');
-                    console.log(\'查询结果:\', data, \'错误:\', error);
+                        .from('user_uploads')
+                        .select('id, file_name')
+                        .eq('user_id', reportConfig.userData.selectedUserId)
+                        .eq('status', 'completed');
+                    console.log('查询结果:', data, '错误:', error);
                     if (error) throw error;
                     setUserFiles(data || []);
                 } catch (error) {
@@ -182,7 +182,7 @@ const PromptStudioPage = () => {
 
     const knowledgeTree = useMemo(() => {
         return knowledgeItems.reduce((acc, item) => {
-            const category = item.metadata?.category || \'Uncategorized\';
+            const category = item.metadata?.category || 'Uncategorized';
             if (!acc[category]) {
                 acc[category] = { files: [], itemIds: [] };
             }
@@ -222,7 +222,7 @@ const PromptStudioPage = () => {
                 const item = knowledgeItems.find(k => k.id === id);
                 if (!item) return null;
                 
-                const category = item.metadata?.category || \'Uncategorized\';
+                const category = item.metadata?.category || 'Uncategorized';
                 
                 return {
                     file_id: item.id,  // ✅ 直接使用 item.id
@@ -230,9 +230,9 @@ const PromptStudioPage = () => {
                 };
             }).filter(Boolean);
 
-            const res = await fetch(\'/api/run-rag-query\', {
-                method: \'POST\',
-                headers: { \'Content-Type\': \'application/json\' },
+            const res = await fetch('/api/run-rag-query', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     question,
                     systemPrompt: systemPrompt,
@@ -242,16 +242,16 @@ const PromptStudioPage = () => {
                     fallbackAnswer,
                     
                     mode: mode,
-                    reportConfig: mode === \'report\' ? reportConfig : null,
+                    reportConfig: mode === 'report' ? reportConfig : null,
                     
                     scope: scopeWithThresholds,
-                    knowledgeTopK: mode === \'report\' ? reportConfig.knowledge.topK : topK,
+                    knowledgeTopK: mode === 'report' ? reportConfig.knowledge.topK : topK,
                 }),
             });
             
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.error || \'API request failed\');
+                throw new Error(err.error || 'API request failed');
             }
             
             const data = await res.json();
@@ -277,7 +277,7 @@ return (
             <CardHeader>
                 <CardTitle>Prompt & Behavior</CardTitle>
                 <CardDescription>
-                    {mode === \'prompt\' 
+                    {mode === 'prompt' 
                         ? "Design prompts and define how the AI should behave." 
                         : "Design prompts for report generation. Use {context} for knowledge, {userdata} for user data, and {question} for the question."}
                 </CardDescription>
@@ -302,7 +302,7 @@ return (
         </Card>
 
         {/* Report Generation Mode specific settings */}
-        {mode === \'report\' && (
+        {mode === 'report' && (
             <div className="grid grid-cols-2 gap-6">
                 {/* User Data Settings */}
                 <Card>
@@ -311,7 +311,7 @@ return (
                         <div>
                             <Label>Select User</Label>
                             <Select
-                                value={reportConfig.userData.selectedUserId || \'\'}
+                                value={reportConfig.userData.selectedUserId || ''}
                                 onValueChange={(val) => setReportConfig({
                                     ...reportConfig,
                                     userData: { ...reportConfig.userData, selectedUserId: val, selectedFileIds: [] }
@@ -401,7 +401,7 @@ return (
                                                 isSelected={selectedKnowledgeIds.includes(file.id)}
                                                 onSelect={(isSelected) => handleSelect([file.id], isSelected)}
                                             />
-                                        ))}
+                                        ))}\
                                     </TreeItem>
                                 ))}\
                             </div>
@@ -462,7 +462,7 @@ return (
         )}
 
         {/* Prompt Testing Mode */}
-        {mode === \'prompt\' && (
+        {mode === 'prompt' && (
             <Card>
                 <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
@@ -549,22 +549,39 @@ return (
 
         {/* Run Test Button */}
         <Button onClick={handleRunTest} disabled={isLoading} size="lg" className="w-full">
-            <Bot className="mr-2 h-5 w-5"/> {isLoading ? \'Running...\' : \'Run Test\'}
+            <Bot className="mr-2 h-5 w-5"/> {isLoading ? 'Running...' : 'Run Test'}
         </Button>
 
-        {/* Generated Response */}
-        <Card>
-            <CardHeader><CardTitle>Generated Response</CardTitle></CardHeader>
-            <CardContent>
-                <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[20rem] bg-gray-50/50">
-                    {isLoading && <div className="flex items-center justify-center h-full"><p>Generating...</p></div>}
-                    {!isLoading && !response && <p>Response will appear here.</p>}
-                    {!isLoading && response && (
-                        <ReactMarkdown>{response.response}</ReactMarkdown>
-                    )}
-                </ScrollArea>
-            </CardContent>
-        </Card>
+        {/* Generated Response - 改为两列 */}
+        <div className="grid grid-cols-2 gap-4">
+            {/* 左侧：AI Response */}
+            <Card>
+                <CardHeader><CardTitle>Generated Response</CardTitle></CardHeader>
+                <CardContent>
+                    <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[20rem] bg-gray-50/50">
+                        {isLoading && <div className="flex items-center justify-center h-full"><p>Generating...</p></div>}
+                        {!isLoading && !response && <p>Response will appear here.</p>}
+                        {!isLoading && response && (
+                            <ReactMarkdown>{response.response}</ReactMarkdown>
+                        )}
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+
+            {/* 右侧：Debug Logs */}
+            <Card>
+                <CardHeader><CardTitle>Debug Logs</CardTitle></CardHeader>
+                <CardContent>
+                    <ScrollArea className="font-mono text-xs p-4 border rounded-md min-h-[20rem] max-h-[40rem] bg-gray-900 text-green-400">
+                        {isLoading && <div className="flex items-center justify-center h-full"><p>Processing...</p></div>}
+                        {!isLoading && !response && <p>Debug information will appear here.</p>}
+                        {!isLoading && response?.debugLogs && (
+                            <pre className="whitespace-pre-wrap">{response.debugLogs}</pre>
+                        )}
+                    </ScrollArea>
+                </CardContent>
+            </Card>
+        </div>
     </div>
 );
 };
