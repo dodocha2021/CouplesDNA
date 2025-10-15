@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from \'react\';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,13 +9,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { ChevronRight, ChevronDown, Bot, TestTube2 } from \'lucide-react\';
-import { useSupabaseClient } from \'@supabase/auth-helpers-react\';
+import { ChevronRight, ChevronDown, Bot, TestTube2 } from 'lucide-react';
+import { useSupabaseClient } from '@supabase/auth-helpers-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import ReactMarkdown from \'react-markdown\';
+import ReactMarkdown from 'react-markdown';
 
 const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say \\\"I could not find an answer in the provided knowledge base.\\\" Do not make up information. Be concise and clear in your response.`;
 const defaultUserPromptTemplate = `CONTEXT (Knowledge Base):
