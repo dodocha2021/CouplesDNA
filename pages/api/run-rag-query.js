@@ -1,3 +1,4 @@
+
 import { retrieveKnowledge, retrieveUserData } from '@/lib/retrieval';
 import { buildReportContext, buildReportPrompt } from '@/lib/report-helpers';
 import { generateEmbedding } from '@/lib/embedding';
@@ -39,18 +40,18 @@ async function handleReportMode(req, res) {
     throw new Error("Missing required parameters for report mode.");
   }
 
+    const knowledgeConfig = {
+        selectedFileIds: req.body.scope.map(s => s.file_id),
+        threshold: req.body.scope[0]?.threshold || 0.3, // Using first threshold for all
+        topK: req.body.knowledgeTopK
+    };
+
   // 1. Generate embedding for the question
   console.log('[1/5] Vectorizing question...');
   const questionEmbedding = await generateEmbedding(question);
 
   // 2. Retrieve knowledge and user data in parallel
   console.log('[2/5] Retrieving knowledge and user data...');
-  const knowledgeConfig = {
-      selectedFileIds: req.body.scope.map(s => s.file_id),
-      threshold: req.body.scope[0]?.threshold || 0.3, // Using first threshold for all
-      topK: req.body.knowledgeTopK
-  };
-
   const [knowledgeResults, userDataResults] = await Promise.all([
     retrieveKnowledge(questionEmbedding, knowledgeConfig),
     retrieveUserData(questionEmbedding, reportConfig.userData)
@@ -65,9 +66,27 @@ async function handleReportMode(req, res) {
   console.log('[4/5] Building final prompt...');
   const finalPrompt = buildReportPrompt(systemPrompt, userPromptTemplate, context, question);
 
+  // ===== 新增：打印 Report Mode 的 Request =====
+  console.log('\n========== REPORT MODE - AI REQUEST ==========');
+  console.log('Model:', model);
+  console.log('\n--- Final Prompt ---');
+  console.log(finalPrompt);
+  console.log('\n--- Knowledge Results ---');
+  console.log(`Found ${knowledgeResults.length} chunks`);
+  console.log('\n--- User Data Results ---');
+  console.log(`Found ${userDataResults.length} chunks`);
+  console.log('==============================================\n');
+  // ===== 结束新增 =====
+
   // 5. Call AI and get a structured JSON response
   console.log('[5/5] Sending request to AI model...');
   const aiResponse = await callAI(finalPrompt, model, null); // System prompt is already in finalPrompt
+
+  // ===== 新增：打印 Report Mode 的 Response =====
+  console.log('\n========== REPORT MODE - AI RESPONSE ==========');
+  console.log(aiResponse);
+  console.log('===============================================\n');
+  // ===== 结束新增 =====
 
   console.log('--- Report Mode End ---\n');
 
@@ -94,7 +113,7 @@ async function handleReportMode(req, res) {
 async function handlePromptMode(req, res) {
     console.log('\n--- Prompt Mode Start ---\n');
     const {
-        question, systemPrompt, userPromptTemplate, model, scope, 
+        question, systemPrompt, userPromptTemplate, model, scope,
         topK = 10, strictMode = false, fallbackAnswer
     } = req.body;
 
@@ -109,7 +128,7 @@ async function handlePromptMode(req, res) {
 
     // 2. Perform vector search
     console.log(`[2/4] Starting vector search with ${scope.length} files...`);
-    const searchPromises = scope.map(({ file_id, threshold }) => 
+    const searchPromises = scope.map(({ file_id, threshold }) =>
         supabaseAdmin.rpc('match_knowledge', {
             query_embedding: vectorString,
             match_threshold: parseFloat(threshold),
@@ -118,7 +137,7 @@ async function handlePromptMode(req, res) {
         })
     );
     const results = await Promise.all(searchPromises);
-    
+
     let combinedResults = [];
     results.forEach(result => {
         if (result.data) combinedResults.push(...result.data);
@@ -142,8 +161,31 @@ async function handlePromptMode(req, res) {
     // 4. Call AI Model
     console.log('[4/4] Sending request to AI model...');
     const finalUserPrompt = userPromptTemplate.replace('{context}', context).replace('{question}', question);
+
+    // ===== 新增：打印完整的 Request =====
+    console.log('\n========== AI REQUEST ==========');
+    console.log('Model:', model);
+    console.log('\n--- System Prompt ---');
+    console.log(systemPrompt || '(No system prompt)');
+    console.log('\n--- User Prompt ---');
+    console.log(finalUserPrompt);
+    console.log('\n--- Context Preview (first 500 chars) ---');
+    console.log(context.substring(0, 500) + '...');
+    console.log('\n--- Search Results Metadata ---');
+    sortedResults.forEach((r, i) => {
+        console.log(`  [${i+1}] ID: ${r.id}, Similarity: ${r.similarity.toFixed(4)}, Length: ${r.content.length} chars`);
+    });
+    console.log('================================\n');
+    // ===== 结束新增 =====
+
     const generatedResponse = await callAI(finalUserPrompt, model, systemPrompt);
-    
+
+    // ===== 新增：打印完整的 Response =====
+    console.log('\n========== AI RESPONSE ==========');
+    console.log(generatedResponse);
+    console.log('=================================\n');
+    // ===== 结束新增 =====
+
     console.log('--- Prompt Mode End ---\n');
     return res.status(200).json({ response: generatedResponse });
 }

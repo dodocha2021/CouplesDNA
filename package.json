@@ -60,7 +60,7 @@
     "framer-motion": "^12.23.6",
     "googleapis": "^150.0.1",
     "input-otp": "^1.4.2",
-    "langchain": "^0.3.34",
+    "langchain": "^0.3.36",
     "lucide-react": "^0.525.0",
     "mammoth": "^1.7.2",
     "motion": "^12.23.12",
