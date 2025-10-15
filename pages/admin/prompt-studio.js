@@ -17,10 +17,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import MultiSelect from "@/components/ui/multi-select"; 
 
-const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION.\\nThe CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say "I could not find an answer in the provided knowledge base."\\nDo not make up information. Be concise and clear in your response.`;
-const defaultUserPromptTemplate = `CONTEXT:\\n{context}\\n\\n---\\n\\nQUESTION:\\n{question}`;
+const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say \"I could not find an answer in the provided knowledge base.\" Do not make up information. Be concise and clear in your response.`;
+const defaultUserPromptTemplate = `CONTEXT:\n{context}\n\n---\n\nQUESTION:\n{question}`;
 const defaultFallbackAnswer = "The information you're looking for couldn't be found in the current knowledge base. Please try rephrasing your question or selecting a different set of documents.";
-const defaultReportSystemPrompt = `You are a professional relationship counselor assistant.\n\nCONTEXT TYPES:\n- [K#] = Professional Knowledge (evidence-based theories)\n- [U#] = User Data (this user's chat history)\n\nRESPONSE RULES:\n1. If ONLY [K#] found: "Based on professional knowledge (without your personal data)..."\n2. If ONLY [U#] found: "Based on your data (without professional validation)..."\n3. If BOTH found: Provide comprehensive personalized advice\n4. If NEITHER found: Return exactly: {"answer": "I could not find an answer", "context_used": {"knowledge": false, "userdata": false}}\n\nOUTPUT FORMAT (JSON):\n{\n  "answer": "your response here",\n  "context_used": {\n    "knowledge": true/false,\n    "userdata": true/false\n  },\n  "confidence": "high/medium/low",\n  "sources": ["K1", "U2", ...]\n}`;
+const defaultReportSystemPrompt = `You are a professional relationship counselor assistant.\n\nCONTEXT TYPES:\n- [K#] = Professional Knowledge (evidence-based theories)\n- [U#] = User Data (this user's chat history)\n\nRESPONSE RULES:\n1. If ONLY [K#] found: \"Based on professional knowledge (without your personal data)...\"\n2. If ONLY [U#] found: \"Based on your data (without professional validation)...\"\n3. If BOTH found: Provide comprehensive personalized advice\n4. If NEITHER found: Return exactly: {\"answer\": \"I could not find an answer\", \"context_used\": {\"knowledge\": false, \"userdata\": false}}\n\nOUTPUT FORMAT (JSON):\n{\n  \"answer\": \"your response here\",\n  \"context_used\": {\n    \"knowledge\": true/false,\n    \"userdata\": true/false\n  },\n  \"confidence\": \"high/medium/low\",\n  \"sources\": [\"K1\", \"U2\", ...]\n}`;
 
 
 const TreeItem = ({ children, ...props }) => {
@@ -160,6 +160,7 @@ const PromptStudioPage = () => {
                         .select('id, file_name')
                         .eq('user_id', reportConfig.userData.selectedUserId)
                         .eq('status', 'completed');
+                    console.log('查询结果:', data, '错误:', error);
                     if (error) throw error;
                     setUserFiles(data || []);
                 } catch (error) {
@@ -398,160 +399,161 @@ const PromptStudioPage = () => {
                                         <Label htmlFor="fallback-answer" className="block text-sm font-medium text-gray-700 mb-1">Fallback Answer</Label>
                                         <Textarea id="fallback-answer" value={fallbackAnswer} onChange={(e) => setFallbackAnswer(e.target.value)} rows={3} placeholder="e.g., I could not find an answer..." />
                                     </div>
-                                )}\
+                                )}
                             </div>
                         </CardContent>
                     </Card>
-                )}\
-                \
-                <Card>\
-                     <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>\
-                     <CardContent className="space-y-4">\
-                        <div>\
-                            <label className="block text-sm font-medium text-gray-700 mb-1">\
-                                Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)\
-                            </label>\
-                            <ScrollArea className="border rounded-md p-2 h-64">\
-                                {Object.entries(knowledgeTree).map(([category, { files, itemIds }]) => {\
-                                    const isCategorySelected = itemIds.every(id => selectedKnowledgeIds.includes(id));\
-                                    return (\
-                                        <TreeItem \
-                                            key={category} \
-                                            id={`cat-${category}`} \
-                                            label={`${category} (${files.length})`} \
-                                            isSelected={isCategorySelected} \
-                                            onSelect={(checked) => handleSelect(itemIds, checked)} \
-                                            isBranch initiallyOpen={true} level={0}\
-                                            threshold={categoryThresholds[category] || 0.30}\
-                                            onThresholdChange={(value) => handleThresholdChange(category, value)}\
-                                        >\
-                                            {files.map(file => (\
-                                                <TreeItem\
-                                                    key={file.id} id={file.id}\
-                                                    label={\
-                                                        <div className="flex items-center justify-between w-full">\
-                                                            <span className="truncate">{file.file_name}</span>\
-                                                            <span className="text-xs text-gray-500 ml-2 flex-shrink-0">\
-                                                                {(file.file_size / 1024).toFixed(1)}KB · {new Date(file.updated_at).toLocaleDateString()}\
-                                                            </span>\
-                                                        </div>\
-                                                    }\
-                                                    isSelected={selectedKnowledgeIds.includes(file.id)}\
-                                                    onSelect={(checked) => handleSelect([file.id], checked)}\
-                                                    level={1}\
-                                                />\
-                                            ))}\
-                                        </TreeItem>\
-                                    );\
-                                })}\
-                            </ScrollArea>\
-                        </div>\
-                        \
-                        <div><label className="block text-sm font-medium text-gamma-700 mb-1">Test Question</label><Textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} /></div>\
-\
-                        {mode === 'prompt' && (\
-                            <div className="space-y-2 pt-2">\
-                                <div className="flex items-center justify-between mb-1">\
-                                    <Label htmlFor="top-k-slider" className="text-sm font-medium">Top K: <span className="font-bold">{topK}</span></Label>\
-                                    <span className="text-xs text-gray-500">Number of chunks to retrieve</span>\
-                                </div>\
-                                <Slider id="top-k-slider" min={1} max={100} step={1} value={[topK]} onValueChange={(value) => setTopK(value[0])} className="w-full"/>\
-                                <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Fewer (1)</span><span>More (100)</span></div>\
-                            </div>\
-                        )}\
-                        \
-                        <div className="space-y-2">\
-                            <label className="text-sm font-medium">AI Model</label>\
-                            <Select value={model} onValueChange={setModel}>\
-                                <SelectTrigger><SelectValue placeholder="Select AI Model" /></SelectTrigger>\
-                                <SelectContent>\
-                                    <SelectGroup>\
-                                        <SelectLabel>Anthropic</SelectLabel>\
-                                        <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>\
-                                        <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>\
-                                        <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>\
-                                    </SelectGroup>\
-                                    <SelectGroup>\
-                                        <SelectLabel>OpenAI</SelectLabel>\
-                                        <SelectItem value="gpt-4o">GPT-4o</SelectItem>\
-                                        <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>\
-                                        <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>\
-                                    </SelectGroup>\
-                                    <SelectGroup>\
-                                        <SelectLabel>Google</SelectLabel>\
-                                        <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>\
-                                        <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>\
-                                    </SelectGroup>\
-                                </SelectContent>\
-                            </Select>\
-                        </div>\
-                     </CardContent>\
-                </Card>\
-                <div className="flex space-x-4">\
-                    <Button onClick={handleRunTest} disabled={isLoading} size="lg" className="w-full">\
-                        <Bot className="mr-2 h-5 w-5"/> {isLoading ? 'Running...' : 'Run Test'}\
-                    </Button>\
-                </div>\
-            </div>\
-            <div className="lg:col-span-1">\
-                <Card className="sticky top-4">\
-                    <CardHeader><CardTitle>Generated Response</CardTitle></CardHeader>\
-                    <CardContent>\
-                        <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[40rem] bg-gray-50/50">\
-                            {isLoading && <div className="flex items-center justify-center h-full"><p>Generating...</p></div>}\
-                            {!isLoading && !response && <p>Response will appear here.</p>}\
-                            {!isLoading && response && (\
-                                mode === 'prompt' ? (\
-                                    <p style={{ whiteSpace: 'pre-wrap' }}>{response.response}</p>\
-                                ) : (\
-                                    <div className="space-y-4">\
-                                        <Collapsible>\
-                                            <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">\
-                                                <ChevronRight className="h-4 w-4" />\
-                                                <Badge variant={response.context?.knowledge?.found ? "default" : "secondary"}>Knowledge Context ({response.context?.knowledge?.count || 0})</Badge>\
-                                            </CollapsibleTrigger>\
-                                            <CollapsibleContent className="mt-2 space-y-2 pl-6">\
-                                                {response.context?.knowledge?.chunks?.map((chunk, i) => (\
-                                                <Card key={`k-${i}`} className="p-3">\
-                                                    <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>\
-                                                    <div className="text-sm">{chunk.content}</div>\
-                                                </Card>\
-                                                ))}\
-                                            </CollapsibleContent>\
-                                        </Collapsible>\
-\
-                                        <Collapsible>\
-                                            <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">\
-                                                <ChevronRight className="h-4 w-4" />\
-                                                <Badge variant={response.context?.userData?.found ? "default" : "secondary"}>User Data Context ({response.context?.userData?.count || 0})</Badge>\
-                                            </CollapsibleTrigger>\
-                                            <CollapsibleContent className="mt-2 space-y-2 pl-6">\
-                                                {response.context?.userData?.chunks?.map((chunk, i) => (\
-                                                <Card key={`u-${i}`} className="p-3">\
-                                                    <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>\
-                                                    <div className="text-sm">{chunk.content}</div>\
-                                                </Card>\
-                                                ))}\
-                                            </CollapsibleContent>\
-                                        </Collapsible>\
-\
-                                        <Card>\
-                                            <CardHeader><CardTitle className="text-base">AI Response</CardTitle></CardHeader>\
-                                            <CardContent>\
-                                                <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm overflow-auto font-mono">\
-                                                {JSON.stringify(response.answer, null, 2)}\
-                                                </pre>\
-                                            </CardContent>\
-                                        </Card>\
-                                    </div>\
-                                )\
-                            )}\
-                        </ScrollArea>\
-                    </CardContent>\
-                </Card>\
-            </div>\
-        </div>\
-    );\
-};\
-\
-export default PromptStudioPage;\
+                )}
+                
+                <Card>
+                     <CardHeader><CardTitle>Inputs & Model</CardTitle></CardHeader>
+                     <CardContent className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Knowledge Base Search Scope ({selectedKnowledgeIds.length} selected)
+                            </label>
+                            <ScrollArea className="border rounded-md p-2 h-64">
+                                {Object.entries(knowledgeTree).map(([category, data]) => {
+                                    const { files, itemIds } = data;
+                                    const isCategorySelected = itemIds.every(id => selectedKnowledgeIds.includes(id));
+                                    return (
+                                        <TreeItem 
+                                            key={category} 
+                                            id={`cat-${category}`} 
+                                            label={`${category} (${files.length})`} 
+                                            isSelected={isCategorySelected} 
+                                            onSelect={(checked) => handleSelect(itemIds, checked)} 
+                                            isBranch initiallyOpen={true} level={0}
+                                            threshold={categoryThresholds[category] || 0.30}
+                                            onThresholdChange={(value) => handleThresholdChange(category, value)}
+                                        >
+                                            {files.map(file => (
+                                                <TreeItem
+                                                    key={file.id} id={file.id}
+                                                    label={
+                                                        <div className="flex items-center justify-between w-full">
+                                                            <span className="truncate">{file.file_name}</span>
+                                                            <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                                                                {(file.file_size / 1024).toFixed(1)}KB · {new Date(file.updated_at).toLocaleDateString()}
+                                                            </span>
+                                                        </div>
+                                                    }
+                                                    isSelected={selectedKnowledgeIds.includes(file.id)}
+                                                    onSelect={(checked) => handleSelect([file.id], checked)}
+                                                    level={1}
+                                                />
+                                            ))}
+                                        </TreeItem>
+                                    );
+                                })}
+                            </ScrollArea>
+                        </div>
+                        
+                        <div><label className="block text-sm font-medium text-gray-700 mb-1">Test Question</label><Textarea value={question} onChange={(e) => setQuestion(e.target.value)} rows={3} /></div>
+
+                        {mode === 'prompt' && (
+                            <div className="space-y-2 pt-2">
+                                <div className="flex items-center justify-between mb-1">
+                                    <Label htmlFor="top-k-slider" className="text-sm font-medium">Top K: <span className="font-bold">{topK}</span></Label>
+                                    <span className="text-xs text-gray-500">Number of chunks to retrieve</span>
+                                </div>
+                                <Slider id="top-k-slider" min={1} max={100} step={1} value={[topK]} onValueChange={(value) => setTopK(value[0])} className="w-full"/>
+                                <div className="flex justify-between text-xs text-gray-400 mt-1"><span>Fewer (1)</span><span>More (100)</span></div>
+                            </div>
+                        )}
+                        
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">AI Model</label>
+                            <Select value={model} onValueChange={setModel}>
+                                <SelectTrigger><SelectValue placeholder="Select AI Model" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectGroup>
+                                        <SelectLabel>Anthropic</SelectLabel>
+                                        <SelectItem value="claude-sonnet-4-20250514">Claude Sonnet 4</SelectItem>
+                                        <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                                        <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku</SelectItem>
+                                    </SelectGroup>
+                                    <SelectGroup>
+                                        <SelectLabel>OpenAI</SelectLabel>
+                                        <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                                        <SelectItem value="gpt-4o-mini">GPT-4o Mini</SelectItem>
+                                        <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
+                                    </SelectGroup>
+                                    <SelectGroup>
+                                        <SelectLabel>Google</Label>
+                                        <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
+                                        <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
+                                    </SelectGroup>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                     </CardContent>
+                </Card>
+                <div className="flex space-x-4">
+                    <Button onClick={handleRunTest} disabled={isLoading} size="lg" className="w-full">
+                        <Bot className="mr-2 h-5 w-5"/> {isLoading ? 'Running...' : 'Run Test'}
+                    </Button>
+                </div>
+            </div>
+            <div className="lg:col-span-1">
+                <Card className="sticky top-4">
+                    <CardHeader><CardTitle>Generated Response</CardTitle></CardHeader>
+                    <CardContent>
+                        <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[40rem] bg-gray-50/50">
+                            {isLoading && <div className="flex items-center justify-center h-full"><p>Generating...</p></div>}
+                            {!isLoading && !response && <p>Response will appear here.</p>}
+                            {!isLoading && response && (
+                                mode === 'prompt' ? (
+                                    <p style={{ whiteSpace: 'pre-wrap' }}>{response.response}</p>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <Collapsible>
+                                            <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">
+                                                <ChevronRight className="h-4 w-4" />
+                                                <Badge variant={response.context?.knowledge?.found ? "default" : "secondary"}>Knowledge Context ({response.context?.knowledge?.count || 0})</Badge>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2 space-y-2 pl-6">
+                                                {response.context?.knowledge?.chunks?.map((chunk, i) => (
+                                                <Card key={`k-${i}`} className="p-3">
+                                                    <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>
+                                                    <div className="text-sm">{chunk.content}</div>
+                                                </Card>
+                                                ))}
+                                            </CollapsibleContent>
+                                        </Collapsible>
+
+                                        <Collapsible>
+                                            <CollapsibleTrigger className="flex items-center gap-2 w-full text-sm font-semibold">
+                                                <ChevronRight className="h-4 w-4" />
+                                                <Badge variant={response.context?.userData?.found ? "default" : "secondary"}>User Data Context ({response.context?.userData?.count || 0})</Badge>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="mt-2 space-y-2 pl-6">
+                                                {response.context?.userData?.chunks?.map((chunk, i) => (
+                                                <Card key={`u-${i}`} className="p-3">
+                                                    <div className="text-xs text-gray-500 mb-1 font-mono">Similarity: {chunk.similarity.toFixed(4)}</div>
+                                                    <div className="text-sm">{chunk.content}</div>
+                                                </Card>
+                                                ))}
+                                            </CollapsibleContent>
+                                        </Collapsible>
+
+                                        <Card>
+                                            <CardHeader><CardTitle className="text-base">AI Response</CardTitle></CardHeader>
+                                            <CardContent>
+                                                <pre className="bg-gray-900 text-gray-100 p-4 rounded text-sm overflow-auto font-mono">
+                                                {JSON.stringify(response.answer, null, 2)}
+                                                </pre>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
+                                )
+                            )}
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+};
+
+export default PromptStudioPage;

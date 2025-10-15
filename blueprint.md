@@ -483,12 +483,16 @@ ORDER BY embedding <=> $1
 LIMIT 5;
 ```
 
-## 七、开发工具（规划中）
+## 七、开发工具（开发中）
 
-### 7.1 Prompt Studio
-- UserData 模块：选择任意用户进行测试
-- 模拟用户提问，查看知识库检索结果
-- 调试和优化 Prompt
+### 7.1 Prompt Studio (v1.0 - 实现)
+- **核心功能已上线**:
+  - **双模式测试**: 支持独立的 "Prompt Testing" 和 "Report Generation" 模式。
+  - **模型选择器**: 集成 Anthropic, OpenAI, Google 的多种模型。
+  - **行为控制**: 为两种模式提供独立的 "Strict Mode" 开关和回退应答配置。
+  - **动态上下文选择**: 允许从知识库中按分类和文件选择检索范围。
+- **近期修复**:
+  - 修复了知识库文件树渲染时的 JS 语法错误。
 
 ### 7.2 用户 Dashboard（规划中）
 - 查看上传历史
