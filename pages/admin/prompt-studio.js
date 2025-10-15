@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import MultiSelect from "@/components/ui/multi-select"; 
 
 const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is a collection of documents. If the answer is not found in the CONTEXT, say \"I could not find an answer in the provided knowledge base.\" Do not make up information. Be concise and clear in your response.`;
 const defaultUserPromptTemplate = `CONTEXT:\n{context}\n\n---\n\nQUESTION:\n{question}`;
@@ -304,15 +303,32 @@ const PromptStudioPage = () => {
                             </div>
                              <div>
                                 <Label>User Files (optional)</Label>
-                                <MultiSelect
-                                    options={userFiles.map(f => ({ value: f.id, label: f.file_name }))}
-                                    value={reportConfig.userData.selectedFileIds}
-                                    onChange={(val) => setReportConfig({
-                                        ...reportConfig,
-                                        userData: { ...reportConfig.userData, selectedFileIds: val }
-                                    })}
-                                    placeholder="All user files"
-                                />
+                                <div className="space-y-2 border rounded p-3 max-h-40 overflow-y-auto">
+                                    {userFiles.length === 0 ? (
+                                        <p className="text-sm text-gray-500">No files found</p>
+                                    ) : (
+                                        userFiles.map(file => (
+                                            <div key={file.id} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={file.id}
+                                                    checked={reportConfig.userData.selectedFileIds.includes(file.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        const newIds = checked
+                                                            ? [...reportConfig.userData.selectedFileIds, file.id]
+                                                            : reportConfig.userData.selectedFileIds.filter(id => id !== file.id);
+                                                        setReportConfig({
+                                                            ...reportConfig,
+                                                            userData: { ...reportConfig.userData, selectedFileIds: newIds }
+                                                        });
+                                                    }}
+                                                />
+                                                <label htmlFor={file.id} className="text-sm cursor-pointer">
+                                                    {file.file_name}
+                                                </label>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </div>
                             <div>
                                 <Label>Top K Results</Label>
@@ -480,7 +496,7 @@ const PromptStudioPage = () => {
                                         <SelectItem value="gpt-4-turbo">GPT-4 Turbo</SelectItem>
                                     </SelectGroup>
                                     <SelectGroup>
-                                        <SelectLabel>Google</Label>
+                                    <SelectLabel>Google</SelectLabel>
                                         <SelectItem value="gemini-1.5-pro">Gemini 1.5 Pro</SelectItem>
                                         <SelectItem value="gemini-1.5-flash">Gemini 1.5 Flash</SelectItem>
                                     </SelectGroup>
