@@ -572,13 +572,13 @@ return (
             <Card>
                 <CardHeader><CardTitle>Debug Logs</CardTitle></CardHeader>
                 <CardContent>
-                    <ScrollArea className="font-mono text-xs p-4 border rounded-md min-h-[20rem] max-h-[40rem] bg-gray-900 text-green-400">
+                    <div className="font-mono text-xs border rounded-md min-h-[20rem] max-h-[40rem] overflow-auto bg-gray-900 text-green-400 p-4">
                         {isLoading && <div className="flex items-center justify-center h-full"><p>Processing...</p></div>}
                         {!isLoading && !response && <p>Debug information will appear here.</p>}
                         {!isLoading && response?.debugLogs && (
                             <pre className="whitespace-pre-wrap">{response.debugLogs}</pre>
                         )}
-                    </ScrollArea>
+                    </div>
                 </CardContent>
             </Card>
         </div>
