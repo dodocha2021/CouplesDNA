@@ -1,4 +1,3 @@
-
 import { retrieveKnowledge, retrieveUserData } from '@/lib/retrieval';
 import { generateEmbedding } from '@/lib/embedding';
 import { callAI } from '@/lib/ai';
@@ -34,8 +33,6 @@ export default async function handler(req, res) {
 async function handleReportMode(req, res) {
   const debugLogs = [];
   const log = (message, ...optionalParams) => {
-    // Construct the log message by joining all arguments.
-    // This handles cases like console.log('Message:', object)
     const logMessage = [message, ...optionalParams].map(p => {
         if (typeof p === 'object' && p !== null) {
             return JSON.stringify(p, null, 2);
@@ -48,12 +45,25 @@ async function handleReportMode(req, res) {
   };
 
   log('\n--- Report Mode Start ---\n');
-  const { question, reportConfig, model, systemPrompt, userPromptTemplate, scope, knowledgeTopK } = req.body;
+  
+  const { 
+    question, 
+    reportConfig,
+    model, 
+    systemPrompt, 
+    userPromptTemplate, 
+    scope 
+  } = req.body;
 
+  log('🔍 DEBUG - reportConfig:', reportConfig);
   log('🔍 DEBUG - scope:', scope);
 
   if (!question || !reportConfig) {
     throw new Error("Missing required parameters for report mode.");
+  }
+
+  if (!reportConfig.userData || !reportConfig.userData.selectedUserId) {
+    throw new Error("Missing userData configuration in reportConfig.");
   }
 
   // 1. Vectorize question
@@ -61,14 +71,14 @@ async function handleReportMode(req, res) {
   const questionEmbedding = await generateEmbedding(question);
   const vectorString = `[${questionEmbedding.join(',')}]`;
 
-  // 2. Retrieve knowledge
+  // 2. Retrieve knowledge and user data
   log('[2/5] Retrieving knowledge and user data...');
   
   const knowledgePromises = scope.map(({ file_id, threshold }) =>
     supabaseAdmin.rpc('match_knowledge', {
       query_embedding: vectorString,
       match_threshold: parseFloat(threshold),
-      match_count: knowledgeTopK || 5,
+      match_count: reportConfig.knowledge.topK || 5,
       p_file_id: file_id
     })
   );
@@ -81,7 +91,7 @@ async function handleReportMode(req, res) {
   });
   
   const uniqueKnowledge = Array.from(new Map(knowledgeResults.map(item => [item.id, item])).values());
-  knowledgeResults = uniqueKnowledge.sort((a, b) => b.similarity - a.similarity).slice(0, knowledgeTopK || 5);
+  knowledgeResults = uniqueKnowledge.sort((a, b) => b.similarity - a.similarity).slice(0, reportConfig.knowledge.topK || 5);
   
   const userDataResults = await retrieveUserData(questionEmbedding, reportConfig.userData);
   
@@ -89,11 +99,9 @@ async function handleReportMode(req, res) {
 
   // 3. Build context
   log('[3/5] Building context...');
-  
   const knowledgeContext = knowledgeResults.length > 0
     ? knowledgeResults.map((r, i) => `[K${i+1}] ${r.content}`).join('\n\n---\n\n')
     : "No knowledge found.";
-  
   const userDataContext = userDataResults.length > 0
     ? userDataResults.map((r, i) => `[U${i+1}] ${r.content}`).join('\n\n---\n\n')
     : "No user data found.";
@@ -120,17 +128,24 @@ async function handleReportMode(req, res) {
 
   // 6. Call AI
   log('[5/5] Sending request to AI model...');
-  const aiResponse = await callAI(finalUserPrompt, model, systemPrompt);
+  const result = await callAI(
+    model,
+    finalUserPrompt,
+    systemPrompt,
+    { temperature: 0.7, max_tokens: 4096 }
+  );
 
   log('\n========== REPORT MODE - AI RESPONSE ==========');
-  log(aiResponse);
+  log(result.content);
   log('===============================================\n');
 
   log('--- Report Mode End ---\n');
 
   // 7. Return the response
   return res.status(200).json({
-    response: aiResponse,
+    response: result.content,
+    usage: result.usage,
+    model: result.model,
     debugLogs: debugLogs.join('\n'),
     context: {
       knowledge: {
@@ -166,7 +181,7 @@ async function handlePromptMode(req, res) {
     log('\n--- Prompt Mode Start ---\n');
     const {
         question, systemPrompt, userPromptTemplate, model, scope,
-        topK = 10, strictMode = false, fallbackAnswer
+        topK = 10, strictMode = false
     } = req.body;
 
     if (!question || !Array.isArray(scope) || scope.length === 0) {
@@ -204,6 +219,7 @@ async function handlePromptMode(req, res) {
     if (strictMode && sortedResults.length === 0) {
         log('  > Strict mode ON, no results found. Returning fallback.');
         log('--- Prompt Mode End ---\n');
+        const fallbackAnswer = "I could not find an answer in the provided knowledge base.";
         return res.status(200).json({ response: fallbackAnswer, debugLogs: debugLogs.join('\n') });
     }
     const context = sortedResults.length > 0
@@ -234,12 +250,22 @@ async function handlePromptMode(req, res) {
     });
     log('================================\\n');
 
-    const generatedResponse = await callAI(finalUserPrompt, model, systemPrompt);
+    const result = await callAI(
+      model,
+      finalUserPrompt,
+      systemPrompt,
+      { temperature: 0.7, max_tokens: 4096 }
+    );
 
     log('\n========== AI RESPONSE ==========');
-    log(generatedResponse);
+    log(result.content);
     log('=================================\n');
 
     log('--- Prompt Mode End ---\n');
-    return res.status(200).json({ response: generatedResponse, debugLogs: debugLogs.join('\n') });
+    return res.status(200).json({ 
+      response: result.content,
+      usage: result.usage,
+      model: result.model,
+      debugLogs: debugLogs.join('\n') 
+    });
 }
