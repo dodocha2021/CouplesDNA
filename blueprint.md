@@ -448,56 +448,151 @@ export async function getServerSideProps(context) {
 }
 ```
 
-## 六、智能查询编排
+## 六、RAG 系统与 Prompt Studio
 
-### 6.1 多步检索流程
+### 6.1 RAG 检索架构
 
-用户提问 → AI 智能编排：
+#### 双表检索策略
+1. **知识库检索** (`knowledge_vectors`)：
+   - 使用 `upload_id` 列（直接外键关联）而非 metadata 中的 file_id
+   - 每个文件独立调用 RPC，提高查询效率
+   - 支持多文件并发检索和结果合并
 
-1. **第一步**：从 `chat_log_vectors` 检索用户私有情景
-   - 使用 user_id 严格隔离
-   - 获取相关的历史对话片段
+2. **用户数据检索** (`chat_log_vectors`)：
+   - 严格的 user_id 隔离
+   - 支持按文件筛选的可选功能
 
-2. **第二步**：从 `knowledge_vectors` 检索公共理论知识
-   - 全局搜索
-   - 获取相关的沟通理论、心理学知识
-
-3. **第三步**：综合分析生成回答
-   - 结合私有情景和公共理论
-   - 提供个性化的建议
-
-### 6.2 向量相似度搜索
-
+#### 向量搜索函数优化
 ```sql
--- 搜索用户私有向量
-SELECT content, metadata
-FROM chat_log_vectors
-WHERE user_id = $1
-ORDER BY embedding <=> $2
-LIMIT 5;
-
--- 搜索公共知识向量
-SELECT content, metadata
-FROM knowledge_vectors
-ORDER BY embedding <=> $1
-LIMIT 5;
+-- 推荐：使用 upload_id 列进行文件过滤
+CREATE OR REPLACE FUNCTION match_knowledge(
+  query_embedding TEXT,
+  match_threshold FLOAT DEFAULT 0.3,
+  match_count INT DEFAULT 5,
+  p_file_id TEXT DEFAULT NULL
+) RETURNS TABLE (
+  id BIGINT,
+  content TEXT,
+  metadata JSONB,
+  similarity FLOAT
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    kv.id,
+    kv.content,
+    kv.metadata,
+    1 - (kv.embedding <=> query_embedding::vector) AS similarity
+  FROM knowledge_vectors kv
+  WHERE
+    (p_file_id IS NULL OR kv.upload_id::text = p_file_id) AND
+    (1 - (kv.embedding <=> query_embedding::vector) >= match_threshold)
+  ORDER BY kv.embedding <=> query_embedding::vector
+  LIMIT match_count;
+END;
+$$;
 ```
 
-## 七、开发工具（开发中）
+### 6.2 Prompt Studio (v2.0 - 统一架构)
 
-### 7.1 Prompt Studio (v1.0 - 实现)
-- **核心功能已上线**:
-  - **双模式测试**: 支持独立的 "Prompt Testing" 和 "Report Generation" 模式。
-  - **模型选择器**: 集成 Anthropic, OpenAI, Google 的多种模型。
-  - **行为控制**: 为两种模式提供独立的 "Strict Mode" 开关和回退应答配置。
-  - **动态上下文选择**: 允许从知识库中按分类和文件选择检索范围。
-- **近期修复**:
-  - 修复了知识库文件树渲染时的 JS 语法错误。
+#### 核心功能
+- **统一的 Prompt & Behavior 配置**：两种模式共享相同的 System Prompt 和 User Prompt Template
+- **双模式运行**：
+  - **Prompt Testing**：仅使用知识库 (`{context}`)
+  - **Report Generation**：同时使用知识库和用户数据 (`{context}` + `{userdata}`)
 
-### 7.2 用户 Dashboard（规划中）
-- 查看上传历史
-- 管理聊天记录
-- 查看处理状态
+#### User Prompt Template 变量
+```
+{context}   - 知识库检索结果
+{userdata}  - 用户数据检索结果（仅 Report Mode）
+{question}  - 用户问题
+```
+
+#### 前端实现 (`pages/admin/prompt-studio.js`)
+- 共享配置：System Prompt、User Prompt Template、Strict Mode
+- 知识库选择：文件树形结构，支持分类和相似度阈值调整
+- 用户数据选择：用户列表 + 文件过滤（仅 Report Mode）
+- Debug 日志显示：左侧 AI 响应，右侧 Terminal 风格调试信息
+
+#### 后端实现 (`pages/api/run-rag-query.js`)
+- **handlePromptMode**：
+  - 为每个文件单独调用 `match_knowledge`
+  - 合并、去重、排序结果
+  - 自动移除 `{userdata}` 占位符
+
+- **handleReportMode**：
+  - 并行检索知识库和用户数据
+  - 分别组装 `[K1]`, `[K2]`... 和 `[U1]`, `[U2]`... 格式
+  - 替换所有模板变量
+
+#### Debug 日志功能
+- 后端收集所有 console.log 输出
+- 返回 `debugLogs` 字段给前端
+- 前端双列显示：
+  - 左侧：Markdown 格式的 AI 回答
+  - 右侧：Terminal 风格的调试日志（黑色背景，绿色文字，可滚动）
+
+### 6.3 数据表优化建议
+
+#### knowledge_vectors 表结构
+```sql
+CREATE TABLE knowledge_vectors (
+  id BIGSERIAL PRIMARY KEY,
+  upload_id UUID REFERENCES knowledge_uploads(id) ON DELETE CASCADE,  -- 直接外键
+  content TEXT NOT NULL,
+  embedding VECTOR(768),  -- 或 384，取决于模型
+  metadata JSONB DEFAULT '{}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 索引
+CREATE INDEX idx_knowledge_vectors_upload_id ON knowledge_vectors(upload_id);
+CREATE INDEX idx_knowledge_vectors_embedding ON knowledge_vectors 
+  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+```
+
+### 6.4 文件处理流程
+
+#### Chunk 大小优化
+- 原始设计：500 字符 + 50 字符 overlap
+- 建议调整：1000-1200 字符（根据测试优化）
+- 避免过小的 chunks 导致上下文碎片化
+
+#### 元数据存储
+```json
+{
+  "file_id": "uuid",
+  "chunk_index": 0,
+  "source": "file_upload",
+  "category": "Communication"
+}
+```
+
+## 七、UI 组件规范
+
+### 7.1 下拉菜单背景色标准
+**规则**：所有下拉式菜单组件必须使用白色背景 (`bg-white`)
+
+#### 受影响的组件
+- `SelectContent` (components/ui/select.tsx)
+- `DropdownMenuContent`
+- `PopoverContent`
+- `ContextMenuContent`
+- `TooltipContent`
+
+#### 修改方法
+在组件的 `className` 中，将 `bg-popover` 替换为 `bg-white`：
+```tsx
+// 修改前
+className="... bg-popover ..."
+
+// 修改后
+className="... bg-white ..."
+```
+
+## 八、开发工具（更新）
 
 ## 八、部署检查清单
 
