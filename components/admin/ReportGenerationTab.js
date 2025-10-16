@@ -92,6 +92,10 @@ export default function ReportGenerationTab() {
   const [selectedUserFileIds, setSelectedUserFileIds] = useState([]);
   const [userDataTopK, setUserDataTopK] = useState(5);
 
+  const [slides, setSlides] = useState(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [isGeneratingSlides, setIsGeneratingSlides] = useState(false);
+
   const supabase = useSupabaseClient();
 
   const models = getAllModels();
@@ -247,6 +251,28 @@ export default function ReportGenerationTab() {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateSlides = async () => {
+    setIsGeneratingSlides(true);
+    try {
+      const res = await fetch('/api/generate-slides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportContent: response.response })
+      });
+      
+      if (!res.ok) throw new Error('Failed to generate slides');
+      
+      const data = await res.json();
+      setSlides(data);
+      setCurrentSlideIndex(0);
+      toast({ title: 'Success', description: 'Slides generated successfully' });
+    } catch (err) {
+      toast({ title: 'Error', description: err.message, variant: 'destructive' });
+    } finally {
+      setIsGeneratingSlides(false);
     }
   };
 
@@ -538,6 +564,62 @@ export default function ReportGenerationTab() {
           </CardContent>
         </Card>
       </div>
+{/* Slide Generation Section */}
+<Card className="mt-6">
+  <CardHeader>
+    <CardTitle>Generate Slides</CardTitle>
+    <CardDescription>Convert the generated report into presentation slides</CardDescription>
+  </CardHeader>
+  <CardContent>
+    <Button 
+      onClick={handleGenerateSlides}
+      disabled={!response || isGeneratingSlides}
+      className="mb-4"
+    >
+      {isGeneratingSlides ? 'Generating Slides...' : 'Generate Slides from Report'}
+    </Button>
+    
+    {slides && (
+      <div>
+        <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded">
+          <div className="flex items-center gap-3">
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))}
+              disabled={currentSlideIndex === 0}
+            >
+              ←
+            </Button>
+            <span className="text-sm font-medium">
+              {currentSlideIndex + 1} / {slides.files.length}
+            </span>
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => setCurrentSlideIndex(Math.min(slides.files.length - 1, currentSlideIndex + 1))}
+              disabled={currentSlideIndex === slides.files.length - 1}
+            >
+              →
+            </Button>
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => setSlides(null)}>
+            Close
+          </Button>
+        </div>
+        
+        <div className="border-2 border-gray-300 rounded-lg overflow-hidden">
+          <iframe
+            srcDoc={slides.files[currentSlideIndex]?.content}
+            className="w-full"
+            style={{ height: '720px' }}
+            title="slide-preview"
+          />
+        </div>
+      </div>
+    )}
+  </CardContent>
+</Card>
     </div>
   );
 }
