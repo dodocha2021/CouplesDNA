@@ -16,7 +16,6 @@ import { Slider } from "@/components/ui/slider";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const defaultSystemPromptReport = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is composed of KNOWLEDGE and USERDATA. Do not make up information. Be concise and clear in your response.\n\nIMPORTANT: Your answer must be structured as a slide outline with clear sections and bullet points.`;
 
@@ -98,7 +97,7 @@ export default function ReportGenerationTab() {
   const [isGeneratingSlides, setIsGeneratingSlides] = useState(false);
   const [manusShareUrl, setManusShareUrl] = useState(null);
   const [taskId, setTaskId] = useState(null);
-  const [showManusDialog, setShowManusDialog] = useState(false);
+  const [logs, setLogs] = useState([]);
 
 
   const supabase = useSupabaseClient();
@@ -259,13 +258,19 @@ export default function ReportGenerationTab() {
     }
   };
 
+const addLog = (message) => {
+  setLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${message}`]);
+};
+
 const handleGenerateSlides = async () => {
   setIsGeneratingSlides(true);
   setManusShareUrl(null);
   setSlides(null);
+  setLogs([]);
   
   try {
-    // Step 1: 创建任务，立即获取 share URL
+    addLog('📤 Creating Manus task...');
+    
     const createRes = await fetch('/api/create-slide-task', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -274,29 +279,37 @@ const handleGenerateSlides = async () => {
     
     if (!createRes.ok) throw new Error('Failed to create task');
     
-    const { taskId, shareUrl } = await createRes.json();
-    setTaskId(taskId);
-    setManusShareUrl(shareUrl);
-    setShowManusDialog(true); // 打开弹窗
+    const { task_id, share_url, task_title, task_url } = await createRes.json();
+    setTaskId(task_id);
+    setManusShareUrl(share_url);
+
+    addLog(`✅ Task created: ${task_id}`);
+    addLog(`📝 Task title: ${task_title}`);
+    addLog(`🔗 Task URL: ${task_url}`);
+    addLog(`🔗 Share URL: ${share_url}`);
+    addLog('⏳ Polling task status...');
     
-    // Step 2: 轮询检查任务状态
     let attempts = 0;
     const maxAttempts = 60;
     
     const checkStatus = async () => {
+      addLog(`🔄 [Attempt ${attempts + 1}/${maxAttempts}] Checking status...`);
+      
       const checkRes = await fetch('/api/check-slide-task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId })
+        body: JSON.stringify({ taskId: task_id })
       });
       
       const data = await checkRes.json();
       
+      if (data.log) addLog(data.log);
+      
       if (data.status === 'completed') {
-        setShowManusDialog(false); // 自动关闭
         setSlides(data.slides);
         setCurrentSlideIndex(0);
         setIsGeneratingSlides(false);
+        addLog('🎉 SUCCESS! Slides are ready.');
         toast({ title: 'Success', description: 'Slides generated!' });
         return;
       }
@@ -305,6 +318,7 @@ const handleGenerateSlides = async () => {
       if (attempts < maxAttempts) {
         setTimeout(checkStatus, 5000);
       } else {
+        addLog('⏰ Task timeout after 5 minutes');
         throw new Error('Task timeout');
       }
     };
@@ -313,6 +327,7 @@ const handleGenerateSlides = async () => {
     
   } catch (err) {
     setIsGeneratingSlides(false);
+    addLog(`💥 ERROR: ${err.message}`);
     toast({ title: 'Error', description: err.message, variant: 'destructive' });
   }
 };
@@ -620,6 +635,34 @@ const handleGenerateSlides = async () => {
       {isGeneratingSlides ? 'Generating Slides...' : 'Generate Slides from Report'}
     </Button>
     
+    {logs.length > 0 && (
+      <Card className="mb-4">
+        <CardHeader>
+          <CardTitle className="text-sm">Generation Logs</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div 
+            className="font-mono text-xs bg-gray-900 text-green-400 p-4 rounded-md overflow-auto"
+            style={{ height: '200px' }}
+          >
+            {logs.map((log, i) => (
+              <div key={i} className="mb-1">{log}</div>
+            ))}
+          </div>
+          {manusShareUrl && (
+            <a 
+              href={manusShareUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:text-blue-800 underline text-sm mt-2 inline-block"
+            >
+              🔗 Open Manus progress in new tab
+            </a>
+          )}
+        </CardContent>
+      </Card>
+    )}
+    
     {slides && (
       <div>
         <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded">
@@ -661,42 +704,6 @@ const handleGenerateSlides = async () => {
     )}
   </CardContent>
 </Card>
-
-{/* Manus 进度弹窗 */}
-<Dialog open={showManusDialog} onOpenChange={setShowManusDialog}>
-  <DialogContent className="max-w-5xl h-[80vh]">
-    <DialogHeader>
-      <DialogTitle>
-        Manus Task Progress {isGeneratingSlides && '(Generating...)'}
-      </DialogTitle>
-    </DialogHeader>
-    <div className="flex-1 overflow-hidden">
-      {manusShareUrl && (
-        <div className="h-full flex flex-col gap-3">
-          <p className="text-sm text-gray-600">
-            Note: If the preview doesn't load, use the link below
-          </p>
-          <a 
-            href={manusShareUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-600 hover:text-blue-800 underline text-sm"
-          >
-            🔗 Open in new tab
-          </a>
-          <div className="flex-1 border-2 border-gray-300 rounded-lg overflow-hidden bg-gray-50">
-            <iframe
-              src={manusShareUrl}
-              className="w-full h-full"
-              title="manus-progress"
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  </DialogContent>
-</Dialog>
     </div>
   );
 }

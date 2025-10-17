@@ -15,7 +15,7 @@ export default async function handler(req, res) {
         'API_KEY': process.env.NEXT_PUBLIC_MANUS_API_KEY
       },
       body: JSON.stringify({
-        prompt: `Create a professional presentation with slides based on this report:\n\n${reportContent}`,
+        prompt: `Create a professional presentation with slides based on this report in english:\n\n${reportContent}`,
         taskMode: 'adaptive',
         agentProfile: 'quality',
         hideInTaskList: false,
@@ -24,17 +24,17 @@ export default async function handler(req, res) {
     });
 
     if (!createResponse.ok) {
-      throw new Error(`Create task failed: ${createResponse.status}`);
+      const errorText = await createResponse.text();
+      console.error('❌ Create task failed:', createResponse.status);
+      console.error('❌ Error details:', errorText);
+      throw new Error(`Create task failed: ${createResponse.status} - ${errorText}`);
     }
 
     const createData = await createResponse.json();
-    console.log('✅ Task created:', createData.task_id);
-    
-    // 立即返回 task_id 和 share_url
-    res.status(200).json({
-      taskId: createData.task_id,
-      shareUrl: createData.share_url
-    });
+    console.log('✅ Task created - Full response:', JSON.stringify(createData, null, 2));
+
+    // 返回完整数据
+    res.status(200).json(createData);
     
   } catch (error) {
     console.error('💥 ERROR:', error.message);
