@@ -13,33 +13,17 @@ import { getAllModels } from '@/lib/ai/config';
 import ReactMarkdown from 'react-markdown';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import { useSupabaseClient } from '@supabase/auth-helpers-react';
-
-const defaultSystemPrompt = `You are an expert assistant. Use the following CONTEXT to answer the QUESTION. The CONTEXT is composed of KNOWLEDGE and USERDATA. Do not make up information. Be concise and clear in your response.`;
-
-const defaultUserPromptTemplate = `CONTEXT:
-
-KNOWLEDGE:
-{context}
-
-USERDATA:
-{userdata}
-
----
-
-QUESTION:
-{question}`;
+import { usePromptConfig } from '@/hooks/usePromptConfig';
 
 const TreeItem = ({ children, ...props }) => {
-  const { label, id, isSelected, onSelect, isBranch, initiallyOpen = false, level, threshold, onThresholdChange } = props;
+  const { label, id, isSelected, onSelect, isBranch, initiallyOpen = false, level, threshold, onThresholdChange, disabled } = props;
   const [isOpen, setIsOpen] = useState(initiallyOpen);
   const Icon = isBranch ? (isOpen ? ChevronDown : ChevronRight) : null;
 
   return (
     <div>
-      {/* 第一行：展开按钮 + 复选框 + 标签 */}
       <div className={`flex items-center py-1 px-2 hover:bg-gray-100 rounded ${level > 0 ? 'ml-4' : ''}`}>
         {Icon && (
           <button onClick={() => setIsOpen(!isOpen)} className="mr-2">
@@ -51,13 +35,13 @@ const TreeItem = ({ children, ...props }) => {
           checked={isSelected} 
           onCheckedChange={onSelect}
           className="mr-2"
+          disabled={disabled}
         />
-        <label htmlFor={id} className="text-sm flex-1 cursor-pointer">
+        <label htmlFor={id} className={`text-sm flex-1 cursor-pointer ${disabled ? 'text-gray-400' : ''}`}>
           {label}
         </label>
       </div>
       
-      {/* 第二行：Threshold 滑块（只在分类层级显示）*/}
       {isBranch && threshold !== undefined && (
         <div className="flex items-center gap-3 py-1 px-2 ml-10 mb-1">
           <span className="text-xs text-gray-500 w-16">Threshold:</span>
@@ -72,31 +56,52 @@ const TreeItem = ({ children, ...props }) => {
           <span className="text-xs font-mono w-12 text-right">{threshold.toFixed(2)}</span>
         </div>
       )}
-      
-      {isBranch && isOpen && (
-        <div className="ml-4">
-          {children}
-        </div>
-      )}
+
+      {isBranch && isOpen && children}
     </div>
   );
 };
 
-export default function PromptTestingTab() {
-  const [model, setModel] = useState('anthropic/claude-sonnet-4.5');
-  const [systemPrompt, setSystemPrompt] = useState(defaultSystemPrompt);
-  const [userPromptTemplate, setUserPromptTemplate] = useState(defaultUserPromptTemplate);
-  const [strictMode, setStrictMode] = useState(true);
-  const [question, setQuestion] = useState('');
-  const [response, setResponse] = useState(null);
+export default function ReportGenerationTab({ loadedConfig, onConfigLoaded, onSaveSuccess }) {
+  const {
+    modelSelection, setModelSelection,
+    knowledgeBaseId, setKnowledgeBaseId,
+    knowledgeBaseName, setKnowledgeBaseName,
+    topK, setTopK,
+    strictMode, setStrictMode,
+    systemPrompt, setSystemPrompt,
+    userPromptTemplate, setUserPromptTemplate,
+    userDataId, setUserDataId,
+    userDataName, setUserDataName,
+    reportTopic, setReportTopic,
+    generatedReport, setGeneratedReport,
+    generateSlides, setGenerateSlides,
+    debugLogs, setDebugLogs,
+    handleSaveConfig,
+    handleResetToDefault,
+    saveLoading,
+  } = usePromptConfig({
+    loadedConfig,
+    onSaveSuccess,
+    promptType: 'report'
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
   const [knowledgeItems, setKnowledgeItems] = useState([]);
-  const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState([]);
   const [categoryThresholds, setCategoryThresholds] = useState({});
-  const [topK, setTopK] = useState(10);
   
+  const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState(null);
+  const [userFiles, setUserFiles] = useState([]);
+  const [selectedUserFileIds, setSelectedUserFileIds] = useState([]);
+  const [userDataTopK, setUserDataTopK] = useState(5);
+
+  const [slides, setSlides] = useState(null);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [isGeneratingSlides, setIsGeneratingSlides] = useState(false);
+
   const supabase = useSupabaseClient();
 
   const models = getAllModels();
@@ -107,20 +112,93 @@ export default function PromptTestingTab() {
   }, {});
 
   useEffect(() => {
-    const fetchKnowledge = async () => {
-      const { data, error } = await supabase
+    const fetchData = async () => {
+      const { data: knowledgeData } = await supabase
         .from('knowledge_uploads')
-        .select('id, file_name, file_size, metadata, updated_at, status')
+        .select('*')
         .eq('status', 'completed')
         .order('updated_at', { ascending: false });
       
-      if (!error && data) {
-        setKnowledgeItems(data);
+      if (knowledgeData) setKnowledgeItems(knowledgeData);
+      
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('id, email');
+      
+      if (userData) setUsers(userData);
+    };
+    
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedUserId) {
+      setUserFiles([]);
+      return;
+    }
+    
+    const fetchUserFiles = async () => {
+      const { data, error } = await supabase
+        .from('user_uploads')
+        .select('*')
+        .eq('user_id', selectedUserId)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error fetching user files:', error);
+        return;
+      }
+      
+      if (data) {
+        setUserFiles(data);
       }
     };
     
-    fetchKnowledge();
-  }, []);
+    fetchUserFiles();
+  }, [selectedUserId]);
+
+  useEffect(() => {
+    if (knowledgeBaseId && knowledgeItems.length > 0) {
+      const file = knowledgeItems.find(item => item.id === knowledgeBaseId);
+      if (file && !knowledgeBaseName) {
+        setKnowledgeBaseName(file.file_name);
+      }
+    }
+  }, [knowledgeBaseId, knowledgeItems, knowledgeBaseName, setKnowledgeBaseName]);
+
+  useEffect(() => {
+    if (userDataId && userFiles.length > 0) {
+      const file = userFiles.find(item => item.id === userDataId);
+      if (file && !userDataName) {
+        setUserDataName(file.file_name);
+      }
+    }
+  }, [userDataId, userFiles, userDataName, setUserDataName]);
+
+  useEffect(() => {
+    if (loadedConfig && loadedConfig.prompt_type === 'report') {
+      if (loadedConfig.user_data_id) {
+        const userId = userFiles.find(f => f.id === loadedConfig.user_data_id)?.user_id;
+        if (userId) {
+          setSelectedUserId(userId);
+        }
+      }
+      
+      if (loadedConfig.generate_slides) {
+        try {
+          const slidesData = JSON.parse(loadedConfig.generate_slides);
+          setSlides(slidesData);
+        } catch (e) {
+          console.error('Failed to parse slides:', e);
+        }
+      }
+
+      if (onConfigLoaded) {
+        onConfigLoaded();
+      }
+    }
+  }, [loadedConfig, onConfigLoaded, userFiles]);
 
   const knowledgeTree = useMemo(() => {
     const tree = {};
@@ -135,12 +213,34 @@ export default function PromptTestingTab() {
     return tree;
   }, [knowledgeItems]);
 
-  const handleSelect = (ids, isSelected) => {
-    setSelectedKnowledgeIds(prev => 
-      isSelected 
-        ? [...new Set([...prev, ...ids])]
-        : prev.filter(id => !ids.includes(id))
-    );
+  const handleSelectFile = (fileId, isSelected) => {
+    if (isSelected) {
+      setKnowledgeBaseId(fileId);
+      const file = knowledgeItems.find(item => item.id === fileId);
+      if (file) {
+        setKnowledgeBaseName(file.file_name);
+      }
+    } else {
+      if (knowledgeBaseId === fileId) {
+        setKnowledgeBaseId('');
+        setKnowledgeBaseName('');
+      }
+    }
+  };
+
+  const handleSelectUserFile = (fileId, isSelected) => {
+    if (isSelected) {
+      setUserDataId(fileId);
+      const file = userFiles.find(item => item.id === fileId);
+      if (file) {
+        setUserDataName(file.file_name);
+      }
+    } else {
+      if (userDataId === fileId) {
+        setUserDataId('');
+        setUserDataName('');
+      }
+    }
   };
 
   const handleThresholdChange = (category, value) => {
@@ -150,18 +250,20 @@ export default function PromptTestingTab() {
     }));
   };
 
-  const handleRunTest = async () => {
-    if (!question.trim()) {
+  const handleGenerateReport = async () => {
+    if (!reportTopic.trim()) {
       toast({ 
         variant: "destructive", 
         title: "Error", 
-        description: "Please enter a question." 
+        description: "Please enter a report topic." 
       });
       return;
     }
 
     setIsLoading(true);
-    setResponse(null);
+    setGeneratedReport('');
+    setDebugLogs('');
+    setSlides(null);
 
     try {
       let finalSystemPrompt = systemPrompt;
@@ -169,26 +271,39 @@ export default function PromptTestingTab() {
         finalSystemPrompt += "\n\nIf CONTEXT is empty, say 'I could not find an answer in the provided knowledge base.'";
       }
 
-      const scopeWithThresholds = selectedKnowledgeIds.map(id => {
-        const item = knowledgeItems.find(k => k.id === id);
+      let scope = [];
+      if (knowledgeBaseId) {
+        const item = knowledgeItems.find(k => k.id === knowledgeBaseId);
         const category = item?.metadata?.category || 'General';
-        return {
-          file_id: id,
+        scope.push({
+          file_id: knowledgeBaseId,
           threshold: categoryThresholds[category] || 0.30
-        };
-      });
+        });
+      }
+
+      const reportConfig = {
+        userData: {
+          selectedUserId: selectedUserId,
+          selectedFileIds: userDataId ? [userDataId] : [],
+          topK: userDataTopK
+        },
+        knowledge: {
+          topK: topK
+        }
+      };
 
       const res = await fetch('/api/run-rag-query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mode: 'prompt',
-          model: model,
+          mode: 'report',
+          model: modelSelection,
           systemPrompt: finalSystemPrompt,
           userPromptTemplate: userPromptTemplate,
-          question: question,
+          question: reportTopic,
           strictMode: strictMode,
-          scope: scopeWithThresholds,
+          reportConfig: reportConfig,
+          scope: scope,
           knowledgeTopK: topK
         })
       });
@@ -199,15 +314,63 @@ export default function PromptTestingTab() {
       }
 
       const data = await res.json();
-      setResponse(data);
+      setGeneratedReport(data.response || '');
+      setDebugLogs(data.debugLogs || '');
     } catch (error) {
       toast({ 
         variant: "destructive", 
-        title: "Test Run Error", 
+        title: "Report Generation Error", 
         description: error.message 
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateSlides = async () => {
+    if (!generatedReport) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please generate a report first"
+      });
+      return;
+    }
+
+    setIsGeneratingSlides(true);
+
+    try {
+      const res = await fetch('/api/generate-slides', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportContent: generatedReport,
+          reportTopic: reportTopic
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to generate slides');
+      }
+
+      const data = await res.json();
+      setSlides(data.slides);
+      setGenerateSlides(JSON.stringify(data.slides));
+      setCurrentSlideIndex(0);
+
+      toast({
+        title: "Success",
+        description: "Slides generated successfully"
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Slide Generation Error",
+        description: error.message
+      });
+    } finally {
+      setIsGeneratingSlides(false);
     }
   };
 
@@ -219,7 +382,7 @@ export default function PromptTestingTab() {
           <CardDescription>Choose the AI model to use</CardDescription>
         </CardHeader>
         <CardContent>
-          <Select value={model} onValueChange={setModel}>
+          <Select value={modelSelection} onValueChange={setModelSelection}>
             <SelectTrigger>
               <SelectValue placeholder="Select a model" />
             </SelectTrigger>
@@ -244,17 +407,14 @@ export default function PromptTestingTab() {
         </CardContent>
       </Card>
 
-      {/* Knowledge Base Selection */}
       <Card>
         <CardHeader>
           <CardTitle>Knowledge Base Selection</CardTitle>
-          <CardDescription>
-            Select knowledge sources ({selectedKnowledgeIds.length} selected)
-          </CardDescription>
+          <CardDescription>Select a knowledge source</CardDescription>
         </CardHeader>
         <CardContent>
           <ScrollArea className="border rounded-md p-2 h-64">
-            {Object.entries(knowledgeTree).map(([category, { files, itemIds }]) => (
+            {Object.entries(knowledgeTree).map(([category, { files }]) => (
               <TreeItem
                 key={category}
                 label={`${category} (${files.length})`}
@@ -262,8 +422,9 @@ export default function PromptTestingTab() {
                 isBranch
                 initiallyOpen={true}
                 level={0}
-                isSelected={itemIds.every(id => selectedKnowledgeIds.includes(id))}
-                onSelect={(isSelected) => handleSelect(itemIds, isSelected)}
+                isSelected={false}
+                onSelect={() => {}}
+                disabled={true}
                 threshold={categoryThresholds[category] || 0.30}
                 onThresholdChange={(value) => handleThresholdChange(category, value)}
               >
@@ -273,8 +434,8 @@ export default function PromptTestingTab() {
                     label={`${file.file_name} · ${(file.file_size / 1024).toFixed(1)}KB`}
                     id={file.id}
                     level={1}
-                    isSelected={selectedKnowledgeIds.includes(file.id)}
-                    onSelect={(isSelected) => handleSelect([file.id], isSelected)}
+                    isSelected={knowledgeBaseId === file.id}
+                    onSelect={(isSelected) => handleSelectFile(file.id, isSelected)}
                   />
                 ))}
               </TreeItem>
@@ -297,19 +458,81 @@ export default function PromptTestingTab() {
 
       <Card>
         <CardHeader>
+          <CardTitle>User Data Selection</CardTitle>
+          <CardDescription>Select user and their uploaded data</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Select User</Label>
+            <Select value={selectedUserId || ''} onValueChange={setSelectedUserId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a user" />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map(user => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {selectedUserId && (
+            <>
+              <div>
+                <Label>User Files</Label>
+                <ScrollArea className="border rounded-md p-2 h-32 mt-2">
+                  {userFiles.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-2">No files uploaded by this user</p>
+                  ) : (
+                    userFiles.map(file => (
+                      <div key={file.id} className="flex items-center py-1 px-2 hover:bg-gray-100 rounded">
+                        <Checkbox
+                          checked={userDataId === file.id}
+                          onCheckedChange={(checked) => handleSelectUserFile(file.id, checked)}
+                          className="mr-2"
+                        />
+                        <label className="text-sm flex-1 cursor-pointer">
+                          {file.file_name} · {(file.file_size / 1024).toFixed(1)}KB
+                        </label>
+                      </div>
+                    ))
+                  )}
+                </ScrollArea>
+              </div>
+
+              <div>
+                <Label>User Data Top K</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={userDataTopK}
+                  onChange={(e) => setUserDataTopK(parseInt(e.target.value))}
+                  className="w-full mt-1"
+                />
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Prompt & Behavior</CardTitle>
               <CardDescription>
-                Design prompts and define how the AI should behave.
+                Design prompts for report generation
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Label htmlFor="strict-mode" className="text-sm font-medium">
+              <Label htmlFor="strict-mode-report" className="text-sm font-medium">
                 Strict Mode
               </Label>
               <Switch 
-                id="strict-mode" 
+                id="strict-mode-report" 
                 checked={strictMode} 
                 onCheckedChange={setStrictMode} 
               />
@@ -327,11 +550,6 @@ export default function PromptTestingTab() {
               rows={6} 
               className="font-mono"
             />
-            {strictMode && (
-              <p className="text-xs text-amber-600 mt-1">
-                ⚠️ Strict Mode enabled: Will return "I could not find an answer in the provided knowledge base" if CONTEXT is empty.
-              </p>
-            )}
           </div>
           
           <div>
@@ -353,32 +571,42 @@ export default function PromptTestingTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Test Question</CardTitle>
-          <CardDescription>Enter your question to test the prompt</CardDescription>
+          <CardTitle>Report Topic</CardTitle>
+          <CardDescription>Enter the topic for report generation</CardDescription>
         </CardHeader>
         <CardContent>
           <Input
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="e.g., What is the best way to communicate?"
+            value={reportTopic}
+            onChange={(e) => setReportTopic(e.target.value)}
+            placeholder="e.g., Relationship Communication Analysis"
             className="text-base"
           />
         </CardContent>
       </Card>
 
       <Button 
-        onClick={handleRunTest} 
+        onClick={handleGenerateReport} 
         disabled={isLoading}
         className="w-full"
         size="lg"
       >
-        {isLoading ? 'Running...' : 'Run Test'}
+        {isLoading ? 'Generating...' : 'Generate Report'}
       </Button>
 
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <CardTitle>Generated Response</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>Generated Report</CardTitle>
+              <Button
+                onClick={handleGenerateSlides}
+                disabled={!generatedReport || isGeneratingSlides}
+                size="sm"
+                variant="outline"
+              >
+                {isGeneratingSlides ? 'Generating...' : 'Generate Slides'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[20rem] bg-gray-50/50">
@@ -387,11 +615,11 @@ export default function PromptTestingTab() {
                   <p>Generating...</p>
                 </div>
               )}
-              {!isLoading && !response && (
-                <p className="text-gray-500">Response will appear here.</p>
+              {!isLoading && !generatedReport && (
+                <p className="text-gray-500">Report will appear here.</p>
               )}
-              {!isLoading && response && (
-                <ReactMarkdown>{response.response}</ReactMarkdown>
+              {!isLoading && generatedReport && (
+                <ReactMarkdown>{generatedReport}</ReactMarkdown>
               )}
             </ScrollArea>
           </CardContent>
@@ -408,15 +636,69 @@ export default function PromptTestingTab() {
                   <p>Processing...</p>
                 </div>
               )}
-              {!isLoading && !response && (
+              {!isLoading && !debugLogs && (
                 <p>Debug information will appear here.</p>
               )}
-              {!isLoading && response?.debugLogs && (
-                <pre className="whitespace-pre-wrap">{response.debugLogs}</pre>
+              {!isLoading && debugLogs && (
+                <pre className="whitespace-pre-wrap">{debugLogs}</pre>
               )}
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      {slides && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Generated Slides ({currentSlideIndex + 1}/{slides.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="border rounded-lg p-6 bg-white min-h-[300px]">
+              <h2 className="text-2xl font-bold mb-4">{slides[currentSlideIndex].title}</h2>
+              <div className="space-y-2">
+                {slides[currentSlideIndex].content.map((item, idx) => (
+                  <p key={idx} className="text-gray-700">• {item}</p>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-between mt-4">
+              <Button
+                onClick={() => setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))}
+                disabled={currentSlideIndex === 0}
+                variant="outline"
+              >
+                Previous
+              </Button>
+              <span className="text-sm text-gray-600">
+                Slide {currentSlideIndex + 1} of {slides.length}
+              </span>
+              <Button
+                onClick={() => setCurrentSlideIndex(Math.min(slides.length - 1, currentSlideIndex + 1))}
+                disabled={currentSlideIndex === slides.length - 1}
+                variant="outline"
+              >
+                Next
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex gap-4 mt-6">
+        <Button
+          onClick={handleSaveConfig}
+          disabled={saveLoading}
+          className="px-6 py-2"
+        >
+          {saveLoading ? 'Saving...' : 'Save Current Configuration'}
+        </Button>
+        <Button
+          onClick={handleResetToDefault}
+          variant="outline"
+          className="px-6 py-2"
+        >
+          Reset to Default
+        </Button>
       </div>
     </div>
   );
