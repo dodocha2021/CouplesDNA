@@ -40,6 +40,8 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
   const [reportTopic, setReportTopic] = useState('')
   const [generatedReport, setGeneratedReport] = useState('')
   const [generateSlides, setGenerateSlides] = useState('')
+  const [manusTaskId, setManusTaskId] = useState('')
+  const [manusShareUrl, setManusShareUrl] = useState('')
   
   const [saveLoading, setSaveLoading] = useState(false)
   
@@ -65,6 +67,8 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
         setReportTopic(loadedConfig.report_topic || '')
         setGeneratedReport(loadedConfig.generated_report || '')
         setGenerateSlides(loadedConfig.generate_slides || '')
+        setManusTaskId(loadedConfig.manus_task_id || '')
+        setManusShareUrl(loadedConfig.manus_share_url || '')
       }
     }
   }, [loadedConfig, promptType])
@@ -121,7 +125,9 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
           user_data_name: userDataName,
           report_topic: reportTopic,
           generated_report: generatedReport,
-          generate_slides: generateSlides
+          generate_slides: generateSlides,
+          manus_task_id: manusTaskId,
+          manus_share_url: manusShareUrl
         }
       }
 
@@ -172,6 +178,8 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
       setReportTopic('')
       setGeneratedReport('')
       setGenerateSlides('')
+      setManusTaskId('')
+      setManusShareUrl('')
     }
   }
   
@@ -197,6 +205,8 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
     reportTopic, setReportTopic,
     generatedReport, setGeneratedReport,
     generateSlides, setGenerateSlides,
+    manusTaskId, setManusTaskId,
+    manusShareUrl, setManusShareUrl,
     
     // Actions
     handleSaveConfig,

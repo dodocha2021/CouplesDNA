@@ -51,7 +51,9 @@ export default async function handler(req, res) {
       user_data_name,
       report_topic,
       generated_report,
-      generate_slides
+      generate_slides,
+      manus_task_id,
+      manus_share_url
     } = req.body
 
     // Validation based on prompt type
@@ -94,6 +96,8 @@ export default async function handler(req, res) {
         report_topic: prompt_type === 'report' ? report_topic : null,
         generated_report: prompt_type === 'report' ? generated_report : null,
         generate_slides: prompt_type === 'report' ? generate_slides : null,
+        manus_task_id: prompt_type === 'report' ? manus_task_id : null,
+        manus_share_url: prompt_type === 'report' ? manus_share_url : null,
         is_active: true,
         is_system_default: false
       })
