@@ -11,6 +11,8 @@ export default async function handler(req, res) {
   }
 
   try {
+    const { id } = req.query
+
     // Get user from authorization header
     const authHeader = req.headers.authorization
     if (!authHeader) {
@@ -38,18 +40,43 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    // Get last 10 active configs, ordered by created_at desc
+    // Get specific config
     const { data, error } = await supabaseClient
       .from('prompt_configs')
       .select('*')
+      .eq('id', id)
       .eq('user_id', user.id)
-      .eq('is_active', true)
-      .order('created_at', { ascending: false })
-      .limit(10)
+      .single()
 
     if (error) {
       console.error('Database error:', error)
-      return res.status(500).json({ error: error.message })
+      return res.status(404).json({ error: 'Configuration not found' })
+    }
+
+    // Check if knowledge base file still exists
+    if (data.knowledge_base_id) {
+      const { data: kbFile } = await supabaseClient
+        .from('knowledge_uploads')
+        .select('id, file_name')
+        .eq('id', data.knowledge_base_id)
+        .single()
+
+      if (!kbFile) {
+        data.knowledge_base_deleted = true
+      }
+    }
+
+    // Check if user data file still exists (for report type)
+    if (data.user_data_id) {
+      const { data: udFile } = await supabaseClient
+        .from('user_uploads')
+        .select('id, file_name')
+        .eq('id', data.user_data_id)
+        .single()
+
+      if (!udFile) {
+        data.user_data_deleted = true
+      }
     }
 
     return res.status(200).json({ success: true, data })

@@ -23,6 +23,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
   const [modelSelection, setModelSelection] = useState('anthropic/claude-sonnet-4-20250514')
   const [knowledgeBaseId, setKnowledgeBaseId] = useState('')
   const [knowledgeBaseName, setKnowledgeBaseName] = useState('')
+  const [selectedKnowledgeIds, setSelectedKnowledgeIds] = useState([])
   const [topK, setTopK] = useState(promptType === 'general' ? 10 : 5)
   const [strictMode, setStrictMode] = useState(true)
   const [systemPrompt, setSystemPrompt] = useState(defaultSystemPrompt)
@@ -48,6 +49,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
       setModelSelection(loadedConfig.model_selection)
       setKnowledgeBaseId(loadedConfig.knowledge_base_id || '')
       setKnowledgeBaseName(loadedConfig.knowledge_base_name || '')
+      setSelectedKnowledgeIds(loadedConfig.selected_knowledge_ids || []) // 新增
       setTopK(loadedConfig.top_k_results)
       setStrictMode(loadedConfig.strict_mode)
       setSystemPrompt(loadedConfig.system_prompt)
@@ -101,7 +103,8 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
           ...configData,
           name: testQuestion,
           test_question: testQuestion,
-          generated_response: generatedResponse
+          generated_response: generatedResponse,
+          selected_knowledge_ids: selectedKnowledgeIds // 新增
         }
       } else {
         if (!modelSelection || !knowledgeBaseId || topK === undefined || 
@@ -153,6 +156,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
     setModelSelection('anthropic/claude-sonnet-4-20250514')
     setKnowledgeBaseId('')
     setKnowledgeBaseName('')
+    setSelectedKnowledgeIds([])
     setTopK(promptType === 'general' ? 10 : 5)
     setStrictMode(true)
     setSystemPrompt(defaultSystemPrompt)
@@ -176,6 +180,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
     modelSelection, setModelSelection,
     knowledgeBaseId, setKnowledgeBaseId,
     knowledgeBaseName, setKnowledgeBaseName,
+    selectedKnowledgeIds, setSelectedKnowledgeIds, // 新增
     topK, setTopK,
     strictMode, setStrictMode,
     systemPrompt, setSystemPrompt,

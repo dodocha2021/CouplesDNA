@@ -67,6 +67,7 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
     modelSelection, setModelSelection,
     knowledgeBaseId, setKnowledgeBaseId,
     knowledgeBaseName, setKnowledgeBaseName,
+    selectedKnowledgeIds, setSelectedKnowledgeIds,
     topK, setTopK,
     strictMode, setStrictMode,
     systemPrompt, setSystemPrompt,
@@ -144,26 +145,27 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
     return tree;
   }, [knowledgeItems]);
 
-  const handleSelectFile = (fileId, isSelected) => {
-    if (isSelected) {
-      setKnowledgeBaseId(fileId);
-      const file = knowledgeItems.find(item => item.id === fileId);
-      if (file) {
-        setKnowledgeBaseName(file.file_name);
-      }
-    } else {
-      if (knowledgeBaseId === fileId) {
-        setKnowledgeBaseId('');
-        setKnowledgeBaseName('');
-      }
-    }
-  };
-
   const handleThresholdChange = (category, value) => {
     setCategoryThresholds(prev => ({
       ...prev,
       [category]: value
     }));
+  };
+
+  const handleSelectFile = (fileId, isSelected) => {
+    if (isSelected) {
+      setSelectedKnowledgeIds(prev => [...prev, fileId]);
+    } else {
+      setSelectedKnowledgeIds(prev => prev.filter(id => id !== fileId));
+    }
+  };
+
+  const handleSelectCategory = (itemIds, isSelected) => {
+    if (isSelected) {
+      setSelectedKnowledgeIds(prev => [...new Set([...prev, ...itemIds])]);
+    } else {
+      setSelectedKnowledgeIds(prev => prev.filter(id => !itemIds.includes(id)));
+    }
   };
 
   const handleRunTest = async () => {
@@ -187,14 +189,14 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
       }
 
       let scope = [];
-      if (knowledgeBaseId) {
-        const item = knowledgeItems.find(k => k.id === knowledgeBaseId);
+      selectedKnowledgeIds.forEach(fileId => {
+        const item = knowledgeItems.find(k => k.id === fileId);
         const category = item?.metadata?.category || 'General';
         scope.push({
-          file_id: knowledgeBaseId,
+          file_id: fileId,
           threshold: categoryThresholds[category] || 0.30
         });
-      }
+      });
 
       const res = await fetch('/api/run-rag-query', {
         method: 'POST',
@@ -219,6 +221,15 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
       const data = await res.json();
       setGeneratedResponse(data.response || '');
       setDebugLogs(data.debugLogs || '');
+
+      // 设置 knowledgeBaseId 为第一个选中的文件（用于保存）
+      if (selectedKnowledgeIds.length > 0) {
+        setKnowledgeBaseId(selectedKnowledgeIds[0]);
+        const firstFile = knowledgeItems.find(k => k.id === selectedKnowledgeIds[0]);
+        if (firstFile) {
+          setKnowledgeBaseName(firstFile.file_name);
+        }
+      }
     } catch (error) {
       toast({ 
         variant: "destructive", 
@@ -267,12 +278,12 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
         <CardHeader>
           <CardTitle>Knowledge Base Selection</CardTitle>
           <CardDescription>
-            Select a knowledge source (1 selected)
+            Select knowledge sources ({selectedKnowledgeIds.length} selected)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <ScrollArea className="border rounded-md p-2 h-64">
-            {Object.entries(knowledgeTree).map(([category, { files }]) => (
+            {Object.entries(knowledgeTree).map(([category, { files, itemIds }]) => (
               <TreeItem
                 key={category}
                 label={`${category} (${files.length})`}
@@ -280,9 +291,8 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
                 isBranch
                 initiallyOpen={true}
                 level={0}
-                isSelected={false}
-                onSelect={() => {}}
-                disabled={true}
+                isSelected={itemIds.every(id => selectedKnowledgeIds.includes(id))}
+                onSelect={(checked) => handleSelectCategory(itemIds, checked)}
                 threshold={categoryThresholds[category] || 0.30}
                 onThresholdChange={(value) => handleThresholdChange(category, value)}
               >
@@ -292,8 +302,8 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
                     label={`${file.file_name} · ${(file.file_size / 1024).toFixed(1)}KB`}
                     id={file.id}
                     level={1}
-                    isSelected={knowledgeBaseId === file.id}
-                    onSelect={(isSelected) => handleSelectFile(file.id, isSelected)}
+                    isSelected={selectedKnowledgeIds.includes(file.id)}
+                    onSelect={(checked) => handleSelectFile(file.id, checked)}
                   />
                 ))}
               </TreeItem>
@@ -440,14 +450,14 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
 
       <div className="flex gap-4 mt-6">
         <Button
-          onClick={handleSaveConfig}
+          onClick={() => handleSaveConfig()}
           disabled={saveLoading}
           className="px-6 py-2"
         >
           {saveLoading ? 'Saving...' : 'Save Current Configuration'}
         </Button>
         <Button
-          onClick={handleResetToDefault}
+          onClick={() => handleResetToDefault()}
           variant="outline"
           className="px-6 py-2"
         >

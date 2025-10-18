@@ -1,10 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
@@ -18,7 +13,21 @@ export default async function handler(req, res) {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+
+    // 使用传入的 token 创建客户端
+    const supabaseClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    )
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser()
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Unauthorized' })
@@ -30,6 +39,7 @@ export default async function handler(req, res) {
       model_selection,
       knowledge_base_id,
       knowledge_base_name,
+      selected_knowledge_ids, // 新增
       top_k_results,
       strict_mode,
       system_prompt,
@@ -61,8 +71,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Invalid prompt_type' })
     }
 
-    // Insert new config
-    const { data, error } = await supabase
+    // 使用带 token 的客户端进行插入
+    const { data, error } = await supabaseClient
       .from('prompt_configs')
       .insert({
         user_id: user.id,
@@ -71,6 +81,7 @@ export default async function handler(req, res) {
         model_selection,
         knowledge_base_id,
         knowledge_base_name,
+        selected_knowledge_ids: selected_knowledge_ids || [],
         top_k_results,
         strict_mode,
         system_prompt,

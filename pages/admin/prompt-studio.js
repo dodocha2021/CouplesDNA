@@ -16,6 +16,8 @@ export default function PromptStudioPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
+      console.log('Fetching history for user:', session.user.id) // 添加这行
+
       const response = await fetch('/api/admin/prompt-config/history', {
         headers: {
           'Authorization': `Bearer ${session.access_token}`
@@ -23,6 +25,8 @@ export default function PromptStudioPage() {
       })
 
       const result = await response.json()
+      console.log('History result:', result) // 添加这行
+      
       if (result.success) {
         setHistoryConfigs(result.data)
       }
