@@ -102,6 +102,9 @@ export default function ReportGenerationTab({ loadedConfig, onConfigLoaded, onSa
   const [slides, setSlides] = useState(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isGeneratingSlides, setIsGeneratingSlides] = useState(false);
+const [slideLogs, setSlideLogs] = useState([]);
+const [taskId, setTaskId] = useState(null);
+const [manusShareUrl, setManusShareUrl] = useState(null);
 
   const supabase = useSupabaseClient();
 
@@ -350,9 +353,16 @@ export default function ReportGenerationTab({ loadedConfig, onConfigLoaded, onSa
     }
 
     setIsGeneratingSlides(true);
+    setSlideLogs([]);
+    setSlides(null);
+    setTaskId(null);
+    setManusShareUrl(null);
 
     try {
-      const res = await fetch('/api/generate-slides', {
+      // Step 1: Create task
+      setSlideLogs(prev => [...prev, '📤 Creating Manus task...']);
+      
+      const createRes = await fetch('/api/create-slide-task', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -361,30 +371,96 @@ export default function ReportGenerationTab({ loadedConfig, onConfigLoaded, onSa
         })
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to generate slides');
+      if (!createRes.ok) {
+        throw new Error('Failed to create task');
       }
 
-      const data = await res.json();
-      setSlides(data.slides);
-      setGenerateSlides(JSON.stringify(data.slides));
-      setCurrentSlideIndex(0);
+      const createData = await createRes.json();
+      const newTaskId = createData.data?.task_id;
+      const shareUrl = createData.data?.shareable_url;
 
-      toast({
-        title: "Success",
-        description: "Slides generated successfully"
-      });
+      if (!newTaskId) {
+        throw new Error('No task ID returned');
+      }
+
+      setTaskId(newTaskId);
+      setManusShareUrl(shareUrl);
+      setSlideLogs(prev => [...prev, `✅ Task created: ${newTaskId}`]);
+      if (shareUrl) {
+        setSlideLogs(prev => [...prev, `🔗 Share URL: ${shareUrl}`]);
+      }
+
+      // Step 2: Poll for completion
+      pollSlideTask(newTaskId);
+
     } catch (error) {
+      setSlideLogs(prev => [...prev, `❌ Error: ${error.message}`]);
       toast({
         variant: "destructive",
         title: "Slide Generation Error",
         description: error.message
       });
-    } finally {
       setIsGeneratingSlides(false);
     }
   };
+
+const pollSlideTask = async (taskId) => {
+  const maxAttempts = 60; // 最多轮询60次（5分钟）
+  let attempts = 0;
+
+  const poll = async () => {
+    attempts++;
+    
+    try {
+      const checkRes = await fetch('/api/check-slide-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ taskId })
+      });
+
+      const checkData = await checkRes.json();
+      
+      if (checkData.log) {
+        setSlideLogs(prev => [...prev, checkData.log]);
+      }
+
+      if (checkData.status === 'completed' && checkData.slides) {
+        setSlides(checkData.slides.files || checkData.slides);
+        setGenerateSlides(JSON.stringify(checkData.slides.files || checkData.slides));
+        setCurrentSlideIndex(0);
+        setIsGeneratingSlides(false);
+        
+        toast({
+          title: "Success",
+          description: "Slides generated successfully"
+        });
+        return;
+      }
+
+      if (checkData.status === 'failed' || checkData.error) {
+        throw new Error(checkData.error || 'Task failed');
+      }
+
+      // Continue polling if not completed and haven't exceeded max attempts
+      if (attempts < maxAttempts) {
+        setTimeout(poll, 5000); // Poll every 5 seconds
+      } else {
+        throw new Error('Task timeout: exceeded maximum polling time');
+      }
+
+    } catch (error) {
+      setSlideLogs(prev => [...prev, `❌ Error: ${error.message}`]);
+      setIsGeneratingSlides(false);
+      toast({
+        variant: "destructive",
+        title: "Slide Generation Error",
+        description: error.message
+      });
+    }
+  };
+
+  poll();
+};
 
   return (
     <div className="space-y-6">
@@ -659,6 +735,38 @@ export default function ReportGenerationTab({ loadedConfig, onConfigLoaded, onSa
           </CardContent>
         </Card>
       </div>
+
+      {/* Slide Generation Logs */}
+      {isGeneratingSlides && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Slide Generation Progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="font-mono text-xs border rounded-md min-h-[10rem] max-h-[20rem] overflow-auto bg-gray-900 text-green-400 p-4">
+              {slideLogs.length === 0 ? (
+                <p>Initializing...</p>
+              ) : (
+                slideLogs.map((log, idx) => (
+                  <div key={idx} className="mb-1">{log}</div>
+                ))
+              )}
+              {manusShareUrl && (
+                <div className="mt-2 pt-2 border-t border-gray-700">
+                  <a 
+                    href={manusShareUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:text-blue-300 underline"
+                  >
+                    View in Manus →
+                  </a>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {slides && (
         <Card>
