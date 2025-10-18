@@ -376,8 +376,9 @@ const [manusShareUrl, setManusShareUrl] = useState(null);
       }
 
       const createData = await createRes.json();
-      const newTaskId = createData.data?.task_id;
-      const shareUrl = createData.data?.shareable_url;
+      const newTaskId = createData.task_id;
+      const shareUrl = createData.share_url;
+
 
       if (!newTaskId) {
         throw new Error('No task ID returned');
@@ -685,17 +686,7 @@ const pollSlideTask = async (taskId) => {
       <div className="grid grid-cols-2 gap-4">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Generated Report</CardTitle>
-              <Button
-                onClick={handleGenerateSlides}
-                disabled={!generatedReport || isGeneratingSlides}
-                size="sm"
-                variant="outline"
-              >
-                {isGeneratingSlides ? 'Generating...' : 'Generate Slides'}
-              </Button>
-            </div>
+            <CardTitle>Generated Report</CardTitle>
           </CardHeader>
           <CardContent>
             <ScrollArea className="prose dark:prose-invert max-w-none p-4 border rounded-md min-h-[20rem] bg-gray-50/50">
@@ -736,13 +727,26 @@ const pollSlideTask = async (taskId) => {
         </Card>
       </div>
 
-      {/* Slide Generation Logs */}
-      {isGeneratingSlides && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Slide Generation Progress</CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* Generate Slides Module */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Slide Generation</CardTitle>
+            <Button
+              onClick={handleGenerateSlides}
+              disabled={!generatedReport || isGeneratingSlides}
+              size="sm"
+            >
+              {isGeneratingSlides ? 'Generating...' : 'Generate Slides'}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!isGeneratingSlides && !slides && (
+            <p className="text-gray-500 text-sm">Click "Generate Slides" to create a presentation</p>
+          )}
+          
+          {isGeneratingSlides && (
             <div className="font-mono text-xs border rounded-md min-h-[10rem] max-h-[20rem] overflow-auto bg-gray-900 text-green-400 p-4">
               {slideLogs.length === 0 ? (
                 <p>Initializing...</p>
@@ -764,24 +768,24 @@ const pollSlideTask = async (taskId) => {
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
-      {slides && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Generated Slides ({currentSlideIndex + 1}/{slides.length})</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="border rounded-lg p-6 bg-white min-h-[300px]">
-              <h2 className="text-2xl font-bold mb-4">{slides[currentSlideIndex].title}</h2>
-              <div className="space-y-2">
-                {slides[currentSlideIndex].content.map((item, idx) => (
-                  <p key={idx} className="text-gray-700">• {item}</p>
-                ))}
-              </div>
-            </div>
+      {slides && slides.length > 0 && (
+  <Card>
+    <CardHeader>
+      <CardTitle>Generated Slides ({currentSlideIndex + 1}/{slides.length})</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="border rounded-lg overflow-hidden" style={{ minHeight: '720px' }}>
+        <iframe
+          srcDoc={slides[currentSlideIndex].content}
+          className="w-full"
+          style={{ height: '720px', border: 'none' }}
+          title={`Slide ${currentSlideIndex + 1}`}
+        />
+      </div>
             <div className="flex justify-between mt-4">
               <Button
                 onClick={() => setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))}
