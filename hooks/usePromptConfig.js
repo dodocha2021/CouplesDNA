@@ -127,10 +127,8 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
           user_data_name: userDataName,
           report_topic: reportTopic,
           generated_report: generatedReport,
-          selected_knowledge_ids: selectedKnowledgeIds,
-          generate_slides: generateSlides,
-          manus_task_id: manusTaskId,
-          manus_share_url: manusShareUrl
+          selected_knowledge_ids: selectedKnowledgeIds
+          // ✅ 移除：generate_slides, manus_task_id, manus_share_url
         }
       }
 

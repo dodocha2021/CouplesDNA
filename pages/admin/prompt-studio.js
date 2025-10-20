@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import PromptTestingTab from '@/components/admin/PromptTestingTab'
 import ReportGenerationTab from '@/components/admin/ReportGenerationTab'
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 
 export default function PromptStudioPage() {
   const [mode, setMode] = useState('prompt')
@@ -58,6 +59,8 @@ export default function PromptStudioPage() {
         // Switch to appropriate tab
         if (config.prompt_type === 'general') {
           setMode('prompt')
+        } else if (config.prompt_type === 'slide') {
+          setMode('slide')
         } else {
           setMode('report')
         }
@@ -99,26 +102,35 @@ export default function PromptStudioPage() {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           >
             <option value="">Load Configuration</option>
-            {historyConfigs.map(config => (
-              <option key={config.id} value={config.id}>
-                [{config.prompt_type === 'general' ? 'General' : 'Report'}] {config.name.substring(0, 30)}
-                {config.name.length > 30 ? '...' : ''} ({new Date(config.created_at).toLocaleString('en-US', {
-                  year: 'numeric',
-                  month: '2-digit',
-                  day: '2-digit',
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })})
-              </option>
-            ))}
+            {historyConfigs.map(config => {
+              const typeLabel = config.prompt_type === 'general' 
+                ? 'General' 
+                : config.prompt_type === 'slide' 
+                ? 'Slide' 
+                : 'Report';
+              
+              return (
+                <option key={config.id} value={config.id}>
+                  [{typeLabel}] {config.name.substring(0, 30)}
+                  {config.name.length > 30 ? '...' : ''} ({new Date(config.created_at).toLocaleString('en-US', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })})
+                </option>
+              );
+            })}
           </select>
         </div>
       </div>
 
       <Tabs value={mode} onValueChange={setMode} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="prompt">General Prompt</TabsTrigger>
-          <TabsTrigger value="report">Report Prompt</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="prompt">Prompt Testing</TabsTrigger>
+          <TabsTrigger value="report">Report Generation</TabsTrigger>
+          <TabsTrigger value="slide">Slide Generation</TabsTrigger>
         </TabsList>
 
         <TabsContent value="prompt" className="mt-6">
@@ -136,6 +148,18 @@ export default function PromptStudioPage() {
             onConfigLoaded={() => setLoadedConfig(null)}
             onSaveSuccess={fetchHistory}
           />
+        </TabsContent>
+        
+        <TabsContent value="slide">
+          <Card>
+            <CardHeader>
+              <CardTitle>Slide Generation</CardTitle>
+              <CardDescription>Coming soon - Generate presentations from reports</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-500">This feature is under development.</p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
