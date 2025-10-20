@@ -132,6 +132,7 @@ export default function PromptStudioPage() {
         <TabsContent value="report" className="mt-6">
           <ReportGenerationTab 
             loadedConfig={loadedConfig}
+            setLoadedConfig={setLoadedConfig}
             onConfigLoaded={() => setLoadedConfig(null)}
             onSaveSuccess={fetchHistory}
           />

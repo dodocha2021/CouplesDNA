@@ -62,7 +62,7 @@ const TreeItem = ({ children, ...props }) => {
   );
 };
 
-export default function ReportGenerationTab({ loadedConfig, onConfigLoaded, onSaveSuccess }) {
+export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onConfigLoaded, onSaveSuccess }) {
   const {
     modelSelection, setModelSelection,
     knowledgeBaseId, setKnowledgeBaseId,
@@ -77,6 +77,8 @@ export default function ReportGenerationTab({ loadedConfig, onConfigLoaded, onSa
     reportTopic, setReportTopic,
     generatedReport, setGeneratedReport,
     generateSlides, setGenerateSlides,
+    manusTaskId, setManusTaskId,
+    manusShareUrl, setManusShareUrl,
     debugLogs, setDebugLogs,
     handleSaveConfig,
     handleResetToDefault,
@@ -89,25 +91,19 @@ export default function ReportGenerationTab({ loadedConfig, onConfigLoaded, onSa
 
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-
   const [knowledgeItems, setKnowledgeItems] = useState([]);
   const [categoryThresholds, setCategoryThresholds] = useState({});
-  
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [userFiles, setUserFiles] = useState([]);
   const [selectedUserFileIds, setSelectedUserFileIds] = useState([]);
   const [userDataTopK, setUserDataTopK] = useState(5);
-
   const [slides, setSlides] = useState(null);
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isGeneratingSlides, setIsGeneratingSlides] = useState(false);
-const [slideLogs, setSlideLogs] = useState([]);
-const [taskId, setTaskId] = useState(null);
-const [manusShareUrl, setManusShareUrl] = useState(null);
-
+  const [slideLogs, setSlideLogs] = useState([]);
+  const [taskId, setTaskId] = useState(null);
   const supabase = useSupabaseClient();
-
   const models = getAllModels();
   const modelsByProvider = models.reduce((acc, m) => {
     if (!acc[m.provider]) acc[m.provider] = [];
@@ -343,174 +339,265 @@ const [manusShareUrl, setManusShareUrl] = useState(null);
   };
 
   const handleGenerateSlides = async () => {
-  if (!generatedReport) {
-    toast({
-      variant: "destructive",
-      title: "Error",
-      description: "Please generate a report first"
-    });
-    return;
-  }
-
-  // 检查是否已有任务进行中
-  if (manusTaskId && manusTaskStatus === 'pending') {
-    const taskAge = Date.now() - new Date(loadedConfig?.manus_task_created_at || 0);
-    
-    if (taskAge < 30 * 60 * 1000) { // 30分钟内
+    if (!generatedReport) {
       toast({
         variant: "destructive",
-        title: "Task in Progress",
-        description: "A task is already running. Refreshing status..."
+        title: "Error",
+        description: "Please generate a report first"
       });
-      
-      // 重新加载配置获取最新状态
-      if (loadedConfig?.id) {
-        const { data: { session } } = await supabase.auth.getSession();
-        const response = await fetch(`/api/admin/prompt-config/${loadedConfig.id}`, {
-          headers: {
-            'Authorization': `Bearer ${session.access_token}`
-          }
-        });
-        const result = await response.json();
-        if (result.success) {
-          setLoadedConfig(result.data);
-        }
-      }
       return;
     }
-  }
-
-  // 如果已有slides，显示覆盖确认
-  if (manusTaskId && generateSlides) {
-    const confirmed = window.confirm(
-      `⚠️ Overwrite Existing Slides?
-
-You already have slides for this report.
-
-Current slides:
-• Task ID: ${manusTaskId}
-• Created: ${loadedConfig?.manus_task_created_at ? new Date(loadedConfig.manus_task_created_at).toLocaleString() : 'Unknown'}
-
-Generating new slides will overwrite the previous ones.
-This action cannot be undone.
-
-Continue?`
-    );
-    
-    if (!confirmed) return;
-  }
-
-  setIsGeneratingSlides(true);
-  setSlideLogs([]);
-
-  try {
-    setSlideLogs(prev => [...prev, '📤 Creating Manus task...']);
-    
-    // Step 1: 创建 Manus 任务
-    const createRes = await fetch('/api/create-slide-task', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        reportContent: generatedReport
-      })
-    });
-
-    if (!createRes.ok) {
-      throw new Error('Failed to create slide task');
-    }
-
-    const createData = await createRes.json();
-    const newTaskId = createData.id;
-    const shareUrl = createData.shareUrl;
-
-    setTaskId(newTaskId);
-    setManusTaskId(newTaskId);
-    setManusShareUrl(shareUrl);
-    
-    setSlideLogs(prev => [...prev, `✅ Task created: ${newTaskId}`]);
-    if (shareUrl) {
-      setSlideLogs(prev => [...prev, `🔗 Share URL: ${shareUrl}`]);
-    }
-
-    toast({
-      title: "Task Created",
-      description: `Slides are being generated. Task ID: ${newTaskId}`
-    });
-
-    // Step 2: 立即保存到数据库
-    await autoSaveManusInfo(newTaskId, shareUrl);
-    setSlideLogs(prev => [...prev, '💾 Saved task info to database']);
-
-    // Step 3: 开始轮询
-    pollSlideTask(newTaskId);
-
-  } catch (error) {
-    setSlideLogs(prev => [...prev, `❌ Error: ${error.message}`]);
-    toast({
-      variant: "destructive",
-      title: "Error",
-      description: error.message
-    });
-    setIsGeneratingSlides(false);
-  }
-};
-
-const pollSlideTask = async (taskId) => {
-  const maxAttempts = 60; // 最多轮询60次（5分钟）
-  let attempts = 0;
-
-  const poll = async () => {
-    attempts++;
-    
-    try {
-      const checkRes = await fetch('/api/check-slide-task', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ taskId })
-      });
-
-      const checkData = await checkRes.json();
+  
+    // 检查是否已有任务进行中
+    if (manusTaskId && manusTaskStatus === 'pending') {
+      const taskAge = Date.now() - new Date(loadedConfig?.manus_task_created_at || 0);
       
-      if (checkData.log) {
-        setSlideLogs(prev => [...prev, checkData.log]);
-      }
-
-      if (checkData.status === 'completed' && checkData.slides) {
-        setSlides(checkData.slides.files || checkData.slides);
-        setGenerateSlides(JSON.stringify(checkData.slides.files || checkData.slides));
-        setCurrentSlideIndex(0);
-        setIsGeneratingSlides(false);
-        
+      if (taskAge < 30 * 60 * 1000) { // 30分钟内
         toast({
-          title: "Success",
-          description: "Slides generated successfully"
+          variant: "destructive",
+          title: "Task in Progress",
+          description: "A task is already running. Refreshing status..."
         });
+        
+        // 重新加载配置获取最新状态
+        if (loadedConfig?.id) {
+          const { data: { session } } = await supabase.auth.getSession();
+          const response = await fetch(`/api/admin/prompt-config/${loadedConfig.id}`, {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`
+            }
+          });
+          const result = await response.json();
+          if (result.success) {
+            setLoadedConfig(result.data);
+          }
+        }
         return;
       }
-
-      if (checkData.status === 'failed' || checkData.error) {
-        throw new Error(checkData.error || 'Task failed');
+    }
+  
+    // 如果已有slides，显示覆盖确认
+    if (manusTaskId && generateSlides) {
+      const confirmed = window.confirm(
+        `⚠️ Overwrite Existing Slides?\n\nYou already have slides for this report.\n\nCurrent slides:\n• Task ID: ${manusTaskId}\n• Created: ${loadedConfig?.manus_task_created_at ? new Date(loadedConfig.manus_task_created_at).toLocaleString() : 'Unknown'}\n\nGenerating new slides will overwrite the previous ones.\nThis action cannot be undone.\n\nContinue?`
+      );
+      
+      if (!confirmed) return;
+    }
+  
+    setIsGeneratingSlides(true);
+    setSlideLogs([]);
+    setSlides(null);
+  
+    try {
+      setSlideLogs(prev => [...prev, '📤 Creating Manus task...']);
+      
+      // Step 1: 创建 Manus 任务
+      const createRes = await fetch('/api/create-slide-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportContent: generatedReport
+        })
+      });
+  
+      if (!createRes.ok) {
+        throw new Error('Failed to create slide task');
       }
-
-      // Continue polling if not completed and haven't exceeded max attempts
-      if (attempts < maxAttempts) {
-        setTimeout(poll, 5000); // Poll every 5 seconds
-      } else {
-        throw new Error('Task timeout: exceeded maximum polling time');
+  
+      const createData = await createRes.json();
+      const newTaskId = createData.id;
+      const shareUrl = createData.shareUrl;
+  
+      setTaskId(newTaskId);
+      setManusTaskId(newTaskId);
+      setManusShareUrl(shareUrl);
+      
+      setSlideLogs(prev => [...prev, `✅ Task created: ${newTaskId}`]);
+      if (shareUrl) {
+        setSlideLogs(prev => [...prev, `🔗 Share URL: ${shareUrl}`]);
       }
-
+  
+      toast({
+        title: "Task Created",
+        description: `Slides are being generated. Task ID: ${newTaskId}`
+      });
+  
+      // Step 2: 立即保存到数据库
+      await autoSaveManusInfo(newTaskId, shareUrl);
+      setSlideLogs(prev => [...prev, '💾 Saved task info to database']);
+  
+      // Step 3: 开始轮询
+      startPolling(newTaskId);
+  
     } catch (error) {
       setSlideLogs(prev => [...prev, `❌ Error: ${error.message}`]);
-      setIsGeneratingSlides(false);
       toast({
         variant: "destructive",
-        title: "Slide Generation Error",
+        title: "Error",
         description: error.message
       });
+      setIsGeneratingSlides(false);
     }
   };
 
-  poll();
+// 自动保存 Manus 任务信息到数据库
+const autoSaveManusInfo = async (taskId, shareUrl) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    if (loadedConfig && loadedConfig.id) {
+      const response = await fetch(`/api/admin/prompt-config/update/${loadedConfig.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          manus_task_id: taskId,
+          manus_share_url: shareUrl,
+          manus_task_status: 'pending',
+          manus_task_created_at: new Date().toISOString()
+        })
+      });
+      if (!response.ok) throw new Error('Failed to update config');
+    } else {
+      const configData = {
+        prompt_type: 'report',
+        name: reportTopic || 'Untitled Report',
+        model_selection: modelSelection,
+        knowledge_base_id: knowledgeBaseId,
+        knowledge_base_name: knowledgeBaseName,
+        top_k_results: topK,
+        strict_mode: strictMode,
+        system_prompt: systemPrompt,
+        user_prompt_template: userPromptTemplate,
+        user_data_id: userDataId,
+        user_data_name: userDataName,
+        report_topic: reportTopic,
+        generated_report: generatedReport,
+        debug_logs: debugLogs,
+        manus_task_id: taskId,
+        manus_share_url: shareUrl,
+        manus_task_status: 'pending',
+        manus_task_created_at: new Date().toISOString(),
+        is_auto_saved: true
+      };
+      const response = await fetch('/api/admin/prompt-config/save', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(configData)
+      });
+      const result = await response.json();
+      if (result.data) setLoadedConfig(result.data);
+    }
+  } catch (error) {
+    console.error('Failed to auto-save:', error);
+  }
+};
+
+// 手动保存 slides
+const autoSaveSlidesData = async (slidesJson) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session || !loadedConfig?.id) return;
+    await fetch(`/api/admin/prompt-config/update/${loadedConfig.id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${session.access_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        generate_slides: slidesJson,
+        manus_task_status: 'completed',
+        manus_task_completed_at: new Date().toISOString()
+      })
+    });
+  } catch (error) {
+    console.error('Failed to save slides:', error);
+  }
+};
+
+// 新的轮询函数
+const startPolling = (taskId) => {
+  let pollCount = 0;
+  const maxPolls = 180;
+  
+  const pollInterval = setInterval(async () => {
+    pollCount++;
+    
+    try {
+      if (loadedConfig?.id) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetch(`/api/admin/prompt-config/${loadedConfig.id}`, {
+          headers: { 'Authorization': `Bearer ${session.access_token}` }
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+          const config = result.data;
+          
+          if (config.manus_task_status === 'completed') {
+            clearInterval(pollInterval);
+            if (config.generate_slides) {
+              const slidesData = JSON.parse(config.generate_slides);
+              setSlides(slidesData.files || slidesData);
+              setGenerateSlides(config.generate_slides);
+              setCurrentSlideIndex(0);
+            }
+            setManusTaskId(config.manus_task_id);
+            setManusShareUrl(config.manus_share_url);
+            setIsGeneratingSlides(false);
+            setSlideLogs(prev => [...prev, '✅ Slides completed!']);
+            toast({ title: "Success", description: "Slides generated!" });
+            return;
+          }
+          
+          if (config.manus_task_status === 'failed') {
+            clearInterval(pollInterval);
+            setIsGeneratingSlides(false);
+            setSlideLogs(prev => [...prev, `❌ Failed: ${config.manus_task_error}`]);
+            toast({ variant: "destructive", title: "Failed", description: config.manus_task_error });
+            return;
+          }
+        }
+      }
+      
+      if (pollCount % 9 === 0) {
+        setSlideLogs(prev => [...prev, '🔍 Checking Manus API...']);
+        const checkRes = await fetch('/api/check-slide-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId })
+        });
+        const checkData = await checkRes.json();
+        if (checkData.status === 'completed' && checkData.slides) {
+          clearInterval(pollInterval);
+          setSlides(checkData.slides.files || checkData.slides);
+          setGenerateSlides(JSON.stringify(checkData.slides.files || checkData.slides));
+          setCurrentSlideIndex(0);
+          setIsGeneratingSlides(false);
+          setSlideLogs(prev => [...prev, '✅ Retrieved from Manus!']);
+          if (loadedConfig?.id) await autoSaveSlidesData(JSON.stringify(checkData.slides.files || checkData.slides));
+          toast({ title: "Success" });
+          return;
+        }
+      }
+      
+      if (pollCount >= maxPolls) {
+        clearInterval(pollInterval);
+        setIsGeneratingSlides(false);
+        setSlideLogs(prev => [...prev, '⏱️ Timeout']);
+        toast({ variant: "destructive", title: "Timeout" });
+      }
+    } catch (error) {
+      console.error('Polling error:', error);
+    }
+  }, 10000);
 };
 
   return (
