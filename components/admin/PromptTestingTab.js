@@ -126,6 +126,9 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
 
   useEffect(() => {
     if (loadedConfig && loadedConfig.prompt_type === 'general') {
+      if (loadedConfig.selected_knowledge_ids && Array.isArray(loadedConfig.selected_knowledge_ids)) {
+        setSelectedKnowledgeIds(loadedConfig.selected_knowledge_ids);
+      }
       if (onConfigLoaded) {
         onConfigLoaded();
       }

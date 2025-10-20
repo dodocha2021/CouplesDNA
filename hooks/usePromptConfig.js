@@ -42,7 +42,8 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
   const [generateSlides, setGenerateSlides] = useState('')
   const [manusTaskId, setManusTaskId] = useState('')
   const [manusShareUrl, setManusShareUrl] = useState('')
-  
+  const [manusTaskStatus, setManusTaskStatus] = useState('')
+
   const [saveLoading, setSaveLoading] = useState(false)
   
   // Load config when provided
@@ -69,6 +70,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
         setGenerateSlides(loadedConfig.generate_slides || '')
         setManusTaskId(loadedConfig.manus_task_id || '')
         setManusShareUrl(loadedConfig.manus_share_url || '')
+        setManusTaskStatus(loadedConfig.manus_task_status || '')
       }
     }
   }, [loadedConfig, promptType])
@@ -125,6 +127,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
           user_data_name: userDataName,
           report_topic: reportTopic,
           generated_report: generatedReport,
+          selected_knowledge_ids: selectedKnowledgeIds,
           generate_slides: generateSlides,
           manus_task_id: manusTaskId,
           manus_share_url: manusShareUrl
@@ -180,6 +183,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
       setGenerateSlides('')
       setManusTaskId('')
       setManusShareUrl('')
+      setManusTaskStatus('')
     }
   }
   
@@ -207,7 +211,8 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
     generateSlides, setGenerateSlides,
     manusTaskId, setManusTaskId,
     manusShareUrl, setManusShareUrl,
-    
+    manusTaskStatus, setManusTaskStatus,
+
     // Actions
     handleSaveConfig,
     handleResetToDefault,

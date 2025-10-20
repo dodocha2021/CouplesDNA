@@ -79,6 +79,7 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
     generateSlides, setGenerateSlides,
     manusTaskId, setManusTaskId,
     manusShareUrl, setManusShareUrl,
+    manusTaskStatus, setManusTaskStatus,
     debugLogs, setDebugLogs,
     handleSaveConfig,
     handleResetToDefault,
@@ -178,27 +179,68 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
 
   useEffect(() => {
     if (loadedConfig && loadedConfig.prompt_type === 'report') {
+      // 先清空 slides 状态，避免显示上一个配置的内容
+      setSlides(null);
+      setCurrentSlideIndex(0);
+      setSlideLogs([]);
+      setIsGeneratingSlides(false);
+      
+      // 处理 User Data Selection - 异步查询用户ID
       if (loadedConfig.user_data_id) {
-        const userId = userFiles.find(f => f.id === loadedConfig.user_data_id)?.user_id;
-        if (userId) {
-          setSelectedUserId(userId);
-        }
+        const fetchUserId = async () => {
+          const { data: fileData } = await supabase
+            .from('user_uploads')
+            .select('user_id')
+            .eq('id', loadedConfig.user_data_id)
+            .single();
+          
+          if (fileData) {
+            setSelectedUserId(fileData.user_id);
+          }
+        };
+        
+        fetchUserId();
       }
       
+      // 处理 Knowledge Base Selection
+      if (loadedConfig.selected_knowledge_ids && Array.isArray(loadedConfig.selected_knowledge_ids)) {
+          setSelectedKnowledgeIds(loadedConfig.selected_knowledge_ids);
+        }
+
+      // 处理 Slides
       if (loadedConfig.generate_slides) {
         try {
           const slidesData = JSON.parse(loadedConfig.generate_slides);
-          setSlides(slidesData);
+          setSlides(slidesData.files || slidesData);
+          setCurrentSlideIndex(0);
         } catch (e) {
           console.error('Failed to parse slides:', e);
         }
       }
-
+  
       if (onConfigLoaded) {
         onConfigLoaded();
       }
     }
-  }, [loadedConfig, onConfigLoaded, userFiles]);
+  }, [loadedConfig, onConfigLoaded, supabase]);
+
+  // 自动恢复轮询（如果有进行中的任务）
+useEffect(() => {
+  if (loadedConfig && loadedConfig.manus_task_status === 'pending') {
+    const taskAge = Date.now() - new Date(loadedConfig.manus_task_created_at || 0);
+    
+    // 如果任务在30分钟内，自动恢复轮询
+    if (taskAge < 30 * 60 * 1000) {
+      console.log('🔄 Resuming polling for task:', loadedConfig.manus_task_id);
+      
+      setIsGeneratingSlides(true);
+      setSlideLogs(prev => [...prev, `🔄 Resuming task monitoring for: ${loadedConfig.manus_task_id}`]);
+      
+      // 开始轮询
+      startPolling(loadedConfig.manus_task_id);
+    }
+  }
+}, [loadedConfig]);
 
   const knowledgeTree = useMemo(() => {
     const tree = {};
@@ -406,8 +448,8 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
       }
   
       const createData = await createRes.json();
-      const newTaskId = createData.id;
-      const shareUrl = createData.shareUrl;
+      const newTaskId = createData.task_id;
+      const shareUrl = createData.share_url;
   
       setTaskId(newTaskId);
       setManusTaskId(newTaskId);
@@ -469,6 +511,7 @@ const autoSaveManusInfo = async (taskId, shareUrl) => {
         model_selection: modelSelection,
         knowledge_base_id: knowledgeBaseId,
         knowledge_base_name: knowledgeBaseName,
+        selected_knowledge_ids: selectedKnowledgeIds,
         top_k_results: topK,
         strict_mode: strictMode,
         system_prompt: systemPrompt,
