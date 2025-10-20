@@ -343,67 +343,117 @@ const [manusShareUrl, setManusShareUrl] = useState(null);
   };
 
   const handleGenerateSlides = async () => {
-    if (!generatedReport) {
+  if (!generatedReport) {
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: "Please generate a report first"
+    });
+    return;
+  }
+
+  // 检查是否已有任务进行中
+  if (manusTaskId && manusTaskStatus === 'pending') {
+    const taskAge = Date.now() - new Date(loadedConfig?.manus_task_created_at || 0);
+    
+    if (taskAge < 30 * 60 * 1000) { // 30分钟内
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Please generate a report first"
+        title: "Task in Progress",
+        description: "A task is already running. Refreshing status..."
       });
+      
+      // 重新加载配置获取最新状态
+      if (loadedConfig?.id) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const response = await fetch(`/api/admin/prompt-config/${loadedConfig.id}`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`
+          }
+        });
+        const result = await response.json();
+        if (result.success) {
+          setLoadedConfig(result.data);
+        }
+      }
       return;
     }
+  }
 
-    setIsGeneratingSlides(true);
-    setSlideLogs([]);
-    setSlides(null);
-    setTaskId(null);
-    setManusShareUrl(null);
+  // 如果已有slides，显示覆盖确认
+  if (manusTaskId && generateSlides) {
+    const confirmed = window.confirm(
+      `⚠️ Overwrite Existing Slides?
 
-    try {
-      // Step 1: Create task
-      setSlideLogs(prev => [...prev, '📤 Creating Manus task...']);
-      
-      const createRes = await fetch('/api/create-slide-task', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reportContent: generatedReport,
-          reportTopic: reportTopic
-        })
-      });
+You already have slides for this report.
 
-      if (!createRes.ok) {
-        throw new Error('Failed to create task');
-      }
+Current slides:
+• Task ID: ${manusTaskId}
+• Created: ${loadedConfig?.manus_task_created_at ? new Date(loadedConfig.manus_task_created_at).toLocaleString() : 'Unknown'}
 
-      const createData = await createRes.json();
-      const newTaskId = createData.task_id;
-      const shareUrl = createData.share_url;
+Generating new slides will overwrite the previous ones.
+This action cannot be undone.
 
+Continue?`
+    );
+    
+    if (!confirmed) return;
+  }
 
-      if (!newTaskId) {
-        throw new Error('No task ID returned');
-      }
+  setIsGeneratingSlides(true);
+  setSlideLogs([]);
 
-      setTaskId(newTaskId);
-      setManusShareUrl(shareUrl);
-      setSlideLogs(prev => [...prev, `✅ Task created: ${newTaskId}`]);
-      if (shareUrl) {
-        setSlideLogs(prev => [...prev, `🔗 Share URL: ${shareUrl}`]);
-      }
+  try {
+    setSlideLogs(prev => [...prev, '📤 Creating Manus task...']);
+    
+    // Step 1: 创建 Manus 任务
+    const createRes = await fetch('/api/create-slide-task', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        reportContent: generatedReport
+      })
+    });
 
-      // Step 2: Poll for completion
-      pollSlideTask(newTaskId);
-
-    } catch (error) {
-      setSlideLogs(prev => [...prev, `❌ Error: ${error.message}`]);
-      toast({
-        variant: "destructive",
-        title: "Slide Generation Error",
-        description: error.message
-      });
-      setIsGeneratingSlides(false);
+    if (!createRes.ok) {
+      throw new Error('Failed to create slide task');
     }
-  };
+
+    const createData = await createRes.json();
+    const newTaskId = createData.id;
+    const shareUrl = createData.shareUrl;
+
+    setTaskId(newTaskId);
+    setManusTaskId(newTaskId);
+    setManusShareUrl(shareUrl);
+    
+    setSlideLogs(prev => [...prev, `✅ Task created: ${newTaskId}`]);
+    if (shareUrl) {
+      setSlideLogs(prev => [...prev, `🔗 Share URL: ${shareUrl}`]);
+    }
+
+    toast({
+      title: "Task Created",
+      description: `Slides are being generated. Task ID: ${newTaskId}`
+    });
+
+    // Step 2: 立即保存到数据库
+    await autoSaveManusInfo(newTaskId, shareUrl);
+    setSlideLogs(prev => [...prev, '💾 Saved task info to database']);
+
+    // Step 3: 开始轮询
+    pollSlideTask(newTaskId);
+
+  } catch (error) {
+    setSlideLogs(prev => [...prev, `❌ Error: ${error.message}`]);
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: error.message
+    });
+    setIsGeneratingSlides(false);
+  }
+};
 
 const pollSlideTask = async (taskId) => {
   const maxAttempts = 60; // 最多轮询60次（5分钟）
@@ -828,4 +878,3 @@ const pollSlideTask = async (taskId) => {
     </div>
   );
 }
-
