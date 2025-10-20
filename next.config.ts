@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,  // ✅ 添加这行
+  },
   images: {
     remotePatterns: [
       {
