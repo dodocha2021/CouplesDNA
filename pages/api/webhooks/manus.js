@@ -88,7 +88,8 @@ export default async function handler(req, res) {
     const { error: updateError } = await supabase
       .from('prompt_configs')
       .update({
-        generate_slides: JSON.stringify(slidesData),
+        manus_raw_output: req.body,
+        generate_slides: slidesData ? JSON.stringify(slidesData) : null,
         manus_task_status: 'completed',
         manus_task_completed_at: new Date().toISOString()
       })

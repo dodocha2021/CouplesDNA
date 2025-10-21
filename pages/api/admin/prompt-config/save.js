@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       model_selection,
       knowledge_base_id,
       knowledge_base_name,
-      selected_knowledge_ids, // 新增
+      selected_knowledge_ids,
       top_k_results,
       strict_mode,
       system_prompt,
@@ -53,7 +53,11 @@ export default async function handler(req, res) {
       generated_report,
       generate_slides,
       manus_task_id,
-      manus_share_url
+      manus_share_url,
+      manus_prompt,
+      manus_task_status,
+      manus_task_created_at,
+      manus_task_completed_at
     } = req.body
 
     // Validation based on prompt type
@@ -69,7 +73,13 @@ export default async function handler(req, res) {
           !user_prompt_template || !report_topic || !generated_report || !debug_logs) {
         return res.status(400).json({ error: '请先生成报告后再保存' })
       }
-    } else {
+    } else if (prompt_type === 'slide') {
+    if (!model_selection || !knowledge_base_id || top_k_results === undefined || 
+        strict_mode === undefined || !system_prompt || !user_prompt_template || 
+        !manus_prompt || !manus_task_id) {
+      return res.status(400).json({ error: '请先生成 slides 后再保存' })
+    }
+  } else {
       return res.status(400).json({ error: 'Invalid prompt_type' })
     }
 
@@ -91,13 +101,17 @@ export default async function handler(req, res) {
         debug_logs,
         test_question: prompt_type === 'general' ? test_question : null,
         generated_response: prompt_type === 'general' ? generated_response : null,
-        user_data_id: prompt_type === 'report' ? user_data_id : null,
-        user_data_name: prompt_type === 'report' ? user_data_name : null,
-        report_topic: prompt_type === 'report' ? report_topic : null,
-        generated_report: prompt_type === 'report' ? generated_report : null,
-        generate_slides: prompt_type === 'report' ? generate_slides : null,
-        manus_task_id: prompt_type === 'report' ? manus_task_id : null,
-        manus_share_url: prompt_type === 'report' ? manus_share_url : null,
+        user_data_id: ['report', 'slide'].includes(prompt_type) ? user_data_id : null,
+        user_data_name: ['report', 'slide'].includes(prompt_type) ? user_data_name : null,
+        report_topic: ['report', 'slide'].includes(prompt_type) ? report_topic : null,
+        generated_report: ['report', 'slide'].includes(prompt_type) ? generated_report : null,
+        generate_slides: prompt_type === 'slide' ? generate_slides : null,
+        manus_task_id: prompt_type === 'slide' ? manus_task_id : null,
+        manus_share_url: prompt_type === 'slide' ? manus_share_url : null,
+        manus_prompt: prompt_type === 'slide' ? manus_prompt : null,
+        manus_task_status: prompt_type === 'slide' ? manus_task_status : null,
+        manus_task_created_at: prompt_type === 'slide' ? manus_task_created_at : null,
+        manus_task_completed_at: prompt_type === 'slide' ? manus_task_completed_at : null,
         is_active: true,
         is_system_default: false
       })
