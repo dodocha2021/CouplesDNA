@@ -81,6 +81,7 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
     saveLoading,
   } = usePromptConfig({
     loadedConfig,
+    setLoadedConfig,
     onSaveSuccess,
     promptType: 'report'
   });
@@ -194,11 +195,10 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
         setSelectedKnowledgeIds(loadedConfig.selected_knowledge_ids);
       }
 
-      if (onConfigLoaded) {
-        onConfigLoaded();
-      }
+    
     }
   }, [loadedConfig, onConfigLoaded, supabase]);
+
   const knowledgeTree = useMemo(() => {
     const tree = {};
     knowledgeItems.forEach(item => {

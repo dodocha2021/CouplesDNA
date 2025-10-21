@@ -5,20 +5,34 @@ import PromptTestingTab from '@/components/admin/PromptTestingTab'
 import ReportGenerationTab from '@/components/admin/ReportGenerationTab'
 import SlideGenerationTab from '@/components/admin/SlideGenerationTab'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
 
 export default function PromptStudioPage() {
   const [mode, setMode] = useState('prompt')
   const [historyConfigs, setHistoryConfigs] = useState([])
-  const [selectedHistoryId, setSelectedHistoryId] = useState('')
   const [loadedConfig, setLoadedConfig] = useState(null)
   const supabase = createClientComponentClient()
+  const { toast } = useToast()
+
+  const handleNewConfiguration = () => {
+    setLoadedConfig(null);
+    
+    // 刷新历史记录（清空选择）
+    fetchHistory();
+    
+    toast({
+      title: "New Configuration",
+      description: "Started a new configuration. All fields reset to default."
+    });
+  };
 
   const fetchHistory = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      console.log('Fetching history for user:', session.user.id) // 添加这行
+      console.log('Fetching history for user:', session.user.id)
 
       const response = await fetch('/api/admin/prompt-config/history', {
         headers: {
@@ -27,7 +41,7 @@ export default function PromptStudioPage() {
       })
 
       const result = await response.json()
-      console.log('History result:', result) // 添加这行
+      console.log('History result:', result)
       
       if (result.success) {
         setHistoryConfigs(result.data)
@@ -42,6 +56,10 @@ export default function PromptStudioPage() {
   }, [])
 
   const handleLoadHistory = async (configId) => {
+    if (!configId) {
+      setLoadedConfig(null)
+      return
+    }
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
@@ -91,18 +109,15 @@ export default function PromptStudioPage() {
             Test and design prompts for different scenarios
           </p>
         </div>
-        <div className="w-96">
+        <div className="flex items-center gap-4">
+         
+          
           <select
-            value={selectedHistoryId}
-            onChange={(e) => {
-              setSelectedHistoryId(e.target.value)
-              if (e.target.value) {
-                handleLoadHistory(e.target.value)
-              }
-            }}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={loadedConfig?.id || ''}
+            onChange={(e) => handleLoadHistory(e.target.value)}
+            className="border rounded-md px-3 py-2 text-sm"
           >
-            <option value="">Load Configuration</option>
+            <option value="">-- Select History --</option>
             {historyConfigs.map(config => {
               const typeLabel = config.prompt_type === 'general' 
                 ? 'General' 
@@ -137,6 +152,7 @@ export default function PromptStudioPage() {
         <TabsContent value="prompt" className="mt-6">
           <PromptTestingTab 
             loadedConfig={loadedConfig} 
+            setLoadedConfig={setLoadedConfig}
             onConfigLoaded={() => setLoadedConfig(null)}
             onSaveSuccess={fetchHistory}
           />

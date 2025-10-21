@@ -16,7 +16,7 @@ USERDATA:
 QUESTION:
 {question}`
 
-export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'general' }) {
+export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, promptType = 'general' }) {
   const supabaseClient = createClientComponentClient()
   
   // Common fields
@@ -213,6 +213,10 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
       setManusShareUrl('')
       setManusTaskStatus('')
       setManusPrompt('Create a professional presentation with slides based on this report in english: ')
+    }
+
+    if (setLoadedConfig) {
+      setLoadedConfig(null);
     }
   }
   

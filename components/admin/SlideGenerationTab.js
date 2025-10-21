@@ -35,6 +35,7 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
     saveLoading,
   } = usePromptConfig({
     loadedConfig,
+    setLoadedConfig,
     onSaveSuccess,
     promptType: 'slide'
   });
@@ -70,7 +71,12 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
 
   // 处理加载的配置
   useEffect(() => {
-    if (loadedConfig && loadedConfig.prompt_type === 'slide') {
+    if (loadedConfig && loadedConfig.prompt_type === 'slide'&& availableConfigs.length > 0) { 
+       // 恢复源配置选择
+       if (loadedConfig.source_config_id) {
+        setSelectedConfigId(loadedConfig.source_config_id);
+      }
+      
       // 加载 Slide 配置
       const content = loadedConfig.generated_report || loadedConfig.generated_response || '';
       setReportContent(content);
@@ -86,11 +92,9 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
         }
       }
       
-      if (onConfigLoaded) {
-        onConfigLoaded();
-      }
+       
     }
-  }, [loadedConfig, onConfigLoaded]);
+  }, [loadedConfig, availableConfigs, onConfigLoaded]);
 
   // 自动恢复轮询（如果有进行中的任务）
   useEffect(() => {
@@ -107,6 +111,8 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
       }
     }
   }, [loadedConfig]);
+
+  
 
   // 处理选择配置
   const handleSelectConfig = async (configId) => {
@@ -209,19 +215,51 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
     }
   };
 
+  // 重置到默认值
+  const handleResetToDefault = () => {
+    setSelectedConfigId('');
+    setReportContent('');
+    setSlides(null);
+    setSlideLogs([]);
+    setCurrentSlideIndex(0);
+    setIsGeneratingSlides(false);
+    setManusTaskId('');
+    setManusShareUrl('');
+    setManusTaskStatus('');
+    setManusPrompt('Create a professional presentation with slides based on this report in english: ');
+    setLoadedConfig(null);
+    toast({
+      title: "Reset",
+      description: "Slide generation settings reset to default"
+    });
+  };
+
   // 自动保存 Slide 配置
   const autoSaveSlideConfig = async (taskId, shareUrl) => {
     try {
+      console.log('🔍 Debug - selectedConfigId:', selectedConfigId);  // ✅ 添加这行
+      console.log('🔍 Debug - availableConfigs:', availableConfigs);  // ✅ 添加这行
+   
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
-      // 获取源配置信息（如果有选择的话）
-      const sourceConfig = availableConfigs.find(c => c.id === selectedConfigId);
+      // 获取完整的源配置信息
+      let sourceConfig = null;
+      if (selectedConfigId) {
+        const { data } = await supabase
+          .from('prompt_configs')
+          .select('*')
+          .eq('id', selectedConfigId)
+          .single();
+        
+        sourceConfig = data;
+      }
       
       const configData = {
         prompt_type: 'slide',
         name: sourceConfig?.report_topic || sourceConfig?.test_question || 'Untitled Slide',
-        
+        source_config_id: loadedConfig?.source_config_id || selectedConfigId || null,
+
         // 继承自源配置（如果有）
         model_selection: loadedConfig?.model_selection || sourceConfig?.model_selection,
         knowledge_base_id: loadedConfig?.knowledge_base_id || sourceConfig?.knowledge_base_id,
@@ -350,7 +388,15 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Select value={selectedConfigId} onValueChange={handleSelectConfig}>
+          {console.log('🔍 loadedConfig:', loadedConfig)}
+          {console.log('🔍 prompt_type:', loadedConfig?.prompt_type)}
+          {console.log('🔍 Should disable?', loadedConfig?.prompt_type === 'slide')}
+          
+          <Select
+            value={selectedConfigId}
+            onValueChange={handleSelectConfig}
+            disabled={loadedConfig?.prompt_type === 'slide'}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select a configuration" />
             </SelectTrigger>
@@ -493,6 +539,13 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
           className="px-6 py-2"
         >
           {saveLoading ? 'Saving...' : 'Save Configuration'}
+        </Button>
+        <Button
+          onClick={handleResetToDefault}
+          variant="outline"
+          className="px-6 py-2"
+        >
+          Reset to Default
         </Button>
       </div>
     </div>

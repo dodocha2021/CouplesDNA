@@ -57,7 +57,8 @@ export default async function handler(req, res) {
       manus_prompt,
       manus_task_status,
       manus_task_created_at,
-      manus_task_completed_at
+      manus_task_completed_at,
+      source_config_id
     } = req.body
 
     // Validation based on prompt type
@@ -112,6 +113,7 @@ export default async function handler(req, res) {
         manus_task_status: prompt_type === 'slide' ? manus_task_status : null,
         manus_task_created_at: prompt_type === 'slide' ? manus_task_created_at : null,
         manus_task_completed_at: prompt_type === 'slide' ? manus_task_completed_at : null,
+        source_config_id: prompt_type === 'slide' ? source_config_id : null,
         is_active: true,
         is_system_default: false
       })
