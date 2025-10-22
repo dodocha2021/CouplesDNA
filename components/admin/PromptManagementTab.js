@@ -360,9 +360,9 @@ export default function PromptManagementTab() {
               </div>
             ) : slideData ? (
               <div>
-                <div className="bg-muted/50 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: '300px' }}>
+                <div className="bg-muted/50 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: '600px' }}>
                   <div style={{
-                    transform: 'scale(0.23)',
+                    transform: 'scale(0.46)',
                     transformOrigin: 'center center',
                     width: '1280px',
                     height: '720px'
@@ -624,7 +624,7 @@ export default function PromptManagementTab() {
 
       {/* Full Details Modal */}
       <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Configuration Details - {selectedConfig?.name}</DialogTitle>
           </DialogHeader>
@@ -769,7 +769,7 @@ export default function PromptManagementTab() {
 
       {/* All Slides Modal */}
       <Dialog open={slidesModalOpen} onOpenChange={setSlidesModalOpen}>
-        <DialogContent className="w-[95vw] max-w-full max-h-[90vh]">
+        <DialogContent className="w-[95vw] max-w-[95vw] max-h-[90vh] bg-background">
           <DialogHeader>
             <DialogTitle>All Slides - {selectedConfig?.name}</DialogTitle>
           </DialogHeader>
