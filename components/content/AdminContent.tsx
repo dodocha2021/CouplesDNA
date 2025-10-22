@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Users, FileText, BarChart3, Settings, Shield, Activity, Search, Filter, Eye, Edit, UserCheck, UserX, Play, RefreshCw, AlertCircle, CheckCircle, Clock, FileCode, Terminal } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import axios from 'axios'
+import PromptManagementTab from '@/components/admin/PromptManagementTab'
 
 export function AdminContent() {
   const [users, setUsers] = useState<any[]>([])
@@ -35,9 +36,7 @@ export function AdminContent() {
   const [testError, setTestError] = useState<string | null>(null)
   const [workflowProgress, setWorkflowProgress] = useState<any>(null)
   const [sessionHistory, setSessionHistory] = useState<any[]>([])
-  const [prompts, setPrompts] = useState<{[key: string]: string}>({})
   const [totalQuestions, setTotalQuestions] = useState(40)
-  const [promptsLoading, setPromptsLoading] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -181,90 +180,7 @@ export function AdminContent() {
     }
   }
 
-  const loadPrompts = async () => {
-    setPromptsLoading(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        console.error('No active session for loading prompts')
-        return
-      }
-
-      const response = await axios.get('/api/get-prompts', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
-      if (response.data.success) {
-        setPrompts(response.data.prompts)
-        if (response.data.totalQuestions) {
-          setTotalQuestions(response.data.totalQuestions)
-        }
-      }
-    } catch (error) {
-      console.error('Error loading prompts:', error)
-      if (error.response?.status === 401) {
-        console.error('Authentication required for loading prompts')
-      }
-    } finally {
-      setPromptsLoading(false)
-    }
-  }
-
-  const savePrompts = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        console.error('No active session for saving prompts')
-        return
-      }
-
-      const response = await axios.post('/api/save-prompts', {
-        prompts: prompts,
-        totalQuestions: totalQuestions
-      }, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
-      if (response.data.success) {
-        console.log('Prompts saved successfully')
-      }
-    } catch (error) {
-      console.error('Error saving prompts:', error)
-      if (error.response?.status === 401) {
-        console.error('Authentication required for saving prompts')
-      }
-    }
-  }
-
-  const clearPrompts = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
-        console.error('No active session for clearing prompts')
-        return
-      }
-
-      const response = await axios.post('/api/clear-prompts', {}, {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`
-        }
-      })
-      if (response.data.success) {
-        setPrompts({})
-        console.log('Prompts cleared successfully')
-      }
-    } catch (error) {
-      console.error('Error clearing prompts:', error)
-      if (error.response?.status === 401) {
-        console.error('Authentication required for clearing prompts')
-      }
-    }
-  }
-
   useEffect(() => {
-    loadPrompts()
     fetchSessionHistory()
   }, [])
 
@@ -816,84 +732,7 @@ export function AdminContent() {
 
         {/* Dev Tools Tab */}
         <TabsContent value="tools" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileCode className="h-5 w-5" />
-                Prompt Management
-              </CardTitle>
-              <CardDescription>Manage AI prompts for report generation</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium">Total Questions: {totalQuestions}</span>
-                    <span className="text-sm text-muted-foreground">
-                      Configured: {Object.keys(prompts).length}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={loadPrompts}
-                      disabled={promptsLoading}
-                    >
-                      {promptsLoading ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Reload'}
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={savePrompts}
-                    >
-                      Save
-                    </Button>
-                    <Button 
-                      variant="destructive" 
-                      size="sm" 
-                      onClick={clearPrompts}
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-                
-                <div className="p-4 bg-muted/50 rounded-lg">
-                  <h4 className="font-medium mb-2">Prompt Status Overview</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <div className="text-lg font-bold text-green-600">
-                        {Object.keys(prompts).filter(key => prompts[key]?.trim()).length}
-                      </div>
-                      <div className="text-muted-foreground">Configured</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold text-orange-600">
-                        {totalQuestions - Object.keys(prompts).filter(key => prompts[key]?.trim()).length}
-                      </div>
-                      <div className="text-muted-foreground">Missing</div>
-                    </div>
-                    <div>
-                      <div className="text-lg font-bold">
-                        {Math.round((Object.keys(prompts).filter(key => prompts[key]?.trim()).length / totalQuestions) * 100)}%
-                      </div>
-                      <div className="text-muted-foreground">Complete</div>
-                    </div>
-                    <div>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => window.open('/test-finalreport#prompts', '_blank')}
-                      >
-                        Edit Prompts
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <PromptManagementTab />
         </TabsContent>
       </Tabs>
     </div>
