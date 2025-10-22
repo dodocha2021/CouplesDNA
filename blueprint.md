@@ -676,7 +676,157 @@ BEGIN
 END $$;
 ```
 
-## 十、未来扩展
+## 十、Prompt 配置管理系统
+
+### 10.1 prompt_configs 表
+
+用于保存和管理不同类型的 Prompt 配置（General QA、Report、Slide）
+
+#### 表结构
+```sql
+CREATE TABLE prompt_configs (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  prompt_type TEXT, -- 'general', 'report', 'slide'
+  name TEXT,
+
+  -- RAG 配置
+  model_selection TEXT,
+  knowledge_base_id UUID,
+  knowledge_base_name TEXT,
+  selected_knowledge_ids UUID[],
+  top_k_results INTEGER,
+  strict_mode BOOLEAN,
+
+  -- Prompt 内容
+  system_prompt TEXT,
+  user_prompt_template TEXT,
+
+  -- General 类型特有
+  test_question TEXT,
+  generated_response TEXT,
+
+  -- Report 和 Slide 类型共享
+  user_data_id UUID,
+  user_data_name TEXT,
+  report_topic TEXT,
+  generated_report TEXT,
+
+  -- Slide 类型特有（Manus 集成）
+  generate_slides TEXT, -- JSON 格式的 slides 数据
+  manus_task_id TEXT,
+  manus_share_url TEXT,
+  manus_prompt TEXT,
+  manus_task_status TEXT, -- 'pending', 'completed', 'failed'
+  manus_task_created_at TIMESTAMPTZ,
+  manus_task_completed_at TIMESTAMPTZ,
+  manus_raw_output JSONB, -- 完整的 webhook 响应
+  source_config_id UUID, -- 继承自哪个配置
+
+  -- 元数据
+  debug_logs TEXT,
+  is_active BOOLEAN DEFAULT true,
+  is_system_default BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 10.2 配置保存 API
+
+#### `/api/admin/prompt-config/save` (POST)
+
+**重要修复（2025-10-22）**：UUID 字段空值处理
+- **问题**：当 UUID 字段（如 `user_data_id`, `source_config_id`）接收到空字符串 `""` 时，PostgreSQL 会报错：`invalid input syntax for type uuid: ""`
+- **解决方案**：在所有可选的 UUID 和文本字段上使用 `|| null` 运算符，将空字符串转换为 `null`
+
+```javascript
+// 示例：修复后的字段处理
+user_data_id: ['report', 'slide'].includes(prompt_type) ? (user_data_id || null) : null,
+source_config_id: prompt_type === 'slide' ? (source_config_id || null) : null,
+manus_task_id: prompt_type === 'slide' ? (manus_task_id || null) : null,
+// ... 所有可选字段都应用此模式
+```
+
+**验证规则**：
+- General: 必须运行测试后才能保存（需要 `test_question` 和 `generated_response`）
+- Report: 必须生成报告后才能保存（需要 `report_topic` 和 `generated_report`）
+- Slide: 必须生成 slides 后才能保存（需要 `manus_task_id` 和 `manus_prompt`）
+
+### 10.3 Manus Webhook 集成
+
+#### `/api/webhooks/manus` (POST)
+
+**功能**：接收 Manus AI 的任务完成回调
+
+**处理流程**：
+1. 验证 `event_type === 'task_stopped'`
+2. 根据 `task_id` 查找对应的 `prompt_configs` 记录
+3. 下载 `attachments[0].url` 中的 slides JSON
+4. 更新数据库：
+   - `generate_slides`: JSON 字符串
+   - `manus_task_status`: 'completed' 或 'failed'
+   - `manus_task_completed_at`: 完成时间
+   - `manus_raw_output`: 完整的 webhook body
+
+**Webhook URL**：
+```
+https://couples-dna-git-claudecode-dodocha2021-fc3fff19.vercel.app/api/webhooks/manus
+```
+
+**重要**：确保 Vercel 部署保护（Protection）已关闭，否则 Manus 无法访问 webhook
+
+### 10.4 前端 Hook
+
+#### `hooks/usePromptConfig.js`
+
+**功能**：统一管理三种类型的 Prompt 配置状态和保存逻辑
+
+**使用方式**：
+```javascript
+const {
+  // 公共字段
+  modelSelection, knowledgeBaseId, topK, strictMode,
+  systemPrompt, userPromptTemplate, debugLogs,
+
+  // General 字段
+  testQuestion, generatedResponse,
+
+  // Report 字段
+  userDataId, reportTopic, generatedReport,
+
+  // Slide 字段
+  manusTaskId, manusShareUrl, manusTaskStatus, manusPrompt,
+
+  // 操作
+  handleSaveConfig,
+  handleResetToDefault,
+  saveLoading
+} = usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, promptType })
+```
+
+**配置继承**：
+- Slide 类型可以继承 Report 或 General 配置的所有字段
+- 通过 `source_config_id` 关联原始配置
+
+### 10.5 常见问题
+
+#### UUID 验证错误
+**症状**：点击保存时报错 `invalid input syntax for type uuid: ""`
+
+**原因**：前端传递空字符串给 UUID 类型字段
+
+**解决**：在 API 中使用 `|| null` 处理（已修复）
+
+#### Webhook 无法访问
+**症状**：Manus 报告 webhook 失败，Vercel 返回 401 或 404
+
+**解决**：
+1. 检查 Vercel 部署保护是否已关闭
+2. 确认 webhook URL 路径正确：`/api/webhooks/manus`（不是 `/api/manus/webhook`）
+3. 测试命令：`curl -X POST <webhook-url> -H "Content-Type: application/json" -d '{"event_type":"test"}'`
+
+## 十一、未来扩展
 
 - 支持更多文件格式
 - 批量上传

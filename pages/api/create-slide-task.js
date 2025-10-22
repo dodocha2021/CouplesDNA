@@ -15,7 +15,7 @@ export default async function handler(req, res) {
         'API_KEY': process.env.NEXT_PUBLIC_MANUS_API_KEY
       },
       body: JSON.stringify({
-        prompt: `Create a professional presentation with slides based on this report in english:\n\n${reportContent}`,
+        prompt: reportContent,
         taskMode: 'adaptive',
         agentProfile: 'quality',
         hideInTaskList: false,
