@@ -125,22 +125,20 @@ export default function PromptManagementTab() {
     }
   }
 
-  // Fetch slide data from JSON URL
-  const fetchSlideData = async (jsonUrl) => {
-    if (!jsonUrl) return
+  // Parse slide data from JSON string
+  const parseSlideData = async (jsonString) => {
+    if (!jsonString) return
 
     try {
       setSlideLoading(true)
       setSlideError(null)
 
-      const response = await fetch(jsonUrl)
-      if (!response.ok) throw new Error('Failed to fetch slide data')
-
-      const data = await response.json()
+      // Parse the JSON string stored in the database
+      const data = JSON.parse(jsonString)
       setSlideData(data)
       setCurrentSlideIndex(0)
     } catch (error) {
-      console.error('Error fetching slide data:', error)
+      console.error('Error parsing slide data:', error)
       setSlideError('无法加载幻灯片数据')
     } finally {
       setSlideLoading(false)
@@ -154,7 +152,7 @@ export default function PromptManagementTab() {
   // Auto-load slide data when selecting a slide config
   useEffect(() => {
     if (selectedConfig?.prompt_type === 'slide' && selectedConfig?.generate_slides) {
-      fetchSlideData(selectedConfig.generate_slides)
+      parseSlideData(selectedConfig.generate_slides)
     } else {
       setSlideData(null)
       setSlideError(null)
@@ -309,7 +307,7 @@ export default function PromptManagementTab() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fetchSlideData(selectedConfig.generate_slides)}
+                  onClick={() => parseSlideData(selectedConfig.generate_slides)}
                   className="mt-2"
                 >
                   重试
