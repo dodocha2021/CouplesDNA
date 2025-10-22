@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import PromptTestingTab from '@/components/admin/PromptTestingTab'
 import ReportGenerationTab from '@/components/admin/ReportGenerationTab'
+import SlideGenerationTab from '@/components/admin/SlideGenerationTab'
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 
 export default function PromptStudioPage() {
@@ -134,8 +135,9 @@ export default function PromptStudioPage() {
         </TabsList>
 
         <TabsContent value="prompt" className="mt-6">
-          <PromptTestingTab 
-            loadedConfig={loadedConfig} 
+          <PromptTestingTab
+            loadedConfig={loadedConfig}
+            setLoadedConfig={setLoadedConfig}
             onConfigLoaded={() => setLoadedConfig(null)}
             onSaveSuccess={fetchHistory}
           />
@@ -151,15 +153,12 @@ export default function PromptStudioPage() {
         </TabsContent>
         
         <TabsContent value="slide">
-          <Card>
-            <CardHeader>
-              <CardTitle>Slide Generation</CardTitle>
-              <CardDescription>Coming soon - Generate presentations from reports</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-500">This feature is under development.</p>
-            </CardContent>
-          </Card>
+          <SlideGenerationTab
+            loadedConfig={loadedConfig}
+            setLoadedConfig={setLoadedConfig}
+            onConfigLoaded={() => setLoadedConfig(null)}
+            onSaveSuccess={fetchHistory}
+          />
         </TabsContent>
       </Tabs>
     </div>

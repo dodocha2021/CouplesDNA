@@ -16,7 +16,7 @@ USERDATA:
 QUESTION:
 {question}`
 
-export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'general' }) {
+export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, promptType = 'general' }) {
   const supabaseClient = createClientComponentClient()
   
   // Common fields
@@ -43,6 +43,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
   const [manusTaskId, setManusTaskId] = useState('')
   const [manusShareUrl, setManusShareUrl] = useState('')
   const [manusTaskStatus, setManusTaskStatus] = useState('')
+  const [manusPrompt, setManusPrompt] = useState('Create a professional presentation with slides based on this report in english: ')
 
   const [saveLoading, setSaveLoading] = useState(false)
   
@@ -71,6 +72,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
         setManusTaskId(loadedConfig.manus_task_id || '')
         setManusShareUrl(loadedConfig.manus_share_url || '')
         setManusTaskStatus(loadedConfig.manus_task_status || '')
+        setManusPrompt(loadedConfig.manus_prompt || 'Create a professional presentation with slides based on this report in english: ')
       }
     }
   }, [loadedConfig, promptType])
@@ -112,7 +114,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
           generated_response: generatedResponse,
           selected_knowledge_ids: selectedKnowledgeIds // 新增
         }
-      } else {
+      } else if (promptType === 'report') {
         if (!modelSelection || !knowledgeBaseId || topK === undefined || 
             !userDataId || strictMode === undefined || !systemPrompt || 
             !userPromptTemplate || !reportTopic || !generatedReport || !debugLogs) {
@@ -129,6 +131,34 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
           generated_report: generatedReport,
           selected_knowledge_ids: selectedKnowledgeIds
           // ✅ 移除：generate_slides, manus_task_id, manus_share_url
+        }
+      } else if (promptType === 'slide') {
+        if (!modelSelection || !knowledgeBaseId || topK === undefined || 
+            strictMode === undefined || !systemPrompt || !userPromptTemplate || 
+            !manusPrompt || !manusTaskId) {
+          alert('Please generate slides before saving')
+          return
+        }
+        
+        configData = {
+          ...configData,
+          name: reportTopic || testQuestion || 'Untitled Slide',
+          manus_prompt: manusPrompt,
+          manus_task_id: manusTaskId,
+          manus_share_url: manusShareUrl,
+          manus_task_status: manusTaskStatus,
+          manus_task_created_at: loadedConfig?.manus_task_created_at,
+          manus_task_completed_at: loadedConfig?.manus_task_completed_at,
+          generate_slides: generateSlides,
+          
+          // 继承自 Report/General
+          user_data_id: userDataId,
+          user_data_name: userDataName,
+          report_topic: reportTopic,
+          generated_report: generatedReport,
+          test_question: testQuestion,
+          generated_response: generatedResponse,
+          selected_knowledge_ids: selectedKnowledgeIds
         }
       }
 
@@ -182,6 +212,11 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
       setManusTaskId('')
       setManusShareUrl('')
       setManusTaskStatus('')
+      setManusPrompt('Create a professional presentation with slides based on this report in english: ')
+    }
+
+    if (setLoadedConfig) {
+      setLoadedConfig(null);
     }
   }
   
@@ -210,6 +245,7 @@ export function usePromptConfig({ loadedConfig, onSaveSuccess, promptType = 'gen
     manusTaskId, setManusTaskId,
     manusShareUrl, setManusShareUrl,
     manusTaskStatus, setManusTaskStatus,
+    manusPrompt, setManusPrompt,
 
     // Actions
     handleSaveConfig,

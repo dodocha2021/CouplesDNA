@@ -62,7 +62,7 @@ const TreeItem = ({ children, ...props }) => {
   );
 };
 
-export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveSuccess }) {
+export default function PromptTestingTab({ loadedConfig, setLoadedConfig, onConfigLoaded, onSaveSuccess }) {
   const {
     modelSelection, setModelSelection,
     knowledgeBaseId, setKnowledgeBaseId,
@@ -80,6 +80,7 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
     saveLoading,
   } = usePromptConfig({
     loadedConfig,
+    setLoadedConfig,
     onSaveSuccess,
     promptType: 'general'
   });
@@ -129,9 +130,7 @@ export default function PromptTestingTab({ loadedConfig, onConfigLoaded, onSaveS
       if (loadedConfig.selected_knowledge_ids && Array.isArray(loadedConfig.selected_knowledge_ids)) {
         setSelectedKnowledgeIds(loadedConfig.selected_knowledge_ids);
       }
-      if (onConfigLoaded) {
-        onConfigLoaded();
-      }
+    
     }
   }, [loadedConfig, onConfigLoaded]);
 
