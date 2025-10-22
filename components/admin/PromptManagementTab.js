@@ -36,6 +36,10 @@ export default function PromptManagementTab() {
   // Text expansion
   const [expandedText, setExpandedText] = useState(false)
 
+  // Resizable layout states
+  const [leftPanelWidth, setLeftPanelWidth] = useState(20) // percentage
+  const [isDragging, setIsDragging] = useState(false)
+
   // Fetch all configurations
   const fetchConfigs = async () => {
     try {
@@ -139,7 +143,7 @@ export default function PromptManagementTab() {
       setCurrentSlideIndex(0)
     } catch (error) {
       console.error('Error parsing slide data:', error)
-      setSlideError('无法加载幻灯片数据')
+      setSlideError('Failed to load slide data')
     } finally {
       setSlideLoading(false)
     }
@@ -148,6 +152,47 @@ export default function PromptManagementTab() {
   useEffect(() => {
     fetchConfigs()
   }, [])
+
+  // Handle mouse drag for resizing panels
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return
+
+      const container = document.getElementById('resizable-container')
+      if (!container) return
+
+      const containerRect = container.getBoundingClientRect()
+      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100
+
+      // Constrain between 15% and 40%
+      if (newWidth >= 15 && newWidth <= 40) {
+        setLeftPanelWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+    }
+  }, [isDragging])
 
   // Auto-load slide data when selecting a slide config
   useEffect(() => {
@@ -205,7 +250,7 @@ export default function PromptManagementTab() {
         <div className="flex items-center justify-center h-full text-muted-foreground">
           <div className="text-center">
             <FileCode className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>选择一个配置查看详情</p>
+            <p>Select a configuration to view details</p>
           </div>
         </div>
       )
@@ -222,7 +267,7 @@ export default function PromptManagementTab() {
           </div>
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>Model: {model_selection}</p>
-            <p>Created: {new Date(created_at).toLocaleString('zh-CN')}</p>
+            <p>Created: {new Date(created_at).toLocaleString('en-US')}</p>
             <p>System Default: {is_system_default ? 'Yes' : 'No'}</p>
 
             {prompt_type === 'general' && selectedConfig.test_question && (
@@ -264,7 +309,7 @@ export default function PromptManagementTab() {
                   className="mt-2 p-0 h-auto"
                 >
                   {expandedText ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
-                  {expandedText ? '收起' : '展开全文'}
+                  {expandedText ? 'Collapse' : 'Expand'}
                 </Button>
               )}
             </div>
@@ -286,7 +331,7 @@ export default function PromptManagementTab() {
                   className="mt-2 p-0 h-auto"
                 >
                   {expandedText ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
-                  {expandedText ? '收起' : '展开全文'}
+                  {expandedText ? 'Collapse' : 'Expand'}
                 </Button>
               )}
             </div>
@@ -310,18 +355,25 @@ export default function PromptManagementTab() {
                   onClick={() => parseSlideData(selectedConfig.generate_slides)}
                   className="mt-2"
                 >
-                  重试
+                  Retry
                 </Button>
               </div>
             ) : slideData ? (
               <div>
-                <div className="bg-muted/50 rounded-lg overflow-hidden" style={{ height: '300px' }}>
-                  <iframe
-                    srcDoc={slideData.files?.[0]?.content || ''}
-                    className="w-full h-full"
-                    sandbox="allow-same-origin"
-                    title="Slide Preview"
-                  />
+                <div className="bg-muted/50 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: '300px' }}>
+                  <div style={{
+                    transform: 'scale(0.23)',
+                    transformOrigin: 'center center',
+                    width: '1280px',
+                    height: '720px'
+                  }}>
+                    <iframe
+                      srcDoc={slideData.files?.[0]?.content || ''}
+                      style={{ width: '1280px', height: '720px', border: 'none' }}
+                      sandbox="allow-same-origin"
+                      title="Slide Preview"
+                    />
+                  </div>
                 </div>
                 <div className="mt-2 text-sm text-muted-foreground">
                   <p>Total Slides: {slideData.slide_ids?.length || 0}</p>
@@ -389,7 +441,7 @@ export default function PromptManagementTab() {
             <Star className="h-5 w-5" />
             System Default Configuration
           </CardTitle>
-          <CardDescription>设置系统默认配置，用于不同场景的模板</CardDescription>
+          <CardDescription>Configure system default templates for different scenarios</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
@@ -397,7 +449,7 @@ export default function PromptManagementTab() {
               <label className="text-sm font-medium mb-2 block">General:</label>
               <Select value={defaultGeneral} onValueChange={setDefaultGeneral}>
                 <SelectTrigger>
-                  <SelectValue placeholder="请选择" />
+                  <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
                   {generalConfigs.map(config => (
@@ -413,7 +465,7 @@ export default function PromptManagementTab() {
               <label className="text-sm font-medium mb-2 block">Report:</label>
               <Select value={defaultReport} onValueChange={setDefaultReport}>
                 <SelectTrigger>
-                  <SelectValue placeholder="请选择" />
+                  <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
                   {reportConfigs.map(config => (
@@ -429,7 +481,7 @@ export default function PromptManagementTab() {
               <label className="text-sm font-medium mb-2 block">Slide:</label>
               <Select value={defaultSlide} onValueChange={setDefaultSlide}>
                 <SelectTrigger>
-                  <SelectValue placeholder="请选择" />
+                  <SelectValue placeholder="Select" />
                 </SelectTrigger>
                 <SelectContent>
                   {slideConfigs.map(config => (
@@ -467,9 +519,9 @@ export default function PromptManagementTab() {
           <CardTitle>All Configurations</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-12 gap-4">
+          <div id="resizable-container" className="flex relative" style={{ minHeight: '500px' }}>
             {/* Left sidebar - Config list */}
-            <div className="col-span-4 border-r pr-4">
+            <div style={{ width: `${leftPanelWidth}%` }} className="pr-4">
               <Tabs value={selectedTab} onValueChange={(value) => {
                 setSelectedTab(value)
                 setSelectedConfig(null)
@@ -490,7 +542,7 @@ export default function PromptManagementTab() {
                 <TabsContent value="general" className="space-y-2 mt-4">
                   {generalConfigs.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>暂无配置</p>
+                      <p>No configurations</p>
                       <Button
                         variant="outline"
                         size="sm"
@@ -498,7 +550,7 @@ export default function PromptManagementTab() {
                         className="mt-2"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        创建配置
+                        Create Configuration
                       </Button>
                     </div>
                   ) : (
@@ -509,7 +561,7 @@ export default function PromptManagementTab() {
                 <TabsContent value="report" className="space-y-2 mt-4">
                   {reportConfigs.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>暂无配置</p>
+                      <p>No configurations</p>
                       <Button
                         variant="outline"
                         size="sm"
@@ -517,7 +569,7 @@ export default function PromptManagementTab() {
                         className="mt-2"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        创建配置
+                        Create Configuration
                       </Button>
                     </div>
                   ) : (
@@ -528,7 +580,7 @@ export default function PromptManagementTab() {
                 <TabsContent value="slide" className="space-y-2 mt-4">
                   {slideConfigs.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
-                      <p>暂无配置</p>
+                      <p>No configurations</p>
                       <Button
                         variant="outline"
                         size="sm"
@@ -536,7 +588,7 @@ export default function PromptManagementTab() {
                         className="mt-2"
                       >
                         <Plus className="h-4 w-4 mr-2" />
-                        创建配置
+                        Create Configuration
                       </Button>
                     </div>
                   ) : (
@@ -546,8 +598,24 @@ export default function PromptManagementTab() {
               </Tabs>
             </div>
 
+            {/* Draggable divider */}
+            <div
+              className={`w-1 bg-border hover:bg-primary transition-colors cursor-col-resize flex items-center justify-center group relative ${isDragging ? 'bg-primary' : ''}`}
+              onMouseDown={handleMouseDown}
+            >
+              <div className="absolute inset-y-0 flex items-center justify-center w-4 -translate-x-1/2 left-1/2">
+                <div className="flex flex-col gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                </div>
+              </div>
+            </div>
+
             {/* Right panel - Config details */}
-            <div className="col-span-8">
+            <div style={{ width: `${100 - leftPanelWidth}%` }} className="pl-4">
               {renderDetailPanel()}
             </div>
           </div>
@@ -564,7 +632,7 @@ export default function PromptManagementTab() {
             <div className="space-y-4">
               <Tabs defaultValue="basic">
                 <TabsList>
-                  <TabsTrigger value="basic">基本信息</TabsTrigger>
+                  <TabsTrigger value="basic">Basic Info</TabsTrigger>
                   <TabsTrigger value="prompts">Prompts</TabsTrigger>
                   <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
                   <TabsTrigger value="result">Generated Result</TabsTrigger>
@@ -590,11 +658,11 @@ export default function PromptManagementTab() {
                     </div>
                     <div>
                       <p className="font-medium">Created:</p>
-                      <p className="text-muted-foreground">{new Date(selectedConfig.created_at).toLocaleString('zh-CN')}</p>
+                      <p className="text-muted-foreground">{new Date(selectedConfig.created_at).toLocaleString('en-US')}</p>
                     </div>
                     <div>
                       <p className="font-medium">Updated:</p>
-                      <p className="text-muted-foreground">{new Date(selectedConfig.updated_at).toLocaleString('zh-CN')}</p>
+                      <p className="text-muted-foreground">{new Date(selectedConfig.updated_at).toLocaleString('en-US')}</p>
                     </div>
                   </div>
                 </TabsContent>
@@ -701,7 +769,7 @@ export default function PromptManagementTab() {
 
       {/* All Slides Modal */}
       <Dialog open={slidesModalOpen} onOpenChange={setSlidesModalOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh]">
+        <DialogContent className="w-[95vw] max-w-full max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>All Slides - {selectedConfig?.name}</DialogTitle>
           </DialogHeader>
@@ -741,13 +809,20 @@ export default function PromptManagementTab() {
                 )}
               </div>
 
-              <div className="bg-muted/50 rounded-lg overflow-hidden" style={{ height: '600px' }}>
-                <iframe
-                  srcDoc={slideData.files?.[currentSlideIndex]?.content || ''}
-                  className="w-full h-full"
-                  sandbox="allow-same-origin"
-                  title={`Slide ${currentSlideIndex + 1}`}
-                />
+              <div className="bg-muted/50 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: '600px' }}>
+                <div style={{
+                  transform: 'scale(0.46)',
+                  transformOrigin: 'center center',
+                  width: '1280px',
+                  height: '720px'
+                }}>
+                  <iframe
+                    srcDoc={slideData.files?.[currentSlideIndex]?.content || ''}
+                    style={{ width: '1280px', height: '720px', border: 'none' }}
+                    sandbox="allow-same-origin"
+                    title={`Slide ${currentSlideIndex + 1}`}
+                  />
+                </div>
               </div>
             </div>
           )}
