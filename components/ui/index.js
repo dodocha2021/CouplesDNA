@@ -15,3 +15,4 @@ export {
   AlertDialogAction,
   AlertDialogCancel
 } from '../../src/components/ui/alert-dialog';
+export { default as MultiSelect } from './multi-select';
