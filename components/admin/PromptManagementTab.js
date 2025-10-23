@@ -414,7 +414,7 @@ export default function PromptManagementTab() {
           </Button>
           <Button
             variant="outline"
-            onClick={() => router.push(`/admin/prompt-studio?id=${selectedConfig.id}`)}
+            onClick={() => window.open(`/admin/prompt-studio?id=${selectedConfig.id}`, '_blank')}
           >
             <ExternalLink className="h-4 w-4 mr-2" />
             Edit in Studio
@@ -624,7 +624,7 @@ export default function PromptManagementTab() {
 
       {/* Full Details Modal */}
       <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-background">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900">
           <DialogHeader>
             <DialogTitle>Configuration Details - {selectedConfig?.name}</DialogTitle>
           </DialogHeader>
@@ -769,7 +769,7 @@ export default function PromptManagementTab() {
 
       {/* All Slides Modal */}
       <Dialog open={slidesModalOpen} onOpenChange={setSlidesModalOpen}>
-        <DialogContent className="w-[95vw] max-w-[95vw] max-h-[90vh] bg-background">
+        <DialogContent className="w-[95vw] max-w-[95vw] max-h-[90vh] bg-white dark:bg-gray-900">
           <DialogHeader>
             <DialogTitle>All Slides - {selectedConfig?.name}</DialogTitle>
           </DialogHeader>
