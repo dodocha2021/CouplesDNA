@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import PromptTestingTab from '@/components/admin/PromptTestingTab'
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 
 export default function PromptStudioPage() {
+  const router = useRouter()
   const [mode, setMode] = useState('prompt')
   const [historyConfigs, setHistoryConfigs] = useState([])
   const [loadedConfig, setLoadedConfig] = useState(null)
@@ -54,6 +56,14 @@ export default function PromptStudioPage() {
   useEffect(() => {
     fetchHistory()
   }, [])
+
+  // Auto-load config from URL parameter
+  useEffect(() => {
+    if (router.isReady && router.query.id) {
+      const configId = router.query.id
+      handleLoadHistory(configId)
+    }
+  }, [router.isReady, router.query.id])
 
   const handleLoadHistory = async (configId) => {
     if (!configId) {

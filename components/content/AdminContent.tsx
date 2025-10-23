@@ -100,8 +100,9 @@ export function AdminContent() {
         profiles:user_id(full_name, email)
       `)
       .eq('prompt_type', 'report')
+      .eq('is_active', true)
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(5)
 
     if (error) {
       console.error('Error fetching report configs:', error)
@@ -118,8 +119,9 @@ export function AdminContent() {
         profiles:user_id(full_name, email)
       `)
       .eq('prompt_type', 'slide')
+      .eq('is_active', true)
       .order('created_at', { ascending: false })
-      .limit(10)
+      .limit(5)
 
     if (error) {
       console.error('Error fetching slide configs:', error)
@@ -145,11 +147,13 @@ export function AdminContent() {
         .from('prompt_configs')
         .select('*', { count: 'exact', head: true })
         .eq('prompt_type', 'report')
+        .eq('is_active', true)
 
       const { count: totalSlides } = await supabase
         .from('prompt_configs')
         .select('*', { count: 'exact', head: true })
         .eq('prompt_type', 'slide')
+        .eq('is_active', true)
 
       setStats({
         totalUsers: totalUsers || 0,
@@ -332,7 +336,7 @@ export function AdminContent() {
 
     const { error } = await supabase
       .from('prompt_configs')
-      .delete()
+      .update({ is_active: false })
       .eq('id', configId)
 
     if (error) {
@@ -498,7 +502,7 @@ export function AdminContent() {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs"
-                            onClick={() => window.location.href = `/admin/prompt-studio?id=${config.id}`}
+                            onClick={() => window.open(`/admin/prompt-studio?id=${config.id}`, '_blank')}
                           >
                             View
                           </Button>
@@ -571,7 +575,7 @@ export function AdminContent() {
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs"
-                            onClick={() => window.location.href = `/admin/prompt-studio?id=${config.id}`}
+                            onClick={() => window.open(`/admin/prompt-studio?id=${config.id}`, '_blank')}
                           >
                             View
                           </Button>
