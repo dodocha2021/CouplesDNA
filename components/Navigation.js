@@ -5,6 +5,7 @@ import { LoginDialog } from "./auth/LoginDialog";
 import { SignupDialog } from "./auth/SignupDialog";
 import { supabase } from "../lib/supabase";
 import { useRouter } from "next/router";
+import { Moon, Sun } from "lucide-react";
 
 /* =========================================================
    Main Navigation component (with Sign In & Sign Up dialogs)
@@ -38,6 +39,7 @@ export default function Navigation({
   const [openSignIn, setOpenSignIn] = useState(false);
   const [openSignUp, setOpenSignUp] = useState(false);
   const [user, setUser] = useState(null);
+  const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
     // Check for existing session
@@ -56,6 +58,28 @@ export default function Navigation({
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    // Check for saved theme preference or system preference
+    const savedTheme = localStorage.getItem('theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+      setIsDark(true);
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  const toggleDarkMode = () => {
+    setIsDark(!isDark);
+    if (!isDark) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -63,7 +87,7 @@ export default function Navigation({
 
   return (
     <>
-      <nav className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <nav className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center gap-2">
@@ -72,10 +96,23 @@ export default function Navigation({
                 alt={`${brandName} logo`}
                 className="size-7 object-contain"
               />
-              <h1 className="text-base font-bold md:text-xl text-foreground">{brandName}</h1>
+              <h1 className="text-lg font-bold md:text-2xl text-foreground">{brandName}</h1>
             </div>
 
             <div className="flex items-center gap-3">
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={toggleDarkMode}
+                className="p-2 rounded-md hover:bg-muted transition-colors"
+                aria-label="Toggle dark mode"
+              >
+                {isDark ? (
+                  <Sun className="h-5 w-5 text-foreground" />
+                ) : (
+                  <Moon className="h-5 w-5 text-foreground" />
+                )}
+              </button>
+
               {user ? (
                 <div className="flex items-center gap-3">
                   <span className="text-sm text-muted-foreground">
