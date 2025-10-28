@@ -63,62 +63,66 @@ export default function Navigation({
 
   return (
     <>
-      <div className="flex w-full items-center justify-between mb-16">
-        <div className="flex items-center gap-2">
-          <ImageWithFallback
-            src={logoSrc}
-            alt={`${brandName} logo`}
-            className="size-7 object-contain"
-          />
-          <h1 className="text-base font-bold md:text-xl">{brandName}</h1>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {user ? (
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-600">
-                {user.user_metadata?.full_name || user.email}
-              </span>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => router.push('/dashboard')}
-              >
-                Dashboard
-              </Button>
-              <Button
-                variant="secondary"
-                size="md"
-                onClick={handleLogout}
-              >
-                Logout
-              </Button>
+      <nav className="w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-2">
+              <ImageWithFallback
+                src={logoSrc}
+                alt={`${brandName} logo`}
+                className="size-7 object-contain"
+              />
+              <h1 className="text-base font-bold md:text-xl text-foreground">{brandName}</h1>
             </div>
-          ) : (
-            <>
-              {/* Login: Primary button, opens the login dialog */}
-              <Button
-                variant="primary"
-                size="md"
-                className="w-24 md:w-32"
-                onClick={() => setOpenSignIn(true)}
-              >
-                {loginButtonText}
-              </Button>
 
-              {/* Sign up: Secondary button, opens the registration dialog */}
-              <Button
-                variant="secondary"
-                size="md"
-                className="w-24 md:w-32"
-                onClick={() => setOpenSignUp(true)}
-              >
-                {signUpButtonText}
-              </Button>
-            </>
-          )}
+            <div className="flex items-center gap-3">
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-muted-foreground">
+                    {user.user_metadata?.full_name || user.email}
+                  </span>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => router.push('/dashboard')}
+                  >
+                    Dashboard
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* Login: Primary button, opens the login dialog */}
+                  <Button
+                    variant="primary"
+                    size="md"
+                    className="w-24 md:w-32"
+                    onClick={() => setOpenSignIn(true)}
+                  >
+                    {loginButtonText}
+                  </Button>
+
+                  {/* Sign up: Secondary button, opens the registration dialog */}
+                  <Button
+                    variant="secondary"
+                    size="md"
+                    className="w-24 md:w-32"
+                    onClick={() => setOpenSignUp(true)}
+                  >
+                    {signUpButtonText}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      </nav>
 
       {/* New shadcn/ui login dialog */}
       <LoginDialog

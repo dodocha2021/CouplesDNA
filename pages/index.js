@@ -1,211 +1,194 @@
 import React from 'react';
-import { Dialog as ConfirmDialog } from '@/components/ui/dialog';
 import Navigation from '../components/Navigation';
-import Hero from '../components/Hero';
-import { useTeamChat } from '../hooks/useTeamChat';
-import { useFileUpload } from '../hooks/useFileUpload';
-import { useReportGenerator } from '../hooks/useReportGenerator';
-import { defaultWelcome } from '../config/chatDefaults';
-
-
-
-
-
-
-
-
-
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 function Home() {
-  const {
-    teamMembers,
-    selectedMember,
-    messages,
-    input,
-    isLoading,
-    sessionId,
-    deleting,
-    setInput,
-    handleSubmit,
-    handleMemberSelect,
-    handleDeleteChat,
-    setMessages,
-    setSessionId,
-  } = useTeamChat();
-
-  const { uploading, fileInputRef, handleFileChange } = useFileUpload({
-    onFileUploaded: (fileMessage, success) => {
-      setMessages(prev => [...prev, fileMessage]);
-    }
-  });
-
-  const { generatingReport, reportProgress, handleGenerateReport } = useReportGenerator({
-    sessionId,
-    setSessionId
-  });
-
-  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
-
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen bg-background">
       {/* Navigation */}
       <Navigation />
 
-      {/* Global hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{
-          display: 'none',
-          position: 'absolute',
-          left: '-9999px'
-        }}
-        onChange={handleFileChange}
-        disabled={uploading || isLoading}
-        accept="*/*"
-      />
-
       {/* Hero Section */}
-      <Hero 
-        teamMembers={teamMembers}
-        selectedMember={selectedMember}
-        messages={messages}
-        input={input}
-        isLoading={isLoading}
-        uploading={uploading}
-        onMemberSelect={handleMemberSelect}
-        onSubmit={handleSubmit}
-        onInputChange={(e) => setInput(e.target.value)}
-        onFileUpload={() => {
-          if (fileInputRef.current) {
-            fileInputRef.current.click();
-          }
-        }}
-        fileInputRef={fileInputRef}
-handleDeleteChat={handleDeleteChat}
-        deleting={deleting}
-      />
+      <section className="py-16 md:py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <Card className="min-h-[500px] flex items-center justify-center transition-all duration-200 hover:shadow-md hover:scale-[1.01]">
+            <CardContent className="w-full max-w-3xl mx-auto space-y-8 py-16 px-6">
+              {/* H1 Title Placeholder */}
+              <div className="h-20 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                <span className="text-sm text-muted-foreground font-medium">Heading</span>
+              </div>
 
-      {/* Features Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-gray-900 mb-4">What You Miss</h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Most couples never see these deeper currents that flow through their daily interactions.
-            </p>
-          </div>
+              {/* Subtitle Placeholder */}
+              <div className="h-16 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                <span className="text-sm text-muted-foreground font-medium">Subheading</span>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="text-center p-6">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">💕</span>
+              {/* CTA Button Group Placeholder */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <div className="h-12 w-full sm:w-48 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                  <span className="text-sm text-muted-foreground font-medium">Primary CTA</span>
+                </div>
+                <div className="h-12 w-full sm:w-48 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                  <span className="text-sm text-muted-foreground font-medium">Secondary CTA</span>
+                </div>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Subtle ways love is expressed and received</h3>
-            </div>
-            <div className="text-center p-6">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🔄</span>
+
+              {/* Trust Indicators Placeholder */}
+              <div className="h-10 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                <span className="text-sm text-muted-foreground font-medium">Trust Indicators</span>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Recurring patterns that create distance</h3>
-            </div>
-            <div className="text-center p-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">💪</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Hidden strengths in your communication</h3>
-            </div>
-            <div className="text-center p-6">
-              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🎯</span>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Emotional triggers and repair opportunities</h3>
-            </div>
-          </div>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-r from-blue-600 to-purple-600">
-        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-white mb-4">
-            Ready to Decode Your Relationship?
-          </h2>
-          <p className="text-xl text-blue-100 mb-8">
-            Join thousands of couples who&apos;ve discovered deeper connection, better communication, and lasting love through CouplesDNA.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button 
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-white text-blue-600 hover:bg-gray-100 h-12 px-8"
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.click();
-                }
-              }}
-              disabled={uploading}
-            >
-              {uploading ? 'Uploading...' : 'Upload Your Conversation'}
-            </button>
-            <button 
-              className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-500 text-white hover:bg-blue-600 h-12 px-8"
-              onClick={handleGenerateReport}
-              disabled={generatingReport}
-            >
-              {generatingReport ? (reportProgress || 'Generating...') : 'Generate Report'}
-            </button>
+      {/* Features Section */}
+      <section className="py-16 md:py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Section Title */}
+          <h2 className="text-3xl font-bold text-center mb-12 text-foreground">Features</h2>
+
+          {/* Features Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((index) => (
+              <Card key={index} className="transition-all duration-200 hover:shadow-md hover:scale-[1.02]">
+                <CardHeader className="space-y-4">
+                  {/* Icon Placeholder */}
+                  <div className="w-12 h-12 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center mx-auto">
+                    <span className="text-xs text-muted-foreground font-medium">Icon</span>
+                  </div>
+
+                  {/* Title Placeholder */}
+                  <div className="h-8 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground font-medium">Feature Title</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Description Placeholder */}
+                  <div className="h-20 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground font-medium">Description</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
-          <div className="flex justify-center items-center gap-6 mt-6 text-blue-100">
-            <span>✓ Secure upload</span>
-            <span>✓ Privacy guaranteed</span>
-            <span>✓ Results in 24 hours</span>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-16 md:py-20 px-4 bg-muted/20">
+        <div className="max-w-7xl mx-auto">
+          {/* Section Title */}
+          <h2 className="text-3xl font-bold text-center mb-12 text-foreground">How It Works</h2>
+
+          {/* Steps Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[1, 2, 3].map((step) => (
+              <Card key={step} className="transition-all duration-200 hover:shadow-md hover:scale-[1.02]">
+                <CardHeader className="space-y-4">
+                  {/* Step Number Badge */}
+                  <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center mx-auto text-xl font-bold">
+                    {step}
+                  </div>
+
+                  {/* Step Title Placeholder */}
+                  <div className="h-8 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground font-medium">Step Title</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Step Description Placeholder */}
+                  <div className="h-24 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground font-medium">Step Description</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section className="py-16 md:py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Section Title */}
+          <h2 className="text-3xl font-bold text-center mb-12 text-foreground">Testimonials</h2>
+
+          {/* Testimonials Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((index) => (
+              <Card key={index} className="transition-all duration-200 hover:shadow-md hover:scale-[1.02]">
+                <CardHeader className="space-y-4">
+                  {/* Avatar Placeholder */}
+                  <div className="w-16 h-16 bg-muted/30 backdrop-blur-sm rounded-full flex items-center justify-center mx-auto">
+                    <span className="text-xs text-muted-foreground font-medium">Avatar</span>
+                  </div>
+
+                  {/* Name Placeholder */}
+                  <div className="h-6 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground font-medium">Name</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {/* Testimonial Content Placeholder */}
+                  <div className="h-32 bg-muted/30 backdrop-blur-sm rounded-md flex items-center justify-center">
+                    <span className="text-xs text-muted-foreground font-medium">Testimonial</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="py-16 md:py-20 px-4">
+        <div className="max-w-4xl mx-auto">
+          <Card className="bg-primary text-primary-foreground transition-all duration-200 hover:shadow-md hover:scale-[1.01]">
+            <CardContent className="py-16 px-6 space-y-8">
+              {/* CTA Title Placeholder */}
+              <div className="h-16 bg-primary-foreground/10 backdrop-blur-sm rounded-md flex items-center justify-center">
+                <span className="text-sm font-medium">CTA Heading</span>
+              </div>
+
+              {/* CTA Subtitle Placeholder */}
+              <div className="h-12 bg-primary-foreground/10 backdrop-blur-sm rounded-md flex items-center justify-center">
+                <span className="text-sm font-medium">CTA Subheading</span>
+              </div>
+
+              {/* CTA Button Group Placeholder */}
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <div className="h-12 w-full sm:w-48 bg-primary-foreground/10 backdrop-blur-sm rounded-md flex items-center justify-center">
+                  <span className="text-sm font-medium">Button</span>
+                </div>
+                <div className="h-12 w-full sm:w-48 bg-primary-foreground/10 backdrop-blur-sm rounded-md flex items-center justify-center">
+                  <span className="text-sm font-medium">Button</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      <footer className="bg-card border-t border-border py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h3 className="text-xl font-semibold mb-2">CouplesDNA</h3>
-            <p className="text-gray-400 mb-6">
+            <h3 className="text-xl font-semibold mb-2 text-foreground">CouplesDNA</h3>
+            <p className="text-muted-foreground mb-6">
               Helping couples build stronger, more connected relationships through the power of conversation analysis.
             </p>
-            <div className="flex justify-center space-x-6 text-sm text-gray-400">
-              <a href="#" className="hover:text-white">Privacy Policy</a>
-              <a href="#" className="hover:text-white">Terms of Service</a>
-              <a href="#" className="hover:text-white">Contact</a>
+            <div className="flex justify-center space-x-6 text-sm text-muted-foreground">
+              <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
+              <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
+              <a href="#" className="hover:text-foreground transition-colors">Contact</a>
             </div>
           </div>
         </div>
       </footer>
-
-      {/* Delete confirmation dialog */}
-      {showDeleteConfirm && (
-        <ConfirmDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
-          <div className="p-6">
-            <h4 className="text-lg font-semibold mb-2">Delete All Chat History</h4>
-            <p className="mb-4">Are you sure you want to delete all chat history? This action cannot be undone.</p>
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-4 py-2 rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleting}
-              >Cancel</button>
-              <button
-                className="px-4 py-2 rounded bg-red-600 hover:bg-red-700 text-white"
-                onClick={async () => {
-                  await handleDeleteChat();
-                  setShowDeleteConfirm(false);
-                }}
-                disabled={deleting}
-              >{deleting ? 'Deleting...' : 'Delete'}</button>
-            </div>
-          </div>
-        </ConfirmDialog>
-      )}
     </div>
   );
 }
 
-export default Home; 
+export default Home;
