@@ -34,7 +34,7 @@ export default function DashboardContent() {
         setIsLoadingFiles(false);
         return;
       }
-      const { data, error } = await supabase.from('user_uploads').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      const { data, error } = await supabase.from('user_uploads').select('*').eq('user_id', user.id).eq('is_active', true).order('created_at', { ascending: false });
       if (error) {
         console.error('Error fetching files:', error);
       } else {
@@ -118,8 +118,37 @@ export default function DashboardContent() {
   };
 
   const handleDelete = async (fileId: string) => {
-    const { error } = await supabase.from('user_uploads').delete().eq('id', fileId);
-    if (error) console.error("Delete failed:", error);
+    if (!confirm('Are you sure you want to delete this file? This will also remove all related chat vectors.')) {
+      return;
+    }
+
+    try {
+      // Soft delete the user_uploads record
+      const { error: uploadError } = await supabase
+        .from('user_uploads')
+        .update({ is_active: false })
+        .eq('id', fileId);
+
+      if (uploadError) {
+        console.error("Failed to delete upload:", uploadError);
+        alert('Failed to delete file. Please try again.');
+        return;
+      }
+
+      // Cascade soft delete to chat_log_vectors
+      const { error: vectorError } = await supabase
+        .from('chat_log_vectors')
+        .update({ is_active: false })
+        .eq('metadata->>file_id', fileId);
+
+      if (vectorError) {
+        console.error("Failed to delete vectors:", vectorError);
+        // Note: Upload is already soft deleted, vectors may need manual cleanup
+      }
+    } catch (error) {
+      console.error("Delete operation failed:", error);
+      alert('An error occurred during deletion.');
+    }
   };
   
   const renderStatusIcon = (status: UploadedFile['status']) => {

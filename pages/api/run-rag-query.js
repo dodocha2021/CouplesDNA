@@ -66,6 +66,16 @@ async function handleReportMode(req, res) {
     throw new Error("Missing userData configuration in reportConfig.");
   }
 
+  // Validate that at least one user file is selected
+  if (!reportConfig.userData.selectedFileIds || reportConfig.userData.selectedFileIds.length === 0) {
+    throw new Error("At least one user data file must be selected.");
+  }
+
+  // Validate that at least one knowledge file is selected (scope)
+  if (!scope || !Array.isArray(scope) || scope.length === 0) {
+    throw new Error("At least one knowledge base file must be selected.");
+  }
+
   // 1. Vectorize question
   log('[1/5] Vectorizing question...');
   const questionEmbedding = await generateEmbedding(question);

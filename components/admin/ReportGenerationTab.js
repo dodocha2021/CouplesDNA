@@ -112,17 +112,18 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
         .from('knowledge_uploads')
         .select('*')
         .eq('status', 'completed')
+        .eq('is_active', true)
         .order('updated_at', { ascending: false });
-      
+
       if (knowledgeData) setKnowledgeItems(knowledgeData);
-      
+
       const { data: userData } = await supabase
         .from('profiles')
         .select('id, email');
-      
+
       if (userData) setUsers(userData);
     };
-    
+
     fetchData();
   }, []);
 
@@ -138,13 +139,14 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
         .select('*')
         .eq('user_id', selectedUserId)
         .eq('status', 'completed')
+        .eq('is_active', true)
         .order('created_at', { ascending: false });
-      
+
       if (error) {
         console.error('Error fetching user files:', error);
         return;
       }
-      
+
       if (data) {
         setUserFiles(data);
       }
@@ -244,10 +246,30 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
   };
   const handleGenerateReport = async () => {
     if (!reportTopic.trim()) {
-      toast({ 
-        variant: "destructive", 
-        title: "Error", 
-        description: "Please enter a report topic." 
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a report topic."
+      });
+      return;
+    }
+
+    // Validate that at least one user file is selected
+    if (selectedUserFileIds.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please select at least one user data file."
+      });
+      return;
+    }
+
+    // Validate that at least one knowledge file is selected
+    if (selectedKnowledgeIds.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please select at least one knowledge base file."
       });
       return;
     }

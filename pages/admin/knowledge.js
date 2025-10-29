@@ -122,8 +122,9 @@ const KnowledgePage = () => {
     const { data, error } = await supabase
       .from('knowledge_uploads')
       .select('id, file_name, status, metadata, created_at')
+      .eq('is_active', true)
       .order('created_at', { ascending: false });
-    
+
     if (error) {
       toast({ variant: "destructive", title: "Error fetching knowledge", description: error.message });
     } else {
@@ -138,8 +139,9 @@ const KnowledgePage = () => {
         const { data, error } = await supabase
             .from('knowledge_vectors')
             .select('id, content, metadata, created_at')
-            .eq('metadata->>file_id', fileId);
-        
+            .eq('metadata->>file_id', fileId)
+            .eq('is_active', true);
+
         if (error) throw error;
 
         const sortedChunks = (data || []).sort((a, b) => {
@@ -321,12 +323,37 @@ const KnowledgePage = () => {
   };
 
   const handleDelete = async (id) => {
-    const { error } = await supabase.from('knowledge_uploads').delete().match({ id });
-    if (error) {
-      toast({ variant: "destructive", title: "Error deleting item", description: error.message });
-    } else {
+    if (!confirm('Are you sure you want to delete this knowledge item? This will also remove all related vectors.')) {
+      return;
+    }
+
+    try {
+      // Soft delete the knowledge_uploads record
+      const { error: uploadError } = await supabase
+        .from('knowledge_uploads')
+        .update({ is_active: false })
+        .eq('id', id);
+
+      if (uploadError) {
+        toast({ variant: "destructive", title: "Error deleting item", description: uploadError.message });
+        return;
+      }
+
+      // Cascade soft delete to knowledge_vectors
+      const { error: vectorError } = await supabase
+        .from('knowledge_vectors')
+        .update({ is_active: false })
+        .eq('metadata->>file_id', id);
+
+      if (vectorError) {
+        console.error("Failed to delete vectors:", vectorError);
+        // Note: Upload is already soft deleted, vectors may need manual cleanup
+      }
+
       toast({ title: "Success", description: "Knowledge item deleted." });
       fetchKnowledge();
+    } catch (error) {
+      toast({ variant: "destructive", title: "Delete operation failed", description: error.message });
     }
   }
   

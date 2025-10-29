@@ -106,13 +106,14 @@ export default function PromptTestingTab({ loadedConfig, setLoadedConfig, onConf
         .from('knowledge_uploads')
         .select('id, file_name, file_size, metadata, updated_at, status')
         .eq('status', 'completed')
+        .eq('is_active', true)
         .order('updated_at', { ascending: false });
-      
+
       if (!error && data) {
         setKnowledgeItems(data);
       }
     };
-    
+
     fetchKnowledge();
   }, []);
   
@@ -172,10 +173,20 @@ export default function PromptTestingTab({ loadedConfig, setLoadedConfig, onConf
 
   const handleRunTest = async () => {
     if (!testQuestion.trim()) {
-      toast({ 
-        variant: "destructive", 
-        title: "Error", 
-        description: "Please enter a question." 
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter a question."
+      });
+      return;
+    }
+
+    // Validate that at least one knowledge file is selected
+    if (selectedKnowledgeIds.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please select at least one knowledge base file."
       });
       return;
     }
