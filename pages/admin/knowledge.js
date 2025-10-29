@@ -328,29 +328,22 @@ const KnowledgePage = () => {
     }
 
     try {
-      // Soft delete the knowledge_uploads record
-      const { error: uploadError } = await supabase
-        .from('knowledge_uploads')
-        .update({ is_active: false })
-        .eq('id', id);
+      // Use RPC function to handle cascade soft delete
+      const { data, error } = await supabase
+        .rpc('soft_delete_knowledge_upload', { p_upload_id: id });
 
-      if (uploadError) {
-        toast({ variant: "destructive", title: "Error deleting item", description: uploadError.message });
+      if (error) {
+        toast({ variant: "destructive", title: "Error deleting item", description: error.message });
         return;
       }
 
-      // Cascade soft delete to knowledge_vectors
-      const { error: vectorError } = await supabase
-        .from('knowledge_vectors')
-        .update({ is_active: false })
-        .eq('metadata->>file_id', id);
+      // data contains [{upload_updated: true, vectors_updated: count}]
+      const vectorsCount = data?.[0]?.vectors_updated || 0;
 
-      if (vectorError) {
-        console.error("Failed to delete vectors:", vectorError);
-        // Note: Upload is already soft deleted, vectors may need manual cleanup
-      }
-
-      toast({ title: "Success", description: "Knowledge item deleted." });
+      toast({
+        title: "Success",
+        description: `Knowledge item deleted. ${vectorsCount} related vector(s) also removed.`
+      });
       fetchKnowledge();
     } catch (error) {
       toast({ variant: "destructive", title: "Delete operation failed", description: error.message });

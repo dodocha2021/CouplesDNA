@@ -123,28 +123,19 @@ export default function DashboardContent() {
     }
 
     try {
-      // Soft delete the user_uploads record
-      const { error: uploadError } = await supabase
-        .from('user_uploads')
-        .update({ is_active: false })
-        .eq('id', fileId);
+      // Use RPC function to handle cascade soft delete
+      const { data, error } = await supabase
+        .rpc('soft_delete_user_upload', { p_upload_id: fileId });
 
-      if (uploadError) {
-        console.error("Failed to delete upload:", uploadError);
-        alert('Failed to delete file. Please try again.');
+      if (error) {
+        console.error("Failed to delete:", error);
+        alert(`Failed to delete file: ${error.message}`);
         return;
       }
 
-      // Cascade soft delete to chat_log_vectors
-      const { error: vectorError } = await supabase
-        .from('chat_log_vectors')
-        .update({ is_active: false })
-        .eq('metadata->>file_id', fileId);
-
-      if (vectorError) {
-        console.error("Failed to delete vectors:", vectorError);
-        // Note: Upload is already soft deleted, vectors may need manual cleanup
-      }
+      // data contains [{upload_updated: true, vectors_updated: count}]
+      const vectorsCount = data?.[0]?.vectors_updated || 0;
+      alert(`File deleted successfully. ${vectorsCount} related vector(s) also removed.`);
     } catch (error) {
       console.error("Delete operation failed:", error);
       alert('An error occurred during deletion.');
