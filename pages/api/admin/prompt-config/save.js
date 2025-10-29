@@ -63,22 +63,47 @@ export default async function handler(req, res) {
 
     // Validation based on prompt type
     if (prompt_type === 'general') {
-      if (!model_selection || !knowledge_base_id || top_k_results === undefined || 
-          strict_mode === undefined || !system_prompt || !user_prompt_template || 
+      if (!model_selection || !knowledge_base_id || top_k_results === undefined ||
+          strict_mode === undefined || !system_prompt || !user_prompt_template ||
           !test_question || !generated_response || !debug_logs) {
         return res.status(400).json({ error: '请先运行测试生成结果后再保存' })
       }
     } else if (prompt_type === 'report') {
-      if (!model_selection || !knowledge_base_id || top_k_results === undefined || 
-          !user_data_id || strict_mode === undefined || !system_prompt || 
+      if (!model_selection || !knowledge_base_id || top_k_results === undefined ||
+          !user_data_id || strict_mode === undefined || !system_prompt ||
           !user_prompt_template || !report_topic || !generated_report || !debug_logs) {
         return res.status(400).json({ error: '请先生成报告后再保存' })
       }
     } else if (prompt_type === 'slide') {
-    if (!model_selection || !knowledge_base_id || top_k_results === undefined || 
-        strict_mode === undefined || !system_prompt || !user_prompt_template || 
+    if (!model_selection || !knowledge_base_id || top_k_results === undefined ||
+        strict_mode === undefined || !system_prompt || !user_prompt_template ||
         !manus_prompt || !manus_task_id) {
       return res.status(400).json({ error: '请先生成 slides 后再保存' })
+    }
+
+    // Check for duplicate manus_task_id
+    const { data: existing, error: checkError } = await supabaseClient
+      .from('prompt_configs')
+      .select('id, name, created_at')
+      .eq('user_id', user.id)
+      .eq('manus_task_id', manus_task_id)
+      .maybeSingle()
+
+    if (checkError) {
+      console.error('Error checking duplicate:', checkError)
+      return res.status(500).json({ error: 'Failed to check duplicate' })
+    }
+
+    if (existing) {
+      return res.status(400).json({
+        error: 'This slide configuration has already been saved. Please generate new slides to save a new version.',
+        code: 'DUPLICATE_TASK_ID',
+        existing_config: {
+          id: existing.id,
+          name: existing.name,
+          created_at: existing.created_at
+        }
+      })
     }
   } else {
       return res.status(400).json({ error: 'Invalid prompt_type' })

@@ -172,14 +172,19 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
       })
 
       const result = await response.json()
-      
+
       if (result.success) {
         alert('Configuration saved successfully')
         if (onSaveSuccess) {
           onSaveSuccess()
         }
       } else {
-        alert(result.error || 'Failed to save')
+        // Handle duplicate task ID error with friendly message
+        if (result.code === 'DUPLICATE_TASK_ID') {
+          alert('This slide has already been saved.\n\nTo save a new version, please:\n1. Modify the Manus Prompt (if needed)\n2. Click "Generate Slides" to create new slides\n3. Then save the new configuration')
+        } else {
+          alert(result.error || 'Failed to save')
+        }
       }
     } catch (error) {
       console.error('Error saving config:', error)

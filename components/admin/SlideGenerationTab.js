@@ -535,10 +535,14 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
       <div className="flex gap-4 mt-6">
         <Button
           onClick={() => handleSaveConfig()}
-          disabled={saveLoading || !manusTaskId}
+          disabled={saveLoading || !manusTaskId || (loadedConfig && loadedConfig.manus_task_id === manusTaskId)}
           className="px-6 py-2"
         >
-          {saveLoading ? 'Saving...' : 'Save Configuration'}
+          {loadedConfig && loadedConfig.manus_task_id === manusTaskId
+            ? '✓ Already Saved'
+            : saveLoading
+            ? 'Saving...'
+            : 'Save Configuration'}
         </Button>
         <Button
           onClick={handleResetToDefault}
