@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react'; // 确保有 React
+import React, { useState, useEffect, useRef } from 'react'; // 确保有 React
 import { useSupabaseClient, useSession } from '@supabase/auth-helpers-react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Check, X } from "lucide-react";
 
 // A simple component to show when access is denied.
 const AccessDenied = () => (
@@ -37,18 +38,24 @@ const KnowledgePage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isIngestDialogOpen, setIsIngestDialogOpen] = useState(false);
-  
+
   const [newKnowledgeTitle, setNewKnowledgeTitle] = useState('');
   const [newKnowledgeContent, setNewKnowledgeContent] = useState('');
   const [newKnowledgeCategory, setNewKnowledgeCategory] = useState('General');
-  
+
   const [ingestFile, setIngestFile] = useState(null);
   const [ingestCategory, setIngestCategory] = useState('General');
 
   const { toast } = useToast();
 
-  const knowledgeCategories = ['General', 'Communication', 'Psychology', 'Relationships', 'Product FAQ'];
-  
+  // Dynamic categories from database
+  const defaultCategories = ['General', 'Communication', 'Psychology', 'Relationships', 'Product FAQ'];
+  const [availableCategories, setAvailableCategories] = useState(defaultCategories);
+
+  // Inline edit state
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editingCategory, setEditingCategory] = useState('');
+
   const [expandedFiles, setExpandedFiles] = useState({}); // { file_id: { isExpanded, chunks } }
   const [loadingChunks, setLoadingChunks] = useState({});
 
@@ -104,13 +111,15 @@ const KnowledgePage = () => {
   useEffect(() => {
     if (isAdmin) {
       fetchKnowledge();
+      fetchAvailableCategories();
       const channel = supabase
         .channel('knowledge_uploads_changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'knowledge_uploads' }, (payload) => {
           fetchKnowledge();
+          fetchAvailableCategories();
         })
         .subscribe();
-        
+
       return () => {
         supabase.removeChannel(channel);
       };
@@ -131,6 +140,31 @@ const KnowledgePage = () => {
       setKnowledge(data);
     }
     setIsLoading(false);
+  };
+
+  const fetchAvailableCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('knowledge_uploads')
+        .select('metadata')
+        .eq('is_active', true);
+
+      if (error) throw error;
+
+      // Extract unique categories
+      const categories = new Set(defaultCategories);
+      data?.forEach(item => {
+        const category = item.metadata?.category;
+        if (category && category.trim()) {
+          categories.add(category);
+        }
+      });
+
+      setAvailableCategories(Array.from(categories).sort());
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setAvailableCategories(defaultCategories);
+    }
   };
 
   const fetchChunks = async (fileId) => {
@@ -322,6 +356,57 @@ const KnowledgePage = () => {
     }
   };
 
+  const handleStartEdit = (itemId, currentCategory) => {
+    setEditingItemId(itemId);
+    setEditingCategory(currentCategory || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItemId(null);
+    setEditingCategory('');
+  };
+
+  const handleSaveCategory = async (itemId) => {
+    const trimmedCategory = editingCategory.trim();
+
+    // Validation
+    if (!trimmedCategory) {
+      toast({ variant: "destructive", title: "Error", description: "Category cannot be empty" });
+      return;
+    }
+
+    if (trimmedCategory.length > 50) {
+      toast({ variant: "destructive", title: "Error", description: "Category name must be 50 characters or less" });
+      return;
+    }
+
+    try {
+      const item = knowledge.find(k => k.id === itemId);
+      if (!item) return;
+
+      const updatedMetadata = {
+        ...item.metadata,
+        category: trimmedCategory
+      };
+
+      const { error } = await supabase
+        .from('knowledge_uploads')
+        .update({ metadata: updatedMetadata })
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      toast({ title: "Success", description: "Category updated successfully" });
+      setEditingItemId(null);
+      setEditingCategory('');
+      fetchKnowledge();
+      fetchAvailableCategories();
+    } catch (error) {
+      console.error('Error updating category:', error);
+      toast({ variant: "destructive", title: "Error", description: error.message });
+    }
+  };
+
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this knowledge item? This will also remove all related vectors.')) {
       return;
@@ -406,12 +491,19 @@ const KnowledgePage = () => {
                           onChange={(e) => setNewKnowledgeContent(e.target.value)}
                           rows={10}
                         />
-                        <Select value={newKnowledgeCategory} onValueChange={setNewKnowledgeCategory}>
-                            <SelectTrigger><SelectValue /></SelectTrigger>
-                            <SelectContent className="bg-white">
-                            {knowledgeCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                        <div>
+                          <label className="text-sm font-medium mb-2 block">Category</label>
+                          <Input
+                            list="category-datalist-add"
+                            placeholder="Select or enter category..."
+                            value={newKnowledgeCategory}
+                            onChange={(e) => setNewKnowledgeCategory(e.target.value)}
+                            maxLength={50}
+                          />
+                          <datalist id="category-datalist-add">
+                            {availableCategories.map(cat => <option key={cat} value={cat} />)}
+                          </datalist>
+                        </div>
                       </div>
                       <DialogFooter>
                           <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
@@ -430,12 +522,19 @@ const KnowledgePage = () => {
                       </DialogDescription>
                       <div className="grid gap-4 py-4">
                           <Input type="file" onChange={(e) => setIngestFile(e.target.files[0])} accept=".txt,.md,.docx,.pdf" />
-                          <Select value={ingestCategory} onValueChange={setIngestCategory}>
-                              <SelectTrigger><SelectValue /></SelectTrigger>
-                              <SelectContent className="bg-white">
-                              {knowledgeCategories.map(cat => <SelectItem key={cat} value={cat}>{cat}</SelectItem>)}
-                              </SelectContent>
-                          </Select>
+                          <div>
+                            <label className="text-sm font-medium mb-2 block">Category</label>
+                            <Input
+                              list="category-datalist-ingest"
+                              placeholder="Select or enter category..."
+                              value={ingestCategory}
+                              onChange={(e) => setIngestCategory(e.target.value)}
+                              maxLength={50}
+                            />
+                            <datalist id="category-datalist-ingest">
+                              {availableCategories.map(cat => <option key={cat} value={cat} />)}
+                            </datalist>
+                          </div>
                       </div>
                       <DialogFooter>
                           <Button variant="outline" onClick={() => setIsIngestDialogOpen(false)}>Cancel</Button>
@@ -480,7 +579,50 @@ const KnowledgePage = () => {
                             {item.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>{item.metadata?.category || 'N/A'}</TableCell>
+                        <TableCell>
+                          {editingItemId === item.id ? (
+                            <div className="flex items-center gap-2"
+                                 onKeyDown={(e) => {
+                                   if (e.key === 'Escape') handleCancelEdit();
+                                   if (e.key === 'Enter') handleSaveCategory(item.id);
+                                 }}>
+                              <Input
+                                list={`category-datalist-${item.id}`}
+                                value={editingCategory}
+                                onChange={(e) => setEditingCategory(e.target.value)}
+                                className="h-8 w-40"
+                                maxLength={50}
+                                autoFocus
+                              />
+                              <datalist id={`category-datalist-${item.id}`}>
+                                {availableCategories.map(cat => <option key={cat} value={cat} />)}
+                              </datalist>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={() => handleSaveCategory(item.id)}
+                              >
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0"
+                                onClick={handleCancelEdit}
+                              >
+                                <X className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              className="text-blue-600 hover:text-blue-800 hover:underline text-left"
+                              onClick={() => handleStartEdit(item.id, item.metadata?.category)}
+                            >
+                              {item.metadata?.category || 'N/A'}
+                            </button>
+                          )}
+                        </TableCell>
                         <TableCell>{item.metadata?.source === 'manual_entry' ? 'Manual Entry' : (item.metadata?.type || 'N/A')}</TableCell>
                         <TableCell>{new Date(item.created_at).toLocaleString()}</TableCell>
                         <TableCell className="text-right">
