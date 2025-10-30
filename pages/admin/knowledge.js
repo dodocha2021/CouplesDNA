@@ -13,7 +13,18 @@ import { Badge } from "@/components/ui/badge";
 import { Check, X, ChevronDown } from "lucide-react";
 
 // Google search box styled CategoryCombobox component
-const CategoryCombobox = ({ value, onChange, options, placeholder, maxLength = 50, className = "", autoFocus = false }) => {
+const CategoryCombobox = ({
+  value,
+  onChange,
+  options,
+  placeholder,
+  maxLength = 50,
+  className = "",
+  autoFocus = false,
+  showActions = false,
+  onSave = null,
+  onCancel = null
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const [filteredOptions, setFilteredOptions] = useState(options);
@@ -33,12 +44,15 @@ const CategoryCombobox = ({ value, onChange, options, placeholder, maxLength = 5
     const handleClickOutside = (event) => {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
         setIsOpen(false);
+        if (showActions && onCancel) {
+          onCancel();
+        }
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [showActions, onCancel]);
 
   const handleInputChange = (e) => {
     const newValue = e.target.value;
@@ -71,8 +85,18 @@ const CategoryCombobox = ({ value, onChange, options, placeholder, maxLength = 5
 
   const handleKeyDown = (e) => {
     if (e.key === 'Escape') {
+      e.preventDefault();
       setIsOpen(false);
       setHighlightedIndex(-1);
+      if (showActions && onCancel) {
+        onCancel();
+      }
+    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+      e.preventDefault();
+      handleOptionClick(filteredOptions[highlightedIndex]);
+    } else if (e.key === 'Enter' && highlightedIndex === -1 && showActions && onSave) {
+      e.preventDefault();
+      onSave();
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
       setHighlightedIndex(prev =>
@@ -81,9 +105,22 @@ const CategoryCombobox = ({ value, onChange, options, placeholder, maxLength = 5
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setHighlightedIndex(prev => prev > 0 ? prev - 1 : -1);
-    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
-      e.preventDefault();
-      handleOptionClick(filteredOptions[highlightedIndex]);
+    }
+  };
+
+  const handleSaveClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onSave) {
+      onSave();
+    }
+  };
+
+  const handleCancelClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (onCancel) {
+      onCancel();
     }
   };
 
@@ -100,9 +137,30 @@ const CategoryCombobox = ({ value, onChange, options, placeholder, maxLength = 5
           placeholder={placeholder}
           maxLength={maxLength}
           autoFocus={autoFocus}
-          className="w-full px-4 py-2.5 pr-10 text-sm border border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-sm hover:shadow-md"
+          className={`w-full px-4 py-2.5 text-sm border border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-sm hover:shadow-md ${
+            showActions ? 'pr-20' : 'pr-10'
+          }`}
         />
-        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        {showActions ? (
+          <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handleSaveClick}
+              className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <Check className="h-4 w-4 text-green-600" />
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelClick}
+              className="h-6 w-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="h-4 w-4 text-red-600" />
+            </button>
+          </div>
+        ) : (
+          <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+        )}
       </div>
       {isOpen && filteredOptions.length > 0 && (
         <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
@@ -706,40 +764,17 @@ const KnowledgePage = () => {
                         </TableCell>
                         <TableCell>
                           {editingItemId === item.id ? (
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-48"
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Escape') handleCancelEdit();
-                                  if (e.key === 'Enter' && e.target.tagName !== 'INPUT') handleSaveCategory(item.id);
-                                }}
-                              >
-                                <CategoryCombobox
-                                  value={editingCategory}
-                                  onChange={setEditingCategory}
-                                  options={availableCategories}
-                                  placeholder="Select or type category..."
-                                  maxLength={50}
-                                  autoFocus={true}
-                                />
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0"
-                                onClick={() => handleSaveCategory(item.id)}
-                              >
-                                <Check className="h-4 w-4 text-green-600" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0"
-                                onClick={handleCancelEdit}
-                              >
-                                <X className="h-4 w-4 text-red-600" />
-                              </Button>
-                            </div>
+                            <CategoryCombobox
+                              value={editingCategory}
+                              onChange={setEditingCategory}
+                              options={availableCategories}
+                              placeholder="Select or type category..."
+                              maxLength={50}
+                              autoFocus={true}
+                              showActions={true}
+                              onSave={() => handleSaveCategory(item.id)}
+                              onCancel={handleCancelEdit}
+                            />
                           ) : (
                             <button
                               className="text-blue-600 hover:text-blue-800 hover:underline text-left"
