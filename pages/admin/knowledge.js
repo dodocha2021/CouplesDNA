@@ -10,7 +10,126 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Check, X } from "lucide-react";
+import { Check, X, ChevronDown } from "lucide-react";
+
+// Google search box styled CategoryCombobox component
+const CategoryCombobox = ({ value, onChange, options, placeholder, maxLength = 50, className = "", autoFocus = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(value);
+  const [filteredOptions, setFilteredOptions] = useState(options);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const wrapperRef = useRef(null);
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    setInputValue(value);
+  }, [value]);
+
+  useEffect(() => {
+    setFilteredOptions(options);
+  }, [options]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleInputChange = (e) => {
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    onChange(newValue);
+    setIsOpen(true);
+
+    // Filter options
+    if (newValue.trim()) {
+      const filtered = options.filter(opt =>
+        opt.toLowerCase().includes(newValue.toLowerCase())
+      );
+      setFilteredOptions(filtered);
+    } else {
+      setFilteredOptions(options);
+    }
+    setHighlightedIndex(-1);
+  };
+
+  const handleOptionClick = (option) => {
+    setInputValue(option);
+    onChange(option);
+    setIsOpen(false);
+  };
+
+  const handleFocus = () => {
+    setIsOpen(true);
+    setFilteredOptions(options);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+      setHighlightedIndex(-1);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev =>
+        prev < filteredOptions.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => prev > 0 ? prev - 1 : -1);
+    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+      e.preventDefault();
+      handleOptionClick(filteredOptions[highlightedIndex]);
+    }
+  };
+
+  return (
+    <div ref={wrapperRef} className={`relative ${className}`}>
+      <div className="relative">
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onFocus={handleFocus}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          autoFocus={autoFocus}
+          className="w-full px-4 py-2.5 pr-10 text-sm border border-gray-300 rounded-full focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all shadow-sm hover:shadow-md"
+        />
+        <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+      </div>
+      {isOpen && filteredOptions.length > 0 && (
+        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
+          {filteredOptions.map((option, index) => (
+            <div
+              key={index}
+              className={`px-4 py-2.5 cursor-pointer text-sm transition-colors ${
+                index === highlightedIndex
+                  ? 'bg-gray-100'
+                  : 'hover:bg-gray-50'
+              } ${index === 0 ? 'rounded-t-lg' : ''} ${index === filteredOptions.length - 1 ? 'rounded-b-lg' : ''}`}
+              onClick={() => handleOptionClick(option)}
+              onMouseEnter={() => setHighlightedIndex(index)}
+            >
+              {option}
+            </div>
+          ))}
+        </div>
+      )}
+      {isOpen && filteredOptions.length === 0 && inputValue.trim() && (
+        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg px-4 py-2.5 text-sm text-gray-500">
+          Press Enter to create "{inputValue}"
+        </div>
+      )}
+    </div>
+  );
+};
 
 // A simple component to show when access is denied.
 const AccessDenied = () => (
@@ -41,10 +160,10 @@ const KnowledgePage = () => {
 
   const [newKnowledgeTitle, setNewKnowledgeTitle] = useState('');
   const [newKnowledgeContent, setNewKnowledgeContent] = useState('');
-  const [newKnowledgeCategory, setNewKnowledgeCategory] = useState('General');
+  const [newKnowledgeCategory, setNewKnowledgeCategory] = useState('');
 
   const [ingestFile, setIngestFile] = useState(null);
-  const [ingestCategory, setIngestCategory] = useState('General');
+  const [ingestCategory, setIngestCategory] = useState('');
 
   const { toast } = useToast();
 
@@ -125,6 +244,18 @@ const KnowledgePage = () => {
       };
     }
   }, [isAdmin, supabase]);
+
+  // Set default category when availableCategories loads
+  useEffect(() => {
+    if (availableCategories.length > 0) {
+      if (!newKnowledgeCategory) {
+        setNewKnowledgeCategory(availableCategories[0]);
+      }
+      if (!ingestCategory) {
+        setIngestCategory(availableCategories[0]);
+      }
+    }
+  }, [availableCategories]);
 
   const fetchKnowledge = async () => {
     setIsLoading(true);
@@ -493,16 +624,13 @@ const KnowledgePage = () => {
                         />
                         <div>
                           <label className="text-sm font-medium mb-2 block">Category</label>
-                          <Input
-                            list="category-datalist-add"
-                            placeholder="Select or enter category..."
+                          <CategoryCombobox
                             value={newKnowledgeCategory}
-                            onChange={(e) => setNewKnowledgeCategory(e.target.value)}
+                            onChange={setNewKnowledgeCategory}
+                            options={availableCategories}
+                            placeholder="Select or type category..."
                             maxLength={50}
                           />
-                          <datalist id="category-datalist-add">
-                            {availableCategories.map(cat => <option key={cat} value={cat} />)}
-                          </datalist>
                         </div>
                       </div>
                       <DialogFooter>
@@ -524,16 +652,13 @@ const KnowledgePage = () => {
                           <Input type="file" onChange={(e) => setIngestFile(e.target.files[0])} accept=".txt,.md,.docx,.pdf" />
                           <div>
                             <label className="text-sm font-medium mb-2 block">Category</label>
-                            <Input
-                              list="category-datalist-ingest"
-                              placeholder="Select or enter category..."
+                            <CategoryCombobox
                               value={ingestCategory}
-                              onChange={(e) => setIngestCategory(e.target.value)}
+                              onChange={setIngestCategory}
+                              options={availableCategories}
+                              placeholder="Select or type category..."
                               maxLength={50}
                             />
-                            <datalist id="category-datalist-ingest">
-                              {availableCategories.map(cat => <option key={cat} value={cat} />)}
-                            </datalist>
                           </div>
                       </div>
                       <DialogFooter>
@@ -581,22 +706,23 @@ const KnowledgePage = () => {
                         </TableCell>
                         <TableCell>
                           {editingItemId === item.id ? (
-                            <div className="flex items-center gap-2"
-                                 onKeyDown={(e) => {
-                                   if (e.key === 'Escape') handleCancelEdit();
-                                   if (e.key === 'Enter') handleSaveCategory(item.id);
-                                 }}>
-                              <Input
-                                list={`category-datalist-${item.id}`}
-                                value={editingCategory}
-                                onChange={(e) => setEditingCategory(e.target.value)}
-                                className="h-8 w-40"
-                                maxLength={50}
-                                autoFocus
-                              />
-                              <datalist id={`category-datalist-${item.id}`}>
-                                {availableCategories.map(cat => <option key={cat} value={cat} />)}
-                              </datalist>
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-48"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') handleCancelEdit();
+                                  if (e.key === 'Enter' && e.target.tagName !== 'INPUT') handleSaveCategory(item.id);
+                                }}
+                              >
+                                <CategoryCombobox
+                                  value={editingCategory}
+                                  onChange={setEditingCategory}
+                                  options={availableCategories}
+                                  placeholder="Select or type category..."
+                                  maxLength={50}
+                                  autoFocus={true}
+                                />
+                              </div>
                               <Button
                                 size="sm"
                                 variant="ghost"
