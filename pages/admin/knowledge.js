@@ -649,8 +649,8 @@ const KnowledgePage = () => {
   }
 
   return (
-    <div className="container mx-auto p-4">
-      <Card>
+    <div className="w-full min-h-screen p-4 md:p-6 lg:p-8">
+      <Card className="w-full">
           <CardHeader>
               <div className="flex justify-between items-center">
                   <div>
@@ -728,7 +728,8 @@ const KnowledgePage = () => {
                   </div>
               </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-visible">
+            <div className="w-full overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -841,6 +842,7 @@ const KnowledgePage = () => {
                 )}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
       </Card>
     </div>
