@@ -223,23 +223,22 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
       setSelectedSettingName('')
       setIsGenerateDialogOpen(false)
 
-      // Immediately trigger processing (Option C)
+      // Trigger Edge Function to process the report
       setTimeout(async () => {
         try {
-          console.log('🔄 Triggering report processing...')
-          const processResponse = await fetch('/api/process-user-reports', {
+          console.log('🔄 Triggering Edge Function to process report...')
+          const triggerResponse = await fetch('/api/trigger-report-processing', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${session.access_token}`,
               'Content-Type': 'application/json'
             }
           })
-          const processResult = await processResponse.json()
-          console.log('✅ Processing triggered:', processResult)
+          const triggerResult = await triggerResponse.json()
+          console.log('✅ Edge Function triggered:', triggerResult)
         } catch (err) {
-          console.error('⚠️  Failed to trigger processing:', err)
+          console.error('⚠️  Failed to trigger Edge Function:', err)
         }
-      }, 1000) // 延迟1秒，让数据库写入完成
+      }, 1000) // 延迟1秒，确保数据库写入完成
     } catch (err) {
       console.error("Failed to generate report:", err)
       toast({
