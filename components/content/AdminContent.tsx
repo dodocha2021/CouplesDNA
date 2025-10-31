@@ -13,6 +13,7 @@ import { Users, FileText, BarChart3, Settings, Shield, Activity, Search, Filter,
 import { supabase } from '@/lib/supabase'
 import axios from 'axios'
 import PromptManagementTab from '@/components/admin/PromptManagementTab'
+import SystemDefaultConfiguration from '@/components/admin/SystemDefaultConfiguration'
 
 export function AdminContent() {
   const [users, setUsers] = useState<any[]>([])
@@ -784,7 +785,20 @@ export function AdminContent() {
 
         {/* Dev Tools Tab */}
         <TabsContent value="tools" className="space-y-6">
-          <PromptManagementTab />
+          <Tabs defaultValue="prompt-studio" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="prompt-studio">Prompt Studio</TabsTrigger>
+              <TabsTrigger value="system-config">System Default Configuration</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="prompt-studio" className="mt-6">
+              <PromptManagementTab />
+            </TabsContent>
+
+            <TabsContent value="system-config" className="mt-6">
+              <SystemDefaultConfiguration />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
       </Tabs>
     </div>
