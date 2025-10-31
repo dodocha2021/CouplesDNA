@@ -222,6 +222,24 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
       setSelectedUploadId('')
       setSelectedSettingName('')
       setIsGenerateDialogOpen(false)
+
+      // Immediately trigger processing (Option C)
+      setTimeout(async () => {
+        try {
+          console.log('🔄 Triggering report processing...')
+          const processResponse = await fetch('/api/process-user-reports', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+          const processResult = await processResponse.json()
+          console.log('✅ Processing triggered:', processResult)
+        } catch (err) {
+          console.error('⚠️  Failed to trigger processing:', err)
+        }
+      }, 1000) // 延迟1秒，让数据库写入完成
     } catch (err) {
       console.error("Failed to generate report:", err)
       toast({
