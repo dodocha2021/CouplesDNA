@@ -1,113 +1,398 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
-import { useRouter } from 'next/router'
-import Link from 'next/link'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { FileText, Calendar, TrendingUp, Download } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from '@/components/ui/label'
+import {
+  FileText,
+  Calendar,
+  TrendingUp,
+  ThumbsUp,
+  ThumbsDown,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Loader2
+} from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { useToast } from '@/hooks/use-toast'
 
 export const MyReportsContent = React.memo(function MyReportsContent() {
-  const router = useRouter()
-  const [reports, setReports] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [reports, setReports] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  useEffect(() => {
-    const fetchReports = async () => {
-      setIsLoading(true);
-      setError(null);
+  // Generate Dialog State
+  const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false)
+  const [userUploads, setUserUploads] = useState([])
+  const [systemSettings, setSystemSettings] = useState([])
+  const [selectedUploadId, setSelectedUploadId] = useState('')
+  const [selectedSettingName, setSelectedSettingName] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
 
-      try {
-        // 1. Get current user
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
-        if (userError) throw userError;
-        if (!user) throw new Error('User not authenticated');
+  // Slide Preview State
+  const [selectedReport, setSelectedReport] = useState(null)
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
 
-        // 2. Get all records for this user from workflow_progress table
-        const { data, error } = await supabase
-          .from('workflow_progress')
-          .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at') // Select required fields
-          .eq('user_id', user.id) // 关键：按当前 user_id 筛选
-          .order('started_at', { ascending: false }) // 按开始时间降序排序
+  const { toast } = useToast()
 
-        if (error) throw error
-
-        // 3. 更新组件状态
-        setReports(data || []) // 将获取到的报告存入 state
-
-      } catch (err) {
-        console.error("获取报告失败:", err)
-        setError(err.message)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    
-    fetchReports();
-  }, [])
-
-  // Sort reports by date (newest first)
-  const sortedReports = reports.sort((a, b) => {
-    return new Date(b.started_at) - new Date(a.started_at)
-  })
-
-  // 计算统计数据
-  const totalReports = reports.length
-  const completedReports = reports.filter(report => report.status === 'completed').length
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>
-      case 'processing':
-        return <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white">Processing</Badge>
-      case 'failed':
-        return <Badge variant="destructive">Failed</Badge>
-      default:
-        return <Badge variant="outline">Unknown</Badge>
-    }
-  }
-
-  const handleViewReport = (report) => {
-    if (report.session_id) {
-      router.push(`/test-finalreport/${report.session_id}?completed=true`)
-    }
-  }
-
+  // Fetch reports
   const fetchReports = async () => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true)
+    setError(null)
 
     try {
-      // 1. Get current user
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) throw userError;
-      if (!user) throw new Error('User not authenticated');
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-      // 2. Get all records for this user from workflow_progress table
+      if (userError) throw userError
+      if (!user) throw new Error('User not authenticated')
+
       const { data, error } = await supabase
-        .from('workflow_progress')
-        .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at') // Select required fields
-        .eq('user_id', user.id) // 关键：按当前 user_id 筛选
-        .order('started_at', { ascending: false }) // 按开始时间降序排序
+        .from('user_reports')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      // 3. 更新组件状态
-      setReports(data || []) // 将获取到的报告存入 state
-
+      setReports(data || [])
     } catch (err) {
-      console.error("获取报告失败:", err)
+      console.error("Failed to fetch reports:", err)
       setError(err.message)
     } finally {
       setIsLoading(false)
     }
   }
+
+  // Fetch user uploads for generate dialog
+  const fetchUserUploads = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('user_uploads')
+        .select('id, file_name, created_at')
+        .eq('user_id', user.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setUserUploads(data || [])
+    } catch (err) {
+      console.error("Failed to fetch user uploads:", err)
+    }
+  }
+
+  // Fetch system settings for generate dialog
+  const fetchSystemSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('prompt_configs')
+        .select('id, setting_name')
+        .eq('is_system_default', true)
+        .not('setting_name', 'is', null)
+        .order('setting_name', { ascending: true })
+
+      if (error) throw error
+      setSystemSettings(data || [])
+    } catch (err) {
+      console.error("Failed to fetch system settings:", err)
+    }
+  }
+
+  // Initial load
+  useEffect(() => {
+    fetchReports()
+  }, [])
+
+  // Realtime subscription for status updates
+  useEffect(() => {
+    const setupRealtimeSubscription = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const channel = supabase
+        .channel('user_reports_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'user_reports',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            console.log('Realtime update received:', payload)
+            setReports(prevReports =>
+              prevReports.map(report =>
+                report.id === payload.new.id ? payload.new : report
+              )
+            )
+
+            // Show toast for completed reports
+            if (payload.new.status === 'completed' && payload.old.status !== 'completed') {
+              toast({
+                title: "Report Completed!",
+                description: `Your report "${payload.new.setting_name}" is ready to view.`
+              })
+            }
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+
+    setupRealtimeSubscription()
+  }, [toast])
+
+  // Open generate dialog
+  const handleOpenGenerateDialog = () => {
+    fetchUserUploads()
+    fetchSystemSettings()
+    setIsGenerateDialogOpen(true)
+  }
+
+  // Generate report
+  const handleGenerateReport = async () => {
+    if (!selectedUploadId || !selectedSettingName) {
+      toast({
+        variant: "destructive",
+        title: "Incomplete Selection",
+        description: "Please select both a chat record and a topic."
+      })
+      return
+    }
+
+    setIsGenerating(true)
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) throw new Error('Not authenticated')
+
+      const response = await fetch('/api/user-reports/create', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_data_id: selectedUploadId,
+          setting_name: selectedSettingName
+        })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to create report')
+      }
+
+      toast({
+        title: "Report Generation Started",
+        description: "Your report is being generated. This may take a few minutes."
+      })
+
+      // Refresh reports list
+      await fetchReports()
+
+      // Reset and close dialog
+      setSelectedUploadId('')
+      setSelectedSettingName('')
+      setIsGenerateDialogOpen(false)
+    } catch (err) {
+      console.error("Failed to generate report:", err)
+      toast({
+        variant: "destructive",
+        title: "Generation Failed",
+        description: err.message
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // Handle thumb up/down
+  const handleThumb = async (reportId: string, thumbValue: boolean | null) => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch(`/api/user-reports/${reportId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ thumb_up: thumbValue })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to update rating')
+      }
+
+      // Update local state
+      setReports(prevReports =>
+        prevReports.map(report =>
+          report.id === reportId ? { ...report, thumb_up: thumbValue } : report
+        )
+      )
+
+      toast({
+        title: "Rating Updated",
+        description: "Thank you for your feedback!"
+      })
+    } catch (err) {
+      console.error("Failed to update thumb:", err)
+      toast({
+        variant: "destructive",
+        title: "Update Failed",
+        description: err.message
+      })
+    }
+  }
+
+  // Handle soft delete
+  const handleDelete = async (reportId: string) => {
+    if (!confirm('Are you sure you want to delete this report?')) return
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const response = await fetch(`/api/user-reports/${reportId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Failed to delete report')
+      }
+
+      // Remove from local state
+      setReports(prevReports => prevReports.filter(report => report.id !== reportId))
+
+      toast({
+        title: "Report Deleted",
+        description: "The report has been removed from your list."
+      })
+    } catch (err) {
+      console.error("Failed to delete report:", err)
+      toast({
+        variant: "destructive",
+        title: "Delete Failed",
+        description: err.message
+      })
+    }
+  }
+
+  // View slides
+  const handleViewSlides = (report) => {
+    if (report.generate_slides) {
+      try {
+        const slidesData = typeof report.generate_slides === 'string'
+          ? JSON.parse(report.generate_slides)
+          : report.generate_slides
+
+        const slides = slidesData.files || slidesData
+
+        setSelectedReport({ ...report, slides })
+        setCurrentSlideIndex(0)
+      } catch (err) {
+        console.error("Failed to parse slides:", err)
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to load slides"
+        })
+      }
+    }
+  }
+
+  // Get status badge
+  const getStatusBadge = (report) => {
+    const { status, report_status, slide_status } = report
+
+    if (status === 'processing') {
+      return (
+        <Badge variant="secondary" className="bg-yellow-500 hover:bg-yellow-600 text-white">
+          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+          Processing
+        </Badge>
+      )
+    }
+
+    if (status === 'failed') {
+      return <Badge variant="destructive">Failed</Badge>
+    }
+
+    if (status === 'completed') {
+      if (slide_status === 'completed') {
+        return <Badge variant="default" className="bg-green-500 hover:bg-green-600">Completed</Badge>
+      }
+      if (slide_status === 'failed' && report_status === 'completed') {
+        return <Badge variant="destructive">Report OK, Slides Failed</Badge>
+      }
+    }
+
+    return <Badge variant="outline">Pending</Badge>
+  }
+
+  // Get status text
+  const getStatusText = (report) => {
+    const { status, report_status, slide_status } = report
+
+    if (status === 'processing') {
+      if (report_status === 'generating') return 'Generating report...'
+      if (report_status === 'completed' && slide_status === 'generating') return 'Generating slides...'
+      return 'Processing...'
+    }
+
+    if (status === 'failed') {
+      if (report.report_error) return `Report failed: ${report.report_error}`
+      if (report.slide_error) return `Slide failed: ${report.slide_error}`
+      return 'Failed'
+    }
+
+    if (status === 'completed') {
+      return 'Completed'
+    }
+
+    return 'Pending'
+  }
+
+  // Calculate stats
+  const totalReports = reports.length
+  const completedReports = reports.filter(r => r.status === 'completed' && r.slide_status === 'completed').length
+  const processingReports = reports.filter(r => r.status === 'processing').length
 
   if (isLoading) {
     return (
@@ -142,16 +427,90 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">My Reports</h1>
-        <p className="text-muted-foreground">
-          View and manage all your relationship analysis reports
-        </p>
+      <div className="mb-8 flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">My Reports</h1>
+          <p className="text-muted-foreground">
+            Generate and manage your relationship analysis reports
+          </p>
+        </div>
+        <Dialog open={isGenerateDialogOpen} onOpenChange={setIsGenerateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button size="lg" onClick={handleOpenGenerateDialog}>
+              Generate New Report
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Generate New Report</DialogTitle>
+              <DialogDescription>
+                Select your chat record and analysis topic to generate a new report
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="upload-select">Chat Record</Label>
+                <Select value={selectedUploadId} onValueChange={setSelectedUploadId}>
+                  <SelectTrigger id="upload-select">
+                    <SelectValue placeholder="Select a chat record" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userUploads.map(upload => (
+                      <SelectItem key={upload.id} value={upload.id}>
+                        {upload.file_name} - {new Date(upload.created_at).toLocaleDateString()}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="topic-select">Analysis Topic</Label>
+                <Select value={selectedSettingName} onValueChange={setSelectedSettingName}>
+                  <SelectTrigger id="topic-select">
+                    <SelectValue placeholder="Select a topic" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {systemSettings.map(setting => (
+                      <SelectItem key={setting.id} value={setting.setting_name}>
+                        {setting.setting_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsGenerateDialogOpen(false)}
+                disabled={isGenerating}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleGenerateReport}
+                disabled={isGenerating || !selectedUploadId || !selectedSettingName}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  'Generate'
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
@@ -180,101 +539,174 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {reports.filter(report => report.status === 'processing').length}
-              </div>
+              <div className="text-2xl font-bold">{processingReports}</div>
               <p className="text-xs text-muted-foreground">In progress</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Search and Filter */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Reports</CardTitle>
-            <CardDescription>Complete history of your relationship analysis reports</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Table Header */}
-            <div className="rounded-lg border">
-              <div className="grid grid-cols-5 gap-4 p-4 bg-muted/50 font-medium text-sm border-b">
-                <div>Session ID</div>
-                <div>Created Date</div>
-                <div>Status</div>
-                <div>Progress</div>
-                <div>Actions</div>
-              </div>
+        {/* Reports List or Empty State */}
+        {reports.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-12">
+              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground mb-2">
+                You haven't generated any reports yet
+              </p>
+              <Button className="mt-4" onClick={handleOpenGenerateDialog}>
+                Generate Your First Report
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {/* Latest Report Preview (if completed with slides) */}
+            {reports[0] && reports[0].status === 'completed' && reports[0].slide_status === 'completed' && reports[0].generate_slides && !selectedReport && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Latest Report: {reports[0].setting_name}</CardTitle>
+                  <CardDescription>
+                    Generated on {new Date(reports[0].created_at).toLocaleDateString()}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => handleViewSlides(reports[0])}>
+                    View Slides
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
 
-              {/* Table Body */}
-              <div className="divide-y">
-                {sortedReports.map((report) => (
-                  <div
-                    key={report.session_id}
-                    className="reports-row grid grid-cols-5 gap-4 p-4 rounded-lg"
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium">{report.session_id}</span>
-                      <span className="text-sm text-muted-foreground">Report Session</span>
+            {/* Slide Preview (when a report is selected) */}
+            {selectedReport && selectedReport.slides && selectedReport.slides.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <CardTitle>
+                        {selectedReport.setting_name} - Slides ({currentSlideIndex + 1}/{selectedReport.slides.length})
+                      </CardTitle>
+                      <CardDescription>
+                        Generated on {new Date(selectedReport.created_at).toLocaleDateString()}
+                      </CardDescription>
                     </div>
-                    <div className="flex items-center text-sm">
-                      {new Date(report.started_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </div>
-                    <div className="flex items-center">
-                      {getStatusBadge(report.status)}
-                    </div>
-                    <div className="flex items-center">
-                      {report.total_steps && report.current_step ? (
-                        <span className="text-sm">
-                          {report.current_step}/{report.total_steps}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {report.status === 'completed' && (
-                        <>
-                          <Link
-                            href={`/test-finalreport/${report.session_id}?completed=true`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            passHref
-                          >
-                            <Button size="sm">
-                              View
-                            </Button>
-                          </Link>
-                        </>
-                      )}
-                      {report.status === 'processing' && (
-                        <div className="text-sm text-muted-foreground">Processing...</div>
-                      )}
-                      {report.status === 'failed' && (
-                        <Button variant="outline" size="sm">
-                          Retry
-                        </Button>
-                      )}
-                    </div>
+                    <Button variant="outline" onClick={() => setSelectedReport(null)}>
+                      Close Preview
+                    </Button>
                   </div>
-                ))}
-              </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="border rounded-lg overflow-hidden" style={{ minHeight: '720px' }}>
+                    <iframe
+                      srcDoc={selectedReport.slides[currentSlideIndex].content}
+                      className="w-full"
+                      style={{ height: '720px', border: 'none' }}
+                      title={`Slide ${currentSlideIndex + 1}`}
+                    />
+                  </div>
+                  <div className="flex justify-between items-center mt-4">
+                    <Button
+                      onClick={() => setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))}
+                      disabled={currentSlideIndex === 0}
+                      variant="outline"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <span className="text-sm text-gray-600">
+                      Slide {currentSlideIndex + 1} of {selectedReport.slides.length}
+                    </span>
+                    <Button
+                      onClick={() => setCurrentSlideIndex(Math.min(selectedReport.slides.length - 1, currentSlideIndex + 1))}
+                      disabled={currentSlideIndex === selectedReport.slides.length - 1}
+                      variant="outline"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
-              {sortedReports.length === 0 && (
-                <div className="text-center py-12">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground mb-2">
-                    No reports generated yet
-                  </p>
-                  <Button className="mt-4">Generate Your First Report</Button>
+            {/* All Reports */}
+            <Card>
+              <CardHeader>
+                <CardTitle>All Reports</CardTitle>
+                <CardDescription>Complete history of your generated reports</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {reports.map((report) => (
+                    <div
+                      key={report.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-semibold text-lg">{report.setting_name}</h3>
+                          {getStatusBadge(report)}
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-1">
+                          {getStatusText(report)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Created {new Date(report.created_at).toLocaleDateString()} at{' '}
+                          {new Date(report.created_at).toLocaleTimeString()}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {/* View Slides Button */}
+                        {report.status === 'completed' && report.slide_status === 'completed' && report.generate_slides && (
+                          <Button
+                            size="sm"
+                            onClick={() => handleViewSlides(report)}
+                          >
+                            View Slides
+                          </Button>
+                        )}
+
+                        {/* Thumb Buttons */}
+                        {report.status === 'completed' && report.slide_status === 'completed' && (
+                          <div className="flex items-center gap-1 border rounded-md">
+                            <Button
+                              size="sm"
+                              variant={report.thumb_up === true ? "default" : "ghost"}
+                              className="h-8 px-2"
+                              onClick={() => handleThumb(report.id, report.thumb_up === true ? null : true)}
+                            >
+                              <ThumbsUp className="h-4 w-4" />
+                            </Button>
+                            <div className="h-4 w-px bg-border" />
+                            <Button
+                              size="sm"
+                              variant={report.thumb_up === false ? "default" : "ghost"}
+                              className="h-8 px-2"
+                              onClick={() => handleThumb(report.id, report.thumb_up === false ? null : false)}
+                            >
+                              <ThumbsDown className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+
+                        {/* Delete Button */}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 px-2"
+                          onClick={() => handleDelete(report.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </div>
   )
