@@ -24,7 +24,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
         "Authorization": `Bearer ${hfToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ inputs: text }),
+      body: JSON.stringify({ inputs: [text] }),  // Must be an array!
     }
   );
 
@@ -35,8 +35,10 @@ async function generateEmbedding(text: string): Promise<number[]> {
   }
 
   const result = await response.json();
-  console.log(`✅ Embedding generated successfully (${result.length} dimensions)`);
-  return result;
+  // When input is an array, result is an array of embeddings - take the first one
+  const embedding = Array.isArray(result) ? result[0] : result;
+  console.log(`✅ Embedding generated successfully (${embedding.length} dimensions)`);
+  return embedding;
 }
 
 // Helper: Call OpenRouter AI
