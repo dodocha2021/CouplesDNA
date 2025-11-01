@@ -210,7 +210,7 @@ async function handlePromptMode(req, res) {
             query_embedding: vectorString,
             match_threshold: parseFloat(threshold),
             match_count: topK,
-            p_file_id: file_id
+            p_file_ids: [file_id]
         })
     );
     const results = await Promise.all(searchPromises);
