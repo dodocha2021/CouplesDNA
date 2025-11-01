@@ -297,7 +297,7 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
         const category = item?.metadata?.category || 'General';
         scope.push({
           file_id: fileId,
-          threshold: categoryThresholds[category] || 0.30
+          threshold: categoryThresholds[category] ?? 0.30
         });
       });
 
