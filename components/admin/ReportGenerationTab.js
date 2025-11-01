@@ -43,7 +43,7 @@ const TreeItem = ({ children, ...props }) => {
       </div>
       
       {isBranch && threshold !== undefined && (
-        <div className="flex items-center gap-3 py-1 px-2 ml-10 mb-1">
+        <div className="flex items-center gap-2 py-1 px-2 ml-10 mb-1">
           <span className="text-xs text-gray-500 w-16">Threshold:</span>
           <Slider
             value={[threshold]}
@@ -54,6 +54,13 @@ const TreeItem = ({ children, ...props }) => {
             className="flex-1"
           />
           <span className="text-xs font-mono w-12 text-right">{threshold.toFixed(2)}</span>
+          <button
+            onClick={() => onThresholdChange(0)}
+            className="text-xs px-2 py-1 bg-gray-200 hover:bg-gray-300 rounded"
+            title="Set to 0 (no filtering)"
+          >
+            0
+          </button>
         </div>
       )}
 
