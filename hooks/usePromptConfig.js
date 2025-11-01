@@ -115,13 +115,13 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
           selected_knowledge_ids: selectedKnowledgeIds // 新增
         }
       } else if (promptType === 'report') {
-        if (!modelSelection || !knowledgeBaseId || topK === undefined || 
-            !userDataId || strictMode === undefined || !systemPrompt || 
+        if (!modelSelection || !knowledgeBaseId || topK === undefined ||
+            !userDataId || strictMode === undefined || !systemPrompt ||
             !userPromptTemplate || !reportTopic || !generatedReport || !debugLogs) {
           alert('Please generate report before saving')
           return
         }
-        
+
         configData = {
           ...configData,
           name: reportTopic,
@@ -129,7 +129,8 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
           user_data_name: userDataName,
           report_topic: reportTopic,
           generated_report: generatedReport,
-          selected_knowledge_ids: selectedKnowledgeIds
+          selected_knowledge_ids: selectedKnowledgeIds,
+          category_thresholds: additionalData.category_thresholds || {}
           // ✅ 移除：generate_slides, manus_task_id, manus_share_url
         }
       } else if (promptType === 'slide') {

@@ -197,7 +197,14 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
         setSelectedKnowledgeIds(loadedConfig.selected_knowledge_ids);
       }
 
-    
+      // 处理 Category Thresholds
+      if (loadedConfig.category_thresholds) {
+        const thresholds = typeof loadedConfig.category_thresholds === 'string'
+          ? JSON.parse(loadedConfig.category_thresholds)
+          : loadedConfig.category_thresholds;
+        setCategoryThresholds(thresholds);
+      }
+
     }
   }, [loadedConfig, onConfigLoaded, supabase]);
 
@@ -623,7 +630,7 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
       </div>
       <div className="flex gap-4 mt-6">
         <Button
-          onClick={() => handleSaveConfig()}
+          onClick={() => handleSaveConfig({ category_thresholds: categoryThresholds })}
           disabled={saveLoading}
           className="px-6 py-2"
         >
