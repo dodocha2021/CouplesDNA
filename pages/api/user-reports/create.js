@@ -72,7 +72,11 @@ export default async function handler(req, res) {
     const reportData = {
       user_id: user.id,
       user_data_id,
-      setting_name,
+      setting_name,  // Display name for UI (e.g., "Relationship")
+
+      // IMPORTANT: report_topic is the actual question sent to AI
+      // e.g., "What Mia can do to prevent deterioration..."
+      report_topic: configData.report_topic || configData.name,
 
       // Copy configuration from prompt_configs
       model_selection: configData.model_selection,

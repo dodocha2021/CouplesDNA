@@ -179,10 +179,10 @@ async function processReport(report: any, supabase: any) {
     // Step 3: Generate report using RAG
     log('[3/5] Generating report with AI...');
 
-    // Build question from user_prompt_template
-    const question = report.user_prompt_template
-      .replace('{question}', report.setting_name)
-      .split('\n')[0] || report.setting_name;
+    // IMPORTANT: Use report_topic as the actual question
+    // report_topic contains the full question (e.g., "What Mia can do to...")
+    // setting_name is just a display label (e.g., "Relationship")
+    const question = report.report_topic || report.setting_name;
 
     log(`  > Question: ${question}`);
 
