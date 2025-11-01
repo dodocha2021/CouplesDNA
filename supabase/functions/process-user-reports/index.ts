@@ -202,9 +202,38 @@ async function processReport(report: any, supabase: any) {
     const vectorString = `[${questionEmbedding.join(',')}]`;
 
     // Build scope from selected_knowledge_ids and category_thresholds
+    // First, fetch all knowledge files to get their categories
+    const { data: knowledgeFiles, error: knowledgeError } = await supabase
+      .from('knowledge_uploads')
+      .select('id, file_name, metadata')
+      .in('id', report.selected_knowledge_ids);
+
+    if (knowledgeError) {
+      log(`⚠️ Warning: Could not fetch knowledge file metadata: ${knowledgeError.message}`);
+    }
+
+    // Parse category_thresholds from JSONB (it might be stored as string or object)
+    let categoryThresholds: any = {};
+    if (report.category_thresholds) {
+      if (typeof report.category_thresholds === 'string') {
+        try {
+          categoryThresholds = JSON.parse(report.category_thresholds);
+        } catch (e) {
+          log(`⚠️ Warning: Could not parse category_thresholds: ${e}`);
+        }
+      } else {
+        categoryThresholds = report.category_thresholds;
+      }
+    }
+
+    // Build scope with correct thresholds per file
     const scope = report.selected_knowledge_ids.map((fileId: string) => {
-      // Get category for this file
-      const threshold = 0.30; // default, will be updated if we can get category
+      const file = knowledgeFiles?.find((f: any) => f.id === fileId);
+      const category = file?.metadata?.category || 'General';
+      const threshold = categoryThresholds[category] || 0.30; // Use category-specific threshold or default
+
+      log(`  > File: ${file?.file_name || fileId}, Category: ${category}, Threshold: ${threshold}`);
+
       return { file_id: fileId, threshold };
     });
 
@@ -223,8 +252,14 @@ async function processReport(report: any, supabase: any) {
     const knowledgeSearchResults = await Promise.all(knowledgePromises);
 
     let knowledgeResults: any[] = [];
-    knowledgeSearchResults.forEach((result: any) => {
-      if (result.data) knowledgeResults.push(...result.data);
+    knowledgeSearchResults.forEach((result: any, index: number) => {
+      if (result.error) {
+        log(`❌ RPC Error for file ${scope[index].file_id}: ${result.error.message}`);
+      }
+      if (result.data) {
+        log(`  ✓ Found ${result.data.length} chunks from file ${scope[index].file_id}`);
+        knowledgeResults.push(...result.data);
+      }
     });
 
     const uniqueKnowledge = Array.from(
