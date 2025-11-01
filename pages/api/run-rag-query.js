@@ -106,7 +106,10 @@ async function handleReportMode(req, res) {
 
   log(`  > Total before dedup: ${knowledgeResults.length} chunks`);
 
-  const uniqueKnowledge = Array.from(new Map(knowledgeResults.map(item => [item.id, item])).values());
+  const uniqueKnowledge = Array.from(new Map(knowledgeResults.map(item => {
+    const uniqueKey = `${item.metadata?.file_id || 'unknown'}_${item.metadata?.chunk_index ?? 'unknown'}`;
+    return [uniqueKey, item];
+  })).values());
   log(`  > After dedup: ${uniqueKnowledge.length} chunks`);
 
   knowledgeResults = uniqueKnowledge.sort((a, b) => b.similarity - a.similarity).slice(0, reportConfig.knowledge.topK || 5);
@@ -229,7 +232,10 @@ async function handlePromptMode(req, res) {
         if (result.data) combinedResults.push(...result.data);
     });
 
-    const uniqueResults = Array.from(new Map(combinedResults.map(item => [item.id, item])).values());
+    const uniqueResults = Array.from(new Map(combinedResults.map(item => {
+        const uniqueKey = `${item.metadata?.file_id || 'unknown'}_${item.metadata?.chunk_index ?? 'unknown'}`;
+        return [uniqueKey, item];
+    })).values());
     const sortedResults = uniqueResults.sort((a, b) => b.similarity - a.similarity).slice(0, topK);
     log(`  > Found ${sortedResults.length} relevant chunks.`);
 
