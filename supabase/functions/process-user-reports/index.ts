@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { HfInference } from "https://esm.sh/@huggingface/inference@2";
 
 // CORS headers
 const corsHeaders = {
@@ -7,7 +8,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper: Generate embedding for a text
+// Helper: Generate embedding for a text using HuggingFace SDK
+// This matches the implementation in lib/embedding.js used by Prompt Studio
 async function generateEmbedding(text: string): Promise<number[]> {
   const hfToken = Deno.env.get("HUGGINGFACE_API_TOKEN");
   if (!hfToken) {
@@ -16,28 +18,28 @@ async function generateEmbedding(text: string): Promise<number[]> {
 
   console.log(`🔍 Generating embedding for text (${text.length} chars): "${text.substring(0, 100)}..."`);
 
-  // Use the same model as file uploads for consistency
-  const response = await fetch(
-    "https://api-inference.huggingface.co/models/BAAI/bge-base-en-v1.5",
-    {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${hfToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ inputs: text }),  // This model works with string directly
-    }
-  );
+  // Use HuggingFace SDK (same as Prompt Studio in lib/embedding.js)
+  const hf = new HfInference(hfToken);
+  const embeddingModel = 'BAAI/bge-base-en-v1.5';
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`❌ HuggingFace API Error ${response.status}:`, errorBody);
-    throw new Error(`Embedding API error: ${response.status} - ${errorBody}`);
+  // Clean text (remove newlines)
+  const cleanedText = text.replace(/\n/g, ' ');
+
+  const response = await hf.featureExtraction({
+    model: embeddingModel,
+    inputs: cleanedText,
+  });
+
+  // Ensure the output is a flat array of numbers
+  let embedding: number[];
+  if (Array.isArray(response) && typeof response[0] === 'number') {
+    embedding = response as number[];
+  } else if (Array.isArray(response) && Array.isArray(response[0]) && typeof response[0][0] === 'number') {
+    embedding = response[0] as number[];
+  } else {
+    throw new Error("Failed to generate a valid embedding vector.");
   }
 
-  const result = await response.json();
-  // When input is an array, result is an array of embeddings - take the first one
-  const embedding = Array.isArray(result) ? result[0] : result;
   console.log(`✅ Embedding generated successfully (${embedding.length} dimensions)`);
   return embedding;
 }
