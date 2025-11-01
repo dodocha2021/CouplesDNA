@@ -89,7 +89,7 @@ async function handleReportMode(req, res) {
       query_embedding: vectorString,
       match_threshold: parseFloat(threshold),
       match_count: reportConfig.knowledge.topK || 5,
-      p_file_id: file_id
+      p_file_ids: [file_id]
     })
   );
   
