@@ -50,7 +50,7 @@ const TreeItem = ({ children, ...props }) => {
             onValueChange={([value]) => onThresholdChange(value)}
             min={0}
             max={1}
-            step={0.05}
+            step={0.01}
             className="flex-1"
           />
           <span className="text-xs font-mono w-12 text-right">{threshold.toFixed(2)}</span>
@@ -297,7 +297,7 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
         const category = item?.metadata?.category || 'General';
         scope.push({
           file_id: fileId,
-          threshold: categoryThresholds[category] ?? 0.30
+          threshold: categoryThresholds[category] !== undefined ? categoryThresholds[category] : 0.30
         });
       });
 
