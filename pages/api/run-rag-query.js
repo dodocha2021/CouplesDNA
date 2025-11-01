@@ -94,17 +94,26 @@ async function handleReportMode(req, res) {
   );
   
   const knowledgeSearchResults = await Promise.all(knowledgePromises);
-  
+
   let knowledgeResults = [];
-  knowledgeSearchResults.forEach(result => {
+  knowledgeSearchResults.forEach((result, index) => {
+    const fileId = scope[index].file_id.substring(0, 8);
+    const count = result.data ? result.data.length : 0;
+    const errorMsg = result.error ? ` ERROR: ${result.error.message}` : '';
+    log(`  > File ${fileId}...: ${count} chunks${errorMsg}`);
     if (result.data) knowledgeResults.push(...result.data);
   });
-  
+
+  log(`  > Total before dedup: ${knowledgeResults.length} chunks`);
+
   const uniqueKnowledge = Array.from(new Map(knowledgeResults.map(item => [item.id, item])).values());
+  log(`  > After dedup: ${uniqueKnowledge.length} chunks`);
+
   knowledgeResults = uniqueKnowledge.sort((a, b) => b.similarity - a.similarity).slice(0, reportConfig.knowledge.topK || 5);
-  
+  log(`  > After topK limit: ${knowledgeResults.length} chunks`);
+
   const userDataResults = await retrieveUserData(questionEmbedding, reportConfig.userData);
-  
+
   log(`  > Found ${knowledgeResults.length} knowledge chunks and ${userDataResults.length} user data chunks.`);
 
   // 3. Build context
