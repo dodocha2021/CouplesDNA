@@ -14,6 +14,8 @@ async function generateEmbedding(text: string): Promise<number[]> {
     throw new Error("HUGGINGFACE_API_TOKEN not configured");
   }
 
+  console.log(`🔍 Generating embedding for text (${text.length} chars): "${text.substring(0, 100)}..."`);
+
   const response = await fetch(
     "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
     {
@@ -27,10 +29,14 @@ async function generateEmbedding(text: string): Promise<number[]> {
   );
 
   if (!response.ok) {
-    throw new Error(`Embedding API error: ${response.status}`);
+    const errorBody = await response.text();
+    console.error(`❌ HuggingFace API Error ${response.status}:`, errorBody);
+    throw new Error(`Embedding API error: ${response.status} - ${errorBody}`);
   }
 
-  return await response.json();
+  const result = await response.json();
+  console.log(`✅ Embedding generated successfully (${result.length} dimensions)`);
+  return result;
 }
 
 // Helper: Call OpenRouter AI
