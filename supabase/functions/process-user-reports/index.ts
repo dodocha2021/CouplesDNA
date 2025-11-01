@@ -16,15 +16,16 @@ async function generateEmbedding(text: string): Promise<number[]> {
 
   console.log(`🔍 Generating embedding for text (${text.length} chars): "${text.substring(0, 100)}..."`);
 
+  // Use the same model as file uploads for consistency
   const response = await fetch(
-    "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2",
+    "https://api-inference.huggingface.co/models/BAAI/bge-base-en-v1.5",
     {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${hfToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ inputs: [text] }),  // Must be an array!
+      body: JSON.stringify({ inputs: text }),  // This model works with string directly
     }
   );
 
