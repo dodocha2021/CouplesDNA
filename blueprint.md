@@ -835,3 +835,131 @@ const {
 - 多语言支持
 - 实时协作功能
 ```
+## 十二、关键问题修复记录 (2025-11-02)
+
+### 12.1 My Reports 功能完整实现
+
+#### 问题背景
+- My Reports 模块无法生成报告
+- Embedding API 400 错误
+- Knowledge chunks 搜索返回 0 结果
+
+#### 修复步骤
+
+**1. HuggingFace Embedding API 调用问题**
+- **问题**: Edge Function 使用原始 fetch API，格式与 SDK 不兼容
+- **原因**: 不同 API 调用方式对参数格式要求不同
+- **解决**: 改用 `@huggingface/inference` SDK，与 Prompt Studio 保持一致
+```typescript
+// 修改前（失败）
+const response = await fetch(url, {
+  body: JSON.stringify({ inputs: text })
+});
+
+// 修改后（成功）
+import { HfInference } from "https://esm.sh/@huggingface/inference@2";
+const hf = new HfInference(token);
+const response = await hf.featureExtraction({
+  model: 'BAAI/bge-base-en-v1.5',
+  inputs: cleanedText
+});
+```
+
+**2. RPC 函数参数不匹配**
+- **问题**: `match_knowledge` RPC 在数据库中更新了，但代码未同步
+- **症状**: Prompt Testing 和 Report Generation 都搜索不到 knowledge
+- **根源**: 
+  - RPC 函数签名: `p_file_ids text[]` (复数，数组)
+  - 调用代码传参: `p_file_id: file_id` (单数，字符串)
+- **解决**: 统一改为 `p_file_ids: [file_id]`
+- **修改文件**:
+  - `/pages/api/run-rag-query.js` (两处：Prompt Mode 和 Report Mode)
+  - `/lib/retrieval.js`
+
+**3. Category Thresholds 未保存**
+- **问题**: Prompt Studio 设置的 threshold 没有保存到数据库
+- **原因**: 前端 `categoryThresholds` state 未传递给保存函数
+- **解决**:
+  - 添加 `category_thresholds JSONB` 字段到 `prompt_configs` 和 `user_reports` 表
+  - `ReportGenerationTab.js`: `handleSaveConfig({ category_thresholds: categoryThresholds })`
+  - `usePromptConfig.js`: 保存时包含 `category_thresholds`
+  - Edge Function: 读取并应用 `report.category_thresholds`
+
+**4. Threshold Slider 无法达到 0**
+- **问题**: Slider `step=0.05`，无法设置为 0
+- **解决**: 
+  - 改 `step=0.01` 提供更细粒度
+  - 添加"0"按钮直接重置为 0
+  - 修复逻辑: `!== undefined` 判断而不是 `||` 运算符
+
+**5. 去重逻辑错误导致 25→1 chunks**
+- **问题**: 5 个文件各返回 5 chunks（共 25 个），去重后只剩 1 个
+- **根源**: RPC 返回数据无 `id` 字段，只有 `content`, `metadata`, `similarity`
+- **去重代码使用** `item.id` 作为 key → 全是 `undefined` → Map 中互相覆盖
+- **解决**: 使用 `${metadata.file_id}_${metadata.chunk_index}` 作为唯一键
+```javascript
+// 修改前（错误）
+const uniqueKey = item.id;  // undefined
+
+// 修改后（正确）
+const uniqueKey = `${item.metadata.file_id}_${item.metadata.chunk_index}`;
+```
+
+### 12.2 RPC 函数更新检查清单
+
+**当更新 Supabase RPC 函数时，必须检查所有调用点：**
+
+1. `/pages/api/run-rag-query.js`
+   - `handlePromptMode()` - Prompt Testing
+   - `handleReportMode()` - Report Generation
+2. `/lib/retrieval.js`
+   - `retrieveKnowledge()`
+3. `supabase/functions/*/index.ts` - 所有 Edge Functions
+
+**RPC 返回值结构：**
+- `match_knowledge`: `{ content, metadata, similarity }` - **无 id**
+- `match_user_data_by_files`: `{ content, metadata, similarity }` - **无 id**
+
+**去重策略：**
+- 必须使用 `metadata.file_id + metadata.chunk_index`
+- 不能使用 `id` 或其他不存在的字段
+
+### 12.3 Threshold 工作机制
+
+**存储格式：**
+```json
+{
+  "Relationship": 0.05,
+  "Psychology": 0.30,
+  "General": 0.30
+}
+```
+
+**应用流程：**
+1. 前端按 category 设置 threshold（slider）
+2. 保存到 `prompt_configs.category_thresholds`
+3. 创建 user_reports 时拷贝到 `user_reports.category_thresholds`
+4. Edge Function 读取并查询 `knowledge_uploads.metadata.category`
+5. 为每个文件应用对应 category 的 threshold
+
+**注意事项：**
+- Threshold = 0 表示无过滤（返回所有结果按相似度排序）
+- 不同 category 可以有不同 threshold
+- User data 搜索目前**无 threshold 参数**（总是返回最相似的 N 个）
+
+### 12.4 Debug 日志最佳实践
+
+**Report Mode 详细日志：**
+```javascript
+log(`  > File ${fileId}...: ${count} chunks${errorMsg}`);
+log(`  > Total before dedup: ${knowledgeResults.length} chunks`);
+log(`  > After dedup: ${uniqueKnowledge.length} chunks`);
+log(`  > After topK limit: ${knowledgeResults.length} chunks`);
+```
+
+这些日志帮助诊断：
+- 哪些文件返回了数据
+- RPC 是否有错误
+- 去重是否正常工作
+- TopK 限制是否正确应用
+
