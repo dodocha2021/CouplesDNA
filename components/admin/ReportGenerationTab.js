@@ -637,7 +637,20 @@ export default function ReportGenerationTab({ loadedConfig, setLoadedConfig, onC
       </div>
       <div className="flex gap-4 mt-6">
         <Button
-          onClick={() => handleSaveConfig({ category_thresholds: categoryThresholds })}
+          onClick={() => {
+            // Build complete category_thresholds including defaults
+            const completeThresholds = {};
+            selectedKnowledgeIds.forEach(fileId => {
+              const item = knowledgeItems.find(k => k.id === fileId);
+              const category = item?.metadata?.category || 'General';
+              if (!completeThresholds[category]) {
+                completeThresholds[category] = categoryThresholds[category] !== undefined
+                  ? categoryThresholds[category]
+                  : 0.30;
+              }
+            });
+            handleSaveConfig({ category_thresholds: completeThresholds });
+          }}
           disabled={saveLoading}
           className="px-6 py-2"
         >
