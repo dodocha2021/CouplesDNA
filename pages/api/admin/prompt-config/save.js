@@ -40,6 +40,7 @@ export default async function handler(req, res) {
       knowledge_base_id,
       knowledge_base_name,
       selected_knowledge_ids,
+      category_thresholds,
       top_k_results,
       strict_mode,
       system_prompt,
@@ -60,6 +61,11 @@ export default async function handler(req, res) {
       manus_task_completed_at,
       source_config_id
     } = req.body
+
+    console.log('=== API /api/admin/prompt-config/save ===');
+    console.log('Received category_thresholds:', category_thresholds);
+    console.log('Type:', typeof category_thresholds);
+    console.log('Stringified:', JSON.stringify(category_thresholds));
 
     // Validation based on prompt type
     if (prompt_type === 'general') {
@@ -110,38 +116,43 @@ export default async function handler(req, res) {
     }
 
     // 使用带 token 的客户端进行插入
+    const insertData = {
+      user_id: user.id,
+      prompt_type,
+      name,
+      model_selection,
+      knowledge_base_id,
+      knowledge_base_name,
+      selected_knowledge_ids: selected_knowledge_ids || [],
+      category_thresholds: category_thresholds || {},
+      top_k_results,
+      strict_mode,
+      system_prompt,
+      user_prompt_template,
+      debug_logs,
+      test_question: prompt_type === 'general' ? test_question : null,
+      generated_response: prompt_type === 'general' ? generated_response : null,
+      user_data_id: ['report', 'slide'].includes(prompt_type) ? (user_data_id || null) : null,
+      user_data_name: ['report', 'slide'].includes(prompt_type) ? (user_data_name || null) : null,
+      report_topic: ['report', 'slide'].includes(prompt_type) ? (report_topic || null) : null,
+      generated_report: ['report', 'slide'].includes(prompt_type) ? (generated_report || null) : null,
+      generate_slides: prompt_type === 'slide' ? (generate_slides || null) : null,
+      manus_task_id: prompt_type === 'slide' ? (manus_task_id || null) : null,
+      manus_share_url: prompt_type === 'slide' ? (manus_share_url || null) : null,
+      manus_prompt: prompt_type === 'slide' ? (manus_prompt || null) : null,
+      manus_task_status: prompt_type === 'slide' ? (manus_task_status || null) : null,
+      manus_task_created_at: prompt_type === 'slide' ? (manus_task_created_at || null) : null,
+      manus_task_completed_at: prompt_type === 'slide' ? (manus_task_completed_at || null) : null,
+      source_config_id: prompt_type === 'slide' ? (source_config_id || null) : null,
+      is_active: true,
+      is_system_default: false
+    };
+
+    console.log('Insert data category_thresholds:', insertData.category_thresholds);
+
     const { data, error } = await supabaseClient
       .from('prompt_configs')
-      .insert({
-        user_id: user.id,
-        prompt_type,
-        name,
-        model_selection,
-        knowledge_base_id,
-        knowledge_base_name,
-        selected_knowledge_ids: selected_knowledge_ids || [],
-        top_k_results,
-        strict_mode,
-        system_prompt,
-        user_prompt_template,
-        debug_logs,
-        test_question: prompt_type === 'general' ? test_question : null,
-        generated_response: prompt_type === 'general' ? generated_response : null,
-        user_data_id: ['report', 'slide'].includes(prompt_type) ? (user_data_id || null) : null,
-        user_data_name: ['report', 'slide'].includes(prompt_type) ? (user_data_name || null) : null,
-        report_topic: ['report', 'slide'].includes(prompt_type) ? (report_topic || null) : null,
-        generated_report: ['report', 'slide'].includes(prompt_type) ? (generated_report || null) : null,
-        generate_slides: prompt_type === 'slide' ? (generate_slides || null) : null,
-        manus_task_id: prompt_type === 'slide' ? (manus_task_id || null) : null,
-        manus_share_url: prompt_type === 'slide' ? (manus_share_url || null) : null,
-        manus_prompt: prompt_type === 'slide' ? (manus_prompt || null) : null,
-        manus_task_status: prompt_type === 'slide' ? (manus_task_status || null) : null,
-        manus_task_created_at: prompt_type === 'slide' ? (manus_task_created_at || null) : null,
-        manus_task_completed_at: prompt_type === 'slide' ? (manus_task_completed_at || null) : null,
-        source_config_id: prompt_type === 'slide' ? (source_config_id || null) : null,
-        is_active: true,
-        is_system_default: false
-      })
+      .insert(insertData)
       .select()
       .single()
 

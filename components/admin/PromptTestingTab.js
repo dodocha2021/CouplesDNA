@@ -472,16 +472,31 @@ export default function PromptTestingTab({ loadedConfig, setLoadedConfig, onConf
         <Button
           onClick={() => {
             // Build complete category_thresholds including defaults
+            console.log('=== SAVE BUTTON CLICKED (Prompt Testing) ===');
+            console.log('selectedKnowledgeIds:', selectedKnowledgeIds);
+            console.log('knowledgeItems:', knowledgeItems);
+            console.log('categoryThresholds state:', categoryThresholds);
+
             const completeThresholds = {};
             selectedKnowledgeIds.forEach(fileId => {
               const item = knowledgeItems.find(k => k.id === fileId);
+              console.log(`Processing fileId ${fileId}:`, {
+                found: !!item,
+                metadata: item?.metadata,
+                category: item?.metadata?.category || 'General'
+              });
               const category = item?.metadata?.category || 'General';
               if (!completeThresholds[category]) {
-                completeThresholds[category] = categoryThresholds[category] !== undefined
+                const threshold = categoryThresholds[category] !== undefined
                   ? categoryThresholds[category]
                   : 0.30;
+                completeThresholds[category] = threshold;
+                console.log(`Set ${category} threshold to:`, threshold);
               }
             });
+
+            console.log('Final completeThresholds object:', completeThresholds);
+            console.log('=== CALLING handleSaveConfig ===');
             handleSaveConfig({ category_thresholds: completeThresholds });
           }}
           disabled={saveLoading}

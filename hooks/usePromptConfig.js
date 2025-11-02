@@ -99,14 +99,18 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
         ...additionalData
       }
 
+      console.log('=== usePromptConfig handleSaveConfig ===');
+      console.log('additionalData received:', additionalData);
+      console.log('additionalData.category_thresholds:', additionalData.category_thresholds);
+
       if (promptType === 'general') {
-        if (!modelSelection || !knowledgeBaseId || topK === undefined || 
-            strictMode === undefined || !systemPrompt || !userPromptTemplate || 
+        if (!modelSelection || !knowledgeBaseId || topK === undefined ||
+            strictMode === undefined || !systemPrompt || !userPromptTemplate ||
             !testQuestion || !generatedResponse || !debugLogs) {
           alert('Please run test to generate results before saving')
           return
         }
-        
+
         configData = {
           ...configData,
           name: testQuestion,
@@ -115,6 +119,7 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
           selected_knowledge_ids: selectedKnowledgeIds,
           category_thresholds: additionalData.category_thresholds || {}
         }
+        console.log('Built general configData with category_thresholds:', configData.category_thresholds);
       } else if (promptType === 'report') {
         if (!modelSelection || !knowledgeBaseId || topK === undefined ||
             !userDataId || strictMode === undefined || !systemPrompt ||
@@ -134,6 +139,7 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
           category_thresholds: additionalData.category_thresholds || {}
           // ✅ 移除：generate_slides, manus_task_id, manus_share_url
         }
+        console.log('Built report configData with category_thresholds:', configData.category_thresholds);
       } else if (promptType === 'slide') {
         if (!modelSelection || !knowledgeBaseId || topK === undefined || 
             strictMode === undefined || !systemPrompt || !userPromptTemplate || 
@@ -163,6 +169,10 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
           selected_knowledge_ids: selectedKnowledgeIds
         }
       }
+
+      console.log('=== Sending to API ===');
+      console.log('Final configData being sent:', configData);
+      console.log('category_thresholds in payload:', configData.category_thresholds);
 
       const response = await fetch('/api/admin/prompt-config/save', {
         method: 'POST',
