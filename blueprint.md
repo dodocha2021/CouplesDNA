@@ -963,3 +963,211 @@ log(`  > After topK limit: ${knowledgeResults.length} chunks`);
 - 去重是否正常工作
 - TopK 限制是否正确应用
 
+## 13. Category Thresholds 完整修复历程
+
+### 13.1 问题背景
+
+Category Thresholds 功能允许用户为不同知识类别设置不同的相似度阈值，实现精准的知识检索。但在实现过程中遇到了多个保存和继承问题。
+
+### 13.2 修复历程
+
+#### 问题 1: 后端 API 未提取和保存 category_thresholds
+
+**发现过程**：
+- 前端构建了完整的 `category_thresholds` 对象并传递给 API
+- 数据库查询显示 `category_thresholds` 始终为 `{}`
+- 添加 console.log 发现前端数据正确，但数据库为空
+
+**根本原因**：
+```javascript
+// pages/api/admin/prompt-config/save.js
+const {
+  prompt_type,
+  model_selection,
+  // ... 其他字段
+  // ❌ 缺少 category_thresholds
+} = req.body;
+
+// INSERT 语句中也没有包含
+.insert({
+  user_id: user.id,
+  model_selection,
+  // ... 其他字段
+  // ❌ 缺少 category_thresholds: category_thresholds || {}
+})
+```
+
+**解决方案** (Commit: f17e3b8):
+1. 添加 `category_thresholds` 到 `req.body` 解构
+2. 添加 `category_thresholds: category_thresholds || {}` 到 INSERT 语句
+3. 添加日志验证接收和插入的数据
+
+**修改文件**：
+- `pages/api/admin/prompt-config/save.js:43,127`
+
+---
+
+#### 问题 2: Slide Generation 未继承 Report 的 category_thresholds
+
+**发现过程**：
+- Report 保存时 `category_thresholds` 正确（例如 `{"Psychology": 0.15}`）
+- 使用该 Report 生成 Slide 后，Slide 的 `category_thresholds` 为 `{}`
+- Slide 记录有 `source_config_id` 指向 Report，但未拷贝 threshold 数据
+
+**根本原因（第一轮修复）**：
+```javascript
+// components/admin/SlideGenerationTab.js:268
+category_thresholds: loadedConfig?.category_thresholds || sourceConfig?.category_thresholds || {},
+```
+
+问题：`loadedConfig` 在第一次 autoSave 后被设置，其 `category_thresholds` 为 `{}`（空对象）。由于空对象 `{}` 是 truthy 值，`||` 运算符永远不会 fallback 到 `sourceConfig.category_thresholds`。
+
+**数据流分析**：
+```
+1. 用户选择 Report Config (category_thresholds: {"Psychology": 0.15})
+2. 生成 slides，调用 autoSaveSlideConfig()
+3. autoSaveSlideConfig 创建新 slide config
+4. 后端初始化 category_thresholds 为 {}
+5. setLoadedConfig(result.data)  // loadedConfig.category_thresholds = {}
+6. 用户点击 Save 按钮
+7. loadedConfig?.category_thresholds 返回 {}（truthy）
+8. sourceConfig?.category_thresholds 永远不会被使用 ❌
+```
+
+**解决方案** (Commit: e454f7d, 1a60436):
+
+**第一步** - 添加继承逻辑:
+```javascript
+// SlideGenerationTab.js autoSaveSlideConfig
+category_thresholds: loadedConfig?.category_thresholds || sourceConfig?.category_thresholds || {}
+
+// SlideGenerationTab.js Save button
+onClick={() => handleSaveConfig({
+  category_thresholds: loadedConfig?.category_thresholds || {}
+})}
+
+// usePromptConfig.js slide type
+category_thresholds: additionalData.category_thresholds || {}
+```
+
+**第二步** - 简化为直接拷贝（最终方案）:
+```javascript
+// SlideGenerationTab.js:268 - 只从 sourceConfig 拷贝
+category_thresholds: sourceConfig?.category_thresholds || {}
+```
+
+**关键洞察**：
+- JavaScript 中 `{}` 是 truthy 值
+- `{} || value` 永远返回 `{}`，不会 fallback
+- 对于从源配置继承的字段，应该直接从源配置读取，不要使用 fallback 逻辑
+
+**修改文件**：
+- `components/admin/SlideGenerationTab.js:268` - autoSaveSlideConfig 中的 category_thresholds
+- `components/admin/SlideGenerationTab.js:538-540` - Save 按钮（最终未修改，使用 autoSave 的值）
+- `hooks/usePromptConfig.js:170` - slide 类型 configData
+
+---
+
+### 13.3 完整数据流
+
+**正确的数据流**（修复后）:
+
+```
+1. 用户在 Report Generation 创建报告
+   ↓
+2. 设置 category thresholds (拖动 slider)
+   categoryThresholds state: {"Psychology": 0.15}
+   ↓
+3. 点击 Save，构建完整 thresholds 对象
+   completeThresholds: {"Psychology": 0.15, "General": 0.30}
+   ↓
+4. 传递给 handleSaveConfig
+   additionalData.category_thresholds: {"Psychology": 0.15, "General": 0.30}
+   ↓
+5. usePromptConfig 构建 configData
+   configData.category_thresholds: {"Psychology": 0.15, "General": 0.30}
+   ↓
+6. API 接收并保存
+   req.body.category_thresholds → database ✅
+   ↓
+7. 用户在 Slide Generation 选择该 Report
+   ↓
+8. 生成 slides，autoSaveSlideConfig 从 sourceConfig 拷贝
+   category_thresholds: sourceConfig.category_thresholds
+   ↓
+9. 保存到数据库
+   slide config.category_thresholds: {"Psychology": 0.15, "General": 0.30} ✅
+```
+
+### 13.4 关键代码位置
+
+**前端保存逻辑**：
+```javascript
+// components/admin/ReportGenerationTab.js:639-667
+<Button onClick={() => {
+  const completeThresholds = {};
+  selectedKnowledgeIds.forEach(fileId => {
+    const item = knowledgeItems.find(k => k.id === fileId);
+    const category = item?.metadata?.category || 'General';
+    if (!completeThresholds[category]) {
+      completeThresholds[category] = categoryThresholds[category] !== undefined
+        ? categoryThresholds[category]
+        : 0.30;
+    }
+  });
+  handleSaveConfig({ category_thresholds: completeThresholds });
+}}>
+```
+
+**后端 API**：
+```javascript
+// pages/api/admin/prompt-config/save.js:43,127
+const { category_thresholds, ...otherFields } = req.body;
+
+.insert({
+  ...otherFields,
+  category_thresholds: category_thresholds || {},
+})
+```
+
+**Slide 继承**：
+```javascript
+// components/admin/SlideGenerationTab.js:268
+category_thresholds: sourceConfig?.category_thresholds || {}
+```
+
+### 13.5 测试验证清单
+
+**Report Generation 测试**：
+1. ✅ 创建 report，不拖动 slider → 保存默认值 0.30
+2. ✅ 拖动 Psychology slider 到 0.15 → 保存 {"Psychology": 0.15, "General": 0.30}
+3. ✅ 重新加载该 report config → slider 位置正确恢复
+4. ✅ 数据库 `prompt_configs.category_thresholds` 字段正确
+
+**Slide Generation 测试**：
+1. ✅ 选择带有 threshold 的 report config
+2. ✅ 生成 slides
+3. ✅ 检查数据库，slide config 有相同的 `category_thresholds`
+4. ✅ slide 的 `source_config_id` 正确指向 report config
+
+**Edge Function 测试**：
+1. ✅ Edge Function 读取 `user_reports.category_thresholds`
+2. ✅ 为每个文件应用对应 category 的 threshold
+3. ✅ 知识检索结果正确过滤
+
+### 13.6 经验教训
+
+1. **空对象陷阱**: `{}` 在 JavaScript 中是 truthy，使用 `||` 时要小心
+2. **数据继承**: 从源配置继承时，直接从源读取，不要用 loadedConfig fallback
+3. **完整测试**: 前端 → API → 数据库 → 读取，每一步都要验证
+4. **日志驱动**: 添加详细日志追踪数据流，快速定位问题
+5. **默认值处理**: 用户未手动设置时，要主动构建包含默认值的完整对象
+
+### 13.7 相关 Commits
+
+- `dcf3462` - Fix: Save category_thresholds in Prompt Testing tab
+- `5aff0b7` - Fix: Save complete category_thresholds including defaults
+- `f17e3b8` - Fix: Backend API not saving category_thresholds to database
+- `e454f7d` - Fix: Inherit category_thresholds from report to slide generation
+- `1a60436` - Fix: Directly copy category_thresholds from sourceConfig to slide
+
