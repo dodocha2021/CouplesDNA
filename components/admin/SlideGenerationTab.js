@@ -265,7 +265,7 @@ export default function SlideGenerationTab({ loadedConfig, setLoadedConfig, onCo
         knowledge_base_id: loadedConfig?.knowledge_base_id || sourceConfig?.knowledge_base_id,
         knowledge_base_name: loadedConfig?.knowledge_base_name || sourceConfig?.knowledge_base_name,
         selected_knowledge_ids: loadedConfig?.selected_knowledge_ids || sourceConfig?.selected_knowledge_ids || [],
-        category_thresholds: loadedConfig?.category_thresholds || sourceConfig?.category_thresholds || {},
+        category_thresholds: sourceConfig?.category_thresholds || {},
         top_k_results: loadedConfig?.top_k_results || sourceConfig?.top_k_results,
         strict_mode: loadedConfig?.strict_mode ?? sourceConfig?.strict_mode,
         system_prompt: loadedConfig?.system_prompt || sourceConfig?.system_prompt,
