@@ -166,8 +166,10 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
           generated_report: generatedReport,
           test_question: testQuestion,
           generated_response: generatedResponse,
-          selected_knowledge_ids: selectedKnowledgeIds
+          selected_knowledge_ids: selectedKnowledgeIds,
+          category_thresholds: additionalData.category_thresholds || {}
         }
+        console.log('Built slide configData with category_thresholds:', configData.category_thresholds);
       }
 
       console.log('=== Sending to API ===');
