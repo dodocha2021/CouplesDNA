@@ -131,7 +131,14 @@ export default function PromptTestingTab({ loadedConfig, setLoadedConfig, onConf
       if (loadedConfig.selected_knowledge_ids && Array.isArray(loadedConfig.selected_knowledge_ids)) {
         setSelectedKnowledgeIds(loadedConfig.selected_knowledge_ids);
       }
-    
+
+      // Load Category Thresholds
+      if (loadedConfig.category_thresholds) {
+        const thresholds = typeof loadedConfig.category_thresholds === 'string'
+          ? JSON.parse(loadedConfig.category_thresholds)
+          : loadedConfig.category_thresholds;
+        setCategoryThresholds(thresholds);
+      }
     }
   }, [loadedConfig, onConfigLoaded]);
 
@@ -463,7 +470,20 @@ export default function PromptTestingTab({ loadedConfig, setLoadedConfig, onConf
 
       <div className="flex gap-4 mt-6">
         <Button
-          onClick={() => handleSaveConfig()}
+          onClick={() => {
+            // Build complete category_thresholds including defaults
+            const completeThresholds = {};
+            selectedKnowledgeIds.forEach(fileId => {
+              const item = knowledgeItems.find(k => k.id === fileId);
+              const category = item?.metadata?.category || 'General';
+              if (!completeThresholds[category]) {
+                completeThresholds[category] = categoryThresholds[category] !== undefined
+                  ? categoryThresholds[category]
+                  : 0.30;
+              }
+            });
+            handleSaveConfig({ category_thresholds: completeThresholds });
+          }}
           disabled={saveLoading}
           className="px-6 py-2"
         >

@@ -112,7 +112,8 @@ export function usePromptConfig({ loadedConfig, setLoadedConfig, onSaveSuccess, 
           name: testQuestion,
           test_question: testQuestion,
           generated_response: generatedResponse,
-          selected_knowledge_ids: selectedKnowledgeIds // 新增
+          selected_knowledge_ids: selectedKnowledgeIds,
+          category_thresholds: additionalData.category_thresholds || {}
         }
       } else if (promptType === 'report') {
         if (!modelSelection || !knowledgeBaseId || topK === undefined ||
