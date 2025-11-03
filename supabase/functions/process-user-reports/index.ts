@@ -90,17 +90,18 @@ async function callAI(
 async function retrieveUserData(
   questionEmbedding: number[],
   supabase: any,
+  userId: string,
   selectedFileIds: string[],
   topK: number
 ): Promise<any[]> {
   const vectorString = `[${questionEmbedding.join(',')}]`;
 
   const promises = selectedFileIds.map(fileId =>
-    supabase.rpc('match_user_data', {
+    supabase.rpc('match_user_data_by_files', {
+      p_user_id: userId,
       query_embedding: vectorString,
-      match_threshold: 0.3,
       match_count: topK,
-      p_file_id: fileId
+      p_file_ids: [fileId]
     })
   );
 
@@ -283,6 +284,7 @@ async function processReport(report: any, supabase: any) {
     const userDataResults = await retrieveUserData(
       questionEmbedding,
       supabase,
+      report.user_id,
       [report.user_data_id],
       report.top_k_results || 5
     );
