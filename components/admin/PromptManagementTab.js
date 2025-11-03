@@ -25,7 +25,6 @@ export default function PromptManagementTab() {
 
   // Modal states
   const [detailsModalOpen, setDetailsModalOpen] = useState(false)
-  const [slidesModalOpen, setSlidesModalOpen] = useState(false)
 
   // Slide preview states
   const [slideData, setSlideData] = useState(null)
@@ -152,6 +151,414 @@ export default function PromptManagementTab() {
   useEffect(() => {
     fetchConfigs()
   }, [])
+
+  // Open slides in new window with full navigation
+  const handleOpenSlidesInNewWindow = () => {
+    if (!slideData || !slideData.files || slideData.files.length === 0) {
+      return
+    }
+
+    const slides = slideData.files
+    const startIndex = 0 // Always start from first slide
+    const newWindow = window.open('', '_blank', 'width=1280,height=720,resizable=yes,scrollbars=yes')
+
+    if (newWindow) {
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${selectedConfig?.name || 'Slides'} - All Slides</title>
+            <style>
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+
+              body {
+                background: #1a1a1a;
+                overflow: hidden;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+
+              #viewer {
+                width: 100%;
+                height: 100%;
+                position: relative;
+                overflow: hidden;
+              }
+
+              #slide-container {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 40px;
+              }
+
+              #slide-wrapper {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                max-width: 1280px;
+                max-height: 720px;
+                display: flex;
+                overflow: hidden;
+              }
+
+              .slide-frame {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                transition: transform 0.3s ease-in-out;
+                transform-origin: center center;
+              }
+
+              .slide-frame.current {
+                transform: translateX(0);
+                z-index: 2;
+              }
+
+              .slide-frame.next {
+                transform: translateX(100%);
+                z-index: 1;
+              }
+
+              .slide-frame.prev {
+                transform: translateX(-100%);
+                z-index: 1;
+              }
+
+              .slide-frame.slide-left {
+                transform: translateX(-100%);
+              }
+
+              .slide-frame.slide-right {
+                transform: translateX(100%);
+              }
+
+              .slide-frame iframe {
+                width: 100%;
+                height: 100%;
+                border: none;
+                background: white;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+              }
+
+              .nav-arrow {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 60px;
+                height: 60px;
+                background: rgba(0,0,0,0.5);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s, background 0.2s;
+                z-index: 100;
+                pointer-events: none;
+              }
+
+              .nav-arrow.visible {
+                opacity: 1;
+                pointer-events: auto;
+              }
+
+              .nav-arrow:hover {
+                background: rgba(0,0,0,0.7);
+              }
+
+              .nav-arrow.left {
+                left: 20px;
+              }
+
+              .nav-arrow.right {
+                right: 20px;
+              }
+
+              .nav-arrow:disabled {
+                opacity: 0 !important;
+                cursor: not-allowed;
+              }
+
+              .page-indicator {
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0,0,0,0.6);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 14px;
+                opacity: 0;
+                transition: opacity 0.3s;
+                z-index: 100;
+              }
+
+              .page-indicator.visible {
+                opacity: 1;
+              }
+
+              .close-btn {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                width: 40px;
+                height: 40px;
+                background: rgba(0,0,0,0.6);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s, background 0.2s;
+                z-index: 100;
+              }
+
+              .close-btn.visible {
+                opacity: 1;
+              }
+
+              .close-btn:hover {
+                background: rgba(0,0,0,0.8);
+              }
+
+              .hover-zone {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 20%;
+                z-index: 50;
+              }
+
+              .hover-zone.left {
+                left: 0;
+              }
+
+              .hover-zone.right {
+                right: 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div id="viewer">
+              <div id="slide-container">
+                <div id="slide-wrapper">
+                  <div id="slide-current" class="slide-frame current">
+                    <iframe srcdoc=""></iframe>
+                  </div>
+                  <div id="slide-next" class="slide-frame next">
+                    <iframe srcdoc=""></iframe>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Navigation arrows -->
+              <button class="nav-arrow left" id="btn-prev">←</button>
+              <button class="nav-arrow right" id="btn-next">→</button>
+
+              <!-- Hover zones -->
+              <div class="hover-zone left"></div>
+              <div class="hover-zone right"></div>
+
+              <!-- Page indicator -->
+              <div class="page-indicator" id="page-indicator">1 / 1</div>
+
+              <!-- Close button -->
+              <button class="close-btn" id="btn-close">×</button>
+            </div>
+
+            <script>
+              // Decode base64 slides
+              const slidesEncoded = ${JSON.stringify(slides.map(s => btoa(unescape(encodeURIComponent(s.content)))))};
+              const slides = slidesEncoded.map(encoded => decodeURIComponent(escape(atob(encoded))));
+
+              let currentIndex = ${startIndex};
+              let isAnimating = false;
+              let hideTimeout = null;
+
+              let currentFrame = document.getElementById('slide-current');
+              let nextFrame = document.getElementById('slide-next');
+              const btnPrev = document.getElementById('btn-prev');
+              const btnNext = document.getElementById('btn-next');
+              const btnClose = document.getElementById('btn-close');
+              const pageIndicator = document.getElementById('page-indicator');
+              const hoverZones = document.querySelectorAll('.hover-zone');
+
+              // Initialize
+              function init() {
+                showSlide(currentIndex);
+                updateUI();
+                calculateScale();
+                window.addEventListener('resize', calculateScale);
+              }
+
+              // Calculate scale for responsive display
+              function calculateScale() {
+                const wrapper = document.getElementById('slide-wrapper');
+                const container = document.getElementById('slide-container');
+                const containerWidth = container.offsetWidth - 80; // padding
+                const containerHeight = container.offsetHeight - 80;
+                const slideWidth = 1280;
+                const slideHeight = 720;
+
+                const scaleX = containerWidth / slideWidth;
+                const scaleY = containerHeight / slideHeight;
+                const scale = Math.min(scaleX, scaleY, 1);
+
+                wrapper.style.transform = \`scale(\${scale})\`;
+              }
+
+              // Show slide
+              function showSlide(index) {
+                const iframe = currentFrame.querySelector('iframe');
+                iframe.srcdoc = slides[index];
+              }
+
+              // Navigate to next slide
+              function nextSlide() {
+                if (isAnimating || currentIndex >= slides.length - 1) return;
+
+                isAnimating = true;
+                const nextIndex = currentIndex + 1;
+
+                // Load next slide
+                nextFrame.querySelector('iframe').srcdoc = slides[nextIndex];
+                nextFrame.className = 'slide-frame next';
+
+                // Trigger animation
+                setTimeout(() => {
+                  currentFrame.classList.add('slide-left');
+                  nextFrame.classList.remove('next');
+                  nextFrame.classList.add('current');
+
+                  setTimeout(() => {
+                    // Swap variable references (not IDs)
+                    const temp = currentFrame;
+                    currentFrame = nextFrame;
+                    nextFrame = temp;
+
+                    currentFrame.className = 'slide-frame current';
+                    nextFrame.className = 'slide-frame next';
+                    nextFrame.classList.remove('slide-left');
+
+                    currentIndex = nextIndex;
+                    updateUI();
+                    isAnimating = false;
+                  }, 300);
+                }, 10);
+              }
+
+              // Navigate to previous slide
+              function prevSlide() {
+                if (isAnimating || currentIndex <= 0) return;
+
+                isAnimating = true;
+                const prevIndex = currentIndex - 1;
+
+                // Load prev slide
+                nextFrame.querySelector('iframe').srcdoc = slides[prevIndex];
+                nextFrame.className = 'slide-frame prev';
+
+                // Trigger animation
+                setTimeout(() => {
+                  currentFrame.classList.add('slide-right');
+                  nextFrame.classList.remove('prev');
+                  nextFrame.classList.add('current');
+
+                  setTimeout(() => {
+                    // Swap variable references (not IDs)
+                    const temp = currentFrame;
+                    currentFrame = nextFrame;
+                    nextFrame = temp;
+
+                    currentFrame.className = 'slide-frame current';
+                    nextFrame.className = 'slide-frame next';
+                    nextFrame.classList.remove('slide-right');
+
+                    currentIndex = prevIndex;
+                    updateUI();
+                    isAnimating = false;
+                  }, 300);
+                }, 10);
+              }
+
+              // Update UI
+              function updateUI() {
+                btnPrev.disabled = currentIndex === 0;
+                btnNext.disabled = currentIndex === slides.length - 1;
+                pageIndicator.textContent = \`Slide \${currentIndex + 1} / \${slides.length}\`;
+              }
+
+              // Show controls
+              function showControls() {
+                clearTimeout(hideTimeout);
+                btnPrev.classList.add('visible');
+                btnNext.classList.add('visible');
+                btnClose.classList.add('visible');
+                pageIndicator.classList.add('visible');
+
+                hideTimeout = setTimeout(() => {
+                  btnPrev.classList.remove('visible');
+                  btnNext.classList.remove('visible');
+                  btnClose.classList.remove('visible');
+                  pageIndicator.classList.remove('visible');
+                }, 3000);
+              }
+
+              // Event listeners
+              btnPrev.addEventListener('click', prevSlide);
+              btnNext.addEventListener('click', nextSlide);
+              btnClose.addEventListener('click', () => window.close());
+
+              document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') prevSlide();
+                if (e.key === 'ArrowRight') nextSlide();
+                if (e.key === 'Escape') window.close();
+                showControls();
+              });
+
+              document.addEventListener('mousemove', showControls);
+
+              hoverZones.forEach(zone => {
+                zone.addEventListener('mouseenter', () => {
+                  if (zone.classList.contains('left')) {
+                    btnPrev.classList.add('visible');
+                  } else {
+                    btnNext.classList.add('visible');
+                  }
+                });
+              });
+
+              // Initialize
+              init();
+              showControls();
+            </script>
+          </body>
+        </html>
+      `)
+      newWindow.document.close()
+    }
+  }
 
   // Handle mouse drag for resizing panels
   const handleMouseDown = (e) => {
@@ -388,7 +795,8 @@ export default function PromptManagementTab() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setSlidesModalOpen(true)}
+                  onClick={handleOpenSlidesInNewWindow}
+                  disabled={!slideData || !slideData.files || slideData.files.length === 0}
                   className="mt-2"
                 >
                   <Eye className="h-4 w-4 mr-2" />
@@ -762,68 +1170,6 @@ export default function PromptManagementTab() {
                   )}
                 </TabsContent>
               </Tabs>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* All Slides Modal */}
-      <Dialog open={slidesModalOpen} onOpenChange={setSlidesModalOpen}>
-        <DialogContent className="w-[95vw] max-w-[95vw] max-h-[90vh] bg-white dark:bg-gray-900">
-          <DialogHeader>
-            <DialogTitle>All Slides - {selectedConfig?.name}</DialogTitle>
-          </DialogHeader>
-          {slideData && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentSlideIndex(Math.max(0, currentSlideIndex - 1))}
-                    disabled={currentSlideIndex === 0}
-                  >
-                    ◀ Prev
-                  </Button>
-                  <span className="text-sm">
-                    Slide {currentSlideIndex + 1} / {slideData.files?.length || 0}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentSlideIndex(Math.min((slideData.files?.length || 1) - 1, currentSlideIndex + 1))}
-                    disabled={currentSlideIndex >= (slideData.files?.length || 1) - 1}
-                  >
-                    Next ▶
-                  </Button>
-                </div>
-                {selectedConfig?.manus_share_url && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open(selectedConfig.manus_share_url, '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open in Manus
-                  </Button>
-                )}
-              </div>
-
-              <div className="bg-muted/50 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: '600px' }}>
-                <div style={{
-                  transform: 'scale(0.46)',
-                  transformOrigin: 'center center',
-                  width: '1280px',
-                  height: '720px'
-                }}>
-                  <iframe
-                    srcDoc={slideData.files?.[currentSlideIndex]?.content || ''}
-                    style={{ width: '1280px', height: '720px', border: 'none' }}
-                    sandbox="allow-same-origin"
-                    title={`Slide ${currentSlideIndex + 1}`}
-                  />
-                </div>
-              </div>
             </div>
           )}
         </DialogContent>
