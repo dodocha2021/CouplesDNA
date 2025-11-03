@@ -250,7 +250,7 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
       await fetchReports()
 
       // Reset and close dialog
-      setSelectedUploadId('')
+      setSelectedUploadIds([])
       setSelectedSettingName('')
       setIsGenerateDialogOpen(false)
 
