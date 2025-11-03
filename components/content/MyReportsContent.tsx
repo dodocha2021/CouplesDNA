@@ -53,6 +53,8 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
   // Slide Preview State
   const [selectedReport, setSelectedReport] = useState(null)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  const [slideScale, setSlideScale] = useState(1)
+  const slideContainerRef = React.useRef(null)
 
   const { toast } = useToast()
 
@@ -126,6 +128,22 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
   useEffect(() => {
     fetchReports()
   }, [])
+
+  // Calculate slide scale for responsive display
+  useEffect(() => {
+    const calculateScale = () => {
+      if (slideContainerRef.current) {
+        const containerWidth = slideContainerRef.current.offsetWidth
+        const slideWidth = 1280 // Manus slide width
+        const scale = containerWidth / slideWidth
+        setSlideScale(Math.min(scale, 1)) // Don't scale up, only down
+      }
+    }
+
+    calculateScale()
+    window.addEventListener('resize', calculateScale)
+    return () => window.removeEventListener('resize', calculateScale)
+  }, [selectedReport])
 
   // Realtime subscription for status updates
   useEffect(() => {
@@ -356,13 +374,14 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
     }
   }
 
-  // Open slide in new window
+  // Open slide in new window with full navigation
   const handleOpenInNewWindow = () => {
-    if (!selectedReport || !selectedReport.slides || !selectedReport.slides[currentSlideIndex]) {
+    if (!selectedReport || !selectedReport.slides || selectedReport.slides.length === 0) {
       return
     }
 
-    const slide = selectedReport.slides[currentSlideIndex]
+    const slides = selectedReport.slides
+    const startIndex = currentSlideIndex
     const newWindow = window.open('', '_blank', 'width=1280,height=720,resizable=yes,scrollbars=yes')
 
     if (newWindow) {
@@ -370,40 +389,389 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
         <!DOCTYPE html>
         <html>
           <head>
-            <title>Slide ${currentSlideIndex + 1} - ${selectedReport.setting_name}</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${selectedReport.setting_name} - Slides</title>
             <style>
-              body {
+              * {
                 margin: 0;
                 padding: 0;
-                overflow: hidden;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                background: #f5f5f5;
-                height: 100vh;
+                box-sizing: border-box;
               }
-              .slide-container {
+
+              body {
+                background: #1a1a1a;
+                overflow: hidden;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+
+              #viewer {
+                width: 100%;
+                height: 100%;
+                position: relative;
+                overflow: hidden;
+              }
+
+              #slide-container {
                 width: 100%;
                 height: 100%;
                 display: flex;
-                justify-content: center;
                 align-items: center;
-                padding: 20px;
-                box-sizing: border-box;
+                justify-content: center;
+                padding: 40px;
               }
-              .slide-content {
+
+              #slide-wrapper {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                max-width: 1280px;
+                max-height: 720px;
+                display: flex;
+                overflow: hidden;
+              }
+
+              .slide-frame {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                transition: transform 0.3s ease-in-out;
+                transform-origin: center center;
+              }
+
+              .slide-frame.current {
+                transform: translateX(0);
+                z-index: 2;
+              }
+
+              .slide-frame.next {
+                transform: translateX(100%);
+                z-index: 1;
+              }
+
+              .slide-frame.prev {
+                transform: translateX(-100%);
+                z-index: 1;
+              }
+
+              .slide-frame.slide-left {
+                transform: translateX(-100%);
+              }
+
+              .slide-frame.slide-right {
+                transform: translateX(100%);
+              }
+
+              .slide-frame iframe {
                 width: 100%;
                 height: 100%;
                 border: none;
                 background: white;
-                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+              }
+
+              .nav-arrow {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 60px;
+                height: 60px;
+                background: rgba(0,0,0,0.5);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s, background 0.2s;
+                z-index: 100;
+                pointer-events: none;
+              }
+
+              .nav-arrow.visible {
+                opacity: 1;
+                pointer-events: auto;
+              }
+
+              .nav-arrow:hover {
+                background: rgba(0,0,0,0.7);
+              }
+
+              .nav-arrow.left {
+                left: 20px;
+              }
+
+              .nav-arrow.right {
+                right: 20px;
+              }
+
+              .nav-arrow:disabled {
+                opacity: 0 !important;
+                cursor: not-allowed;
+              }
+
+              .page-indicator {
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0,0,0,0.6);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 14px;
+                opacity: 0;
+                transition: opacity 0.3s;
+                z-index: 100;
+              }
+
+              .page-indicator.visible {
+                opacity: 1;
+              }
+
+              .close-btn {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                width: 40px;
+                height: 40px;
+                background: rgba(0,0,0,0.6);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s, background 0.2s;
+                z-index: 100;
+              }
+
+              .close-btn.visible {
+                opacity: 1;
+              }
+
+              .close-btn:hover {
+                background: rgba(0,0,0,0.8);
+              }
+
+              .hover-zone {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 20%;
+                z-index: 50;
+              }
+
+              .hover-zone.left {
+                left: 0;
+              }
+
+              .hover-zone.right {
+                right: 0;
               }
             </style>
           </head>
           <body>
-            <div class="slide-container">
-              ${slide.content}
+            <div id="viewer">
+              <div id="slide-container">
+                <div id="slide-wrapper">
+                  <div id="slide-current" class="slide-frame current">
+                    <iframe srcdoc=""></iframe>
+                  </div>
+                  <div id="slide-next" class="slide-frame next">
+                    <iframe srcdoc=""></iframe>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Navigation arrows -->
+              <button class="nav-arrow left" id="btn-prev">←</button>
+              <button class="nav-arrow right" id="btn-next">→</button>
+
+              <!-- Hover zones -->
+              <div class="hover-zone left"></div>
+              <div class="hover-zone right"></div>
+
+              <!-- Page indicator -->
+              <div class="page-indicator" id="page-indicator">1 / 1</div>
+
+              <!-- Close button -->
+              <button class="close-btn" id="btn-close">×</button>
             </div>
+
+            <script>
+              const slides = ${JSON.stringify(slides.map(s => s.content))};
+              let currentIndex = ${startIndex};
+              let isAnimating = false;
+              let hideTimeout = null;
+
+              const currentFrame = document.getElementById('slide-current');
+              const nextFrame = document.getElementById('slide-next');
+              const btnPrev = document.getElementById('btn-prev');
+              const btnNext = document.getElementById('btn-next');
+              const btnClose = document.getElementById('btn-close');
+              const pageIndicator = document.getElementById('page-indicator');
+              const hoverZones = document.querySelectorAll('.hover-zone');
+
+              // Initialize
+              function init() {
+                showSlide(currentIndex);
+                updateUI();
+                calculateScale();
+                window.addEventListener('resize', calculateScale);
+              }
+
+              // Calculate scale for responsive display
+              function calculateScale() {
+                const wrapper = document.getElementById('slide-wrapper');
+                const container = document.getElementById('slide-container');
+                const containerWidth = container.offsetWidth - 80; // padding
+                const containerHeight = container.offsetHeight - 80;
+                const slideWidth = 1280;
+                const slideHeight = 720;
+
+                const scaleX = containerWidth / slideWidth;
+                const scaleY = containerHeight / slideHeight;
+                const scale = Math.min(scaleX, scaleY, 1);
+
+                wrapper.style.transform = \`scale(\${scale})\`;
+              }
+
+              // Show slide
+              function showSlide(index) {
+                const iframe = currentFrame.querySelector('iframe');
+                iframe.srcdoc = slides[index];
+              }
+
+              // Navigate to next slide
+              function nextSlide() {
+                if (isAnimating || currentIndex >= slides.length - 1) return;
+
+                isAnimating = true;
+                const nextIndex = currentIndex + 1;
+
+                // Load next slide
+                nextFrame.querySelector('iframe').srcdoc = slides[nextIndex];
+                nextFrame.className = 'slide-frame next';
+
+                // Trigger animation
+                setTimeout(() => {
+                  currentFrame.classList.add('slide-left');
+                  nextFrame.classList.remove('next');
+                  nextFrame.classList.add('current');
+
+                  setTimeout(() => {
+                    // Swap frames
+                    const temp = currentFrame.id;
+                    currentFrame.id = nextFrame.id;
+                    nextFrame.id = temp;
+
+                    currentFrame.className = 'slide-frame current';
+                    nextFrame.className = 'slide-frame next';
+                    nextFrame.classList.remove('slide-left');
+
+                    currentIndex = nextIndex;
+                    updateUI();
+                    isAnimating = false;
+                  }, 300);
+                }, 10);
+              }
+
+              // Navigate to previous slide
+              function prevSlide() {
+                if (isAnimating || currentIndex <= 0) return;
+
+                isAnimating = true;
+                const prevIndex = currentIndex - 1;
+
+                // Load prev slide
+                nextFrame.querySelector('iframe').srcdoc = slides[prevIndex];
+                nextFrame.className = 'slide-frame prev';
+
+                // Trigger animation
+                setTimeout(() => {
+                  currentFrame.classList.add('slide-right');
+                  nextFrame.classList.remove('prev');
+                  nextFrame.classList.add('current');
+
+                  setTimeout(() => {
+                    // Swap frames
+                    const temp = currentFrame.id;
+                    currentFrame.id = nextFrame.id;
+                    nextFrame.id = temp;
+
+                    currentFrame.className = 'slide-frame current';
+                    nextFrame.className = 'slide-frame next';
+                    nextFrame.classList.remove('slide-right');
+
+                    currentIndex = prevIndex;
+                    updateUI();
+                    isAnimating = false;
+                  }, 300);
+                }, 10);
+              }
+
+              // Update UI
+              function updateUI() {
+                btnPrev.disabled = currentIndex === 0;
+                btnNext.disabled = currentIndex === slides.length - 1;
+                pageIndicator.textContent = \`Slide \${currentIndex + 1} / \${slides.length}\`;
+              }
+
+              // Show controls
+              function showControls() {
+                clearTimeout(hideTimeout);
+                btnPrev.classList.add('visible');
+                btnNext.classList.add('visible');
+                btnClose.classList.add('visible');
+                pageIndicator.classList.add('visible');
+
+                hideTimeout = setTimeout(() => {
+                  btnPrev.classList.remove('visible');
+                  btnNext.classList.remove('visible');
+                  btnClose.classList.remove('visible');
+                  pageIndicator.classList.remove('visible');
+                }, 3000);
+              }
+
+              // Event listeners
+              btnPrev.addEventListener('click', prevSlide);
+              btnNext.addEventListener('click', nextSlide);
+              btnClose.addEventListener('click', () => window.close());
+
+              document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') prevSlide();
+                if (e.key === 'ArrowRight') nextSlide();
+                if (e.key === 'Escape') window.close();
+                showControls();
+              });
+
+              document.addEventListener('mousemove', showControls);
+
+              hoverZones.forEach(zone => {
+                zone.addEventListener('mouseenter', () => {
+                  if (zone.classList.contains('left')) {
+                    btnPrev.classList.add('visible');
+                  } else {
+                    btnNext.classList.add('visible');
+                  }
+                });
+              });
+
+              // Initialize
+              init();
+              showControls();
+            </script>
           </body>
         </html>
       `)
@@ -687,13 +1055,32 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center" style={{ height: '70vh', minHeight: '500px' }}>
-                    <iframe
-                      srcDoc={selectedReport.slides[currentSlideIndex].content}
-                      className="w-full h-full"
-                      style={{ border: 'none', maxWidth: '100%', maxHeight: '100%' }}
-                      title={`Slide ${currentSlideIndex + 1}`}
-                    />
+                  <div
+                    ref={slideContainerRef}
+                    className="border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center"
+                    style={{ height: '70vh', minHeight: '500px' }}
+                  >
+                    <div
+                      style={{
+                        width: '1280px',
+                        height: '720px',
+                        transform: `scale(${slideScale})`,
+                        transformOrigin: 'center center',
+                        transition: 'transform 0.3s ease'
+                      }}
+                    >
+                      <iframe
+                        srcDoc={selectedReport.slides[currentSlideIndex].content}
+                        style={{
+                          width: '1280px',
+                          height: '720px',
+                          border: 'none',
+                          background: 'white',
+                          boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                        }}
+                        title={`Slide ${currentSlideIndex + 1}`}
+                      />
+                    </div>
                   </div>
                   <div className="flex justify-between items-center mt-4">
                     <Button
