@@ -30,7 +30,9 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Loader2
+  Loader2,
+  ExternalLink,
+  Maximize2
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useToast } from '@/hooks/use-toast'
@@ -354,6 +356,67 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
     }
   }
 
+  // Open slide in new window
+  const handleOpenInNewWindow = () => {
+    if (!selectedReport || !selectedReport.slides || !selectedReport.slides[currentSlideIndex]) {
+      return
+    }
+
+    const slide = selectedReport.slides[currentSlideIndex]
+    const newWindow = window.open('', '_blank', 'width=1280,height=720,resizable=yes,scrollbars=yes')
+
+    if (newWindow) {
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Slide ${currentSlideIndex + 1} - ${selectedReport.setting_name}</title>
+            <style>
+              body {
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                background: #f5f5f5;
+                height: 100vh;
+              }
+              .slide-container {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 20px;
+                box-sizing: border-box;
+              }
+              .slide-content {
+                width: 100%;
+                height: 100%;
+                border: none;
+                background: white;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              }
+            </style>
+          </head>
+          <body>
+            <div class="slide-container">
+              ${slide.content}
+            </div>
+          </body>
+        </html>
+      `)
+      newWindow.document.close()
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to open new window. Please check your popup blocker settings."
+      })
+    }
+  }
+
   // Get status badge
   const getStatusBadge = (report) => {
     const { status, report_status, slide_status } = report
@@ -607,17 +670,28 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
                         Generated on {new Date(selectedReport.created_at).toLocaleDateString()}
                       </CardDescription>
                     </div>
-                    <Button variant="outline" onClick={() => setSelectedReport(null)}>
-                      Close Preview
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleOpenInNewWindow}
+                        title="Open in new window"
+                      >
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        New Window
+                      </Button>
+                      <Button variant="outline" onClick={() => setSelectedReport(null)}>
+                        Close Preview
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="border rounded-lg overflow-hidden" style={{ minHeight: '720px' }}>
+                  <div className="border rounded-lg overflow-hidden bg-gray-50 flex items-center justify-center" style={{ height: '70vh', minHeight: '500px' }}>
                     <iframe
                       srcDoc={selectedReport.slides[currentSlideIndex].content}
-                      className="w-full"
-                      style={{ height: '720px', border: 'none' }}
+                      className="w-full h-full"
+                      style={{ border: 'none', maxWidth: '100%', maxHeight: '100%' }}
                       title={`Slide ${currentSlideIndex + 1}`}
                     />
                   </div>
