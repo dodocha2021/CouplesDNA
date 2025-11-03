@@ -610,7 +610,10 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
             </div>
 
             <script>
-              const slides = ${JSON.stringify(slides.map(s => s.content))};
+              // Decode base64 slides
+              const slidesEncoded = ${JSON.stringify(slides.map(s => btoa(unescape(encodeURIComponent(s.content)))))};
+              const slides = slidesEncoded.map(encoded => decodeURIComponent(escape(atob(encoded))));
+
               let currentIndex = ${startIndex};
               let isAnimating = false;
               let hideTimeout = null;
