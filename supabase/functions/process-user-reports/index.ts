@@ -245,7 +245,7 @@ async function processReport(report: any, supabase: any) {
         query_embedding: vectorString,
         match_threshold: parseFloat(threshold),
         match_count: report.top_k_results || 5,
-        p_file_id: file_id
+        p_file_ids: [file_id]
       })
     );
 
@@ -263,7 +263,10 @@ async function processReport(report: any, supabase: any) {
     });
 
     const uniqueKnowledge = Array.from(
-      new Map(knowledgeResults.map(item => [item.id, item])).values()
+      new Map(knowledgeResults.map(item => {
+        const uniqueKey = `${item.metadata?.file_id || 'unknown'}_${item.metadata?.chunk_index ?? 'unknown'}`;
+        return [uniqueKey, item];
+      })).values()
     );
     knowledgeResults = uniqueKnowledge
       .sort((a: any, b: any) => b.similarity - a.similarity)
