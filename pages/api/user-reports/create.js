@@ -37,23 +37,39 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized' })
     }
 
-    const { user_data_id, setting_name } = req.body
+    const { user_data_id, user_data_ids, setting_name } = req.body
 
-    if (!user_data_id || !setting_name) {
-      return res.status(400).json({ error: 'Missing required fields: user_data_id, setting_name' })
+    // Support both single file (legacy) and multiple files (new)
+    let fileIds = []
+    if (user_data_ids && Array.isArray(user_data_ids) && user_data_ids.length > 0) {
+      // New: multiple files
+      fileIds = user_data_ids
+    } else if (user_data_id) {
+      // Legacy: single file
+      fileIds = [user_data_id]
+    } else {
+      return res.status(400).json({ error: 'Missing required fields: user_data_id or user_data_ids, setting_name' })
     }
 
-    // Verify user_data_id belongs to user
-    const { data: userData, error: userDataError } = await supabaseClient
+    if (!setting_name) {
+      return res.status(400).json({ error: 'Missing required field: setting_name' })
+    }
+
+    // Verify all file IDs belong to user and are completed
+    const { data: userDataFiles, error: userDataError } = await supabaseClient
       .from('user_uploads')
       .select('id, file_name')
-      .eq('id', user_data_id)
+      .in('id', fileIds)
       .eq('user_id', user.id)
       .eq('status', 'completed')
-      .single()
 
-    if (userDataError || !userData) {
-      return res.status(404).json({ error: 'User upload not found or not completed' })
+    if (userDataError || !userDataFiles || userDataFiles.length === 0) {
+      return res.status(404).json({ error: 'User upload(s) not found or not completed' })
+    }
+
+    // Verify all requested files were found
+    if (userDataFiles.length !== fileIds.length) {
+      return res.status(404).json({ error: 'Some user data files not found or not completed' })
     }
 
     // Get the prompt_config with this setting_name
@@ -71,7 +87,8 @@ export default async function handler(req, res) {
     // Create user_reports record
     const reportData = {
       user_id: user.id,
-      user_data_id,
+      user_data_id: fileIds[0],  // Legacy: first file for backward compatibility
+      user_data_ids: fileIds,    // New: array of all selected files
       setting_name,  // Display name for UI (e.g., "Relationship")
 
       // IMPORTANT: report_topic is the actual question sent to AI

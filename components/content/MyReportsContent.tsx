@@ -21,6 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   FileText,
   Calendar,
@@ -46,7 +48,7 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false)
   const [userUploads, setUserUploads] = useState([])
   const [systemSettings, setSystemSettings] = useState([])
-  const [selectedUploadId, setSelectedUploadId] = useState('')
+  const [selectedUploadIds, setSelectedUploadIds] = useState([])  // Changed to array for multi-select
   const [selectedSettingName, setSelectedSettingName] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
 
@@ -195,13 +197,22 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
     setIsGenerateDialogOpen(true)
   }
 
+  // Handle upload selection toggle
+  const handleSelectUpload = (uploadId, checked) => {
+    setSelectedUploadIds(prev =>
+      checked
+        ? [...prev, uploadId]
+        : prev.filter(id => id !== uploadId)
+    )
+  }
+
   // Generate report
   const handleGenerateReport = async () => {
-    if (!selectedUploadId || !selectedSettingName) {
+    if (selectedUploadIds.length === 0 || !selectedSettingName) {
       toast({
         variant: "destructive",
         title: "Incomplete Selection",
-        description: "Please select both a chat record and a topic."
+        description: "Please select at least one chat record and a topic."
       })
       return
     }
@@ -219,7 +230,7 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_data_id: selectedUploadId,
+          user_data_ids: selectedUploadIds,  // Send array of selected files
           setting_name: selectedSettingName
         })
       })
@@ -901,19 +912,26 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
 
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="upload-select">Chat Record</Label>
-                <Select value={selectedUploadId} onValueChange={setSelectedUploadId}>
-                  <SelectTrigger id="upload-select">
-                    <SelectValue placeholder="Select a chat record" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {userUploads.map(upload => (
-                      <SelectItem key={upload.id} value={upload.id}>
-                        {upload.file_name} - {new Date(upload.created_at).toLocaleDateString()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Chat Records ({selectedUploadIds.length} selected)</Label>
+                <ScrollArea className="border rounded-md p-2 h-40 mt-2">
+                  {userUploads.length === 0 ? (
+                    <p className="text-sm text-gray-500 p-2">No chat records available</p>
+                  ) : (
+                    userUploads.map(upload => (
+                      <div key={upload.id} className="flex items-center py-1 px-2 hover:bg-gray-100 rounded">
+                        <Checkbox
+                          id={upload.id}
+                          checked={selectedUploadIds.includes(upload.id)}
+                          onCheckedChange={(checked) => handleSelectUpload(upload.id, checked)}
+                          className="mr-2"
+                        />
+                        <label htmlFor={upload.id} className="text-sm flex-1 cursor-pointer">
+                          {upload.file_name} - {new Date(upload.created_at).toLocaleDateString()}
+                        </label>
+                      </div>
+                    ))
+                  )}
+                </ScrollArea>
               </div>
 
               <div className="space-y-2">
@@ -943,7 +961,7 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
               </Button>
               <Button
                 onClick={handleGenerateReport}
-                disabled={isGenerating || !selectedUploadId || !selectedSettingName}
+                disabled={isGenerating || selectedUploadIds.length === 0 || !selectedSettingName}
               >
                 {isGenerating ? (
                   <>

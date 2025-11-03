@@ -185,7 +185,20 @@ async function processReport(report: any, supabase: any) {
   try {
     log(`\n========== Processing Report ${report.id} ==========`);
     log(`Setting: ${report.setting_name}`);
-    log(`User Data ID: ${report.user_data_id}`);
+
+    // Support both single file (legacy) and multiple files (new)
+    let selectedFileIds: string[] = [];
+    if (report.user_data_ids && Array.isArray(report.user_data_ids) && report.user_data_ids.length > 0) {
+      // New: multiple files
+      selectedFileIds = report.user_data_ids;
+      log(`User Data IDs: ${selectedFileIds.join(', ')}`);
+    } else if (report.user_data_id) {
+      // Legacy: single file
+      selectedFileIds = [report.user_data_id];
+      log(`User Data ID (legacy): ${report.user_data_id}`);
+    } else {
+      throw new Error('No user data files specified');
+    }
 
     // Step 1: Update status to processing
     log('[1/5] Updating status to processing...');
@@ -198,19 +211,21 @@ async function processReport(report: any, supabase: any) {
       })
       .eq('id', report.id);
 
-    // Step 2: Get user data file
-    log('[2/5] Fetching user data file...');
-    const { data: userData, error: userDataError } = await supabase
+    // Step 2: Get user data files metadata
+    log('[2/5] Fetching user data file(s)...');
+    const { data: userDataFiles, error: userDataError } = await supabase
       .from('user_uploads')
       .select('id, file_name')
-      .eq('id', report.user_data_id)
-      .single();
+      .in('id', selectedFileIds);
 
-    if (userDataError || !userData) {
-      throw new Error('User data file not found');
+    if (userDataError || !userDataFiles || userDataFiles.length === 0) {
+      throw new Error('User data file(s) not found');
     }
 
-    log(`  > User file: ${userData.file_name}`);
+    // Log all selected files
+    userDataFiles.forEach((file: any) => {
+      log(`  > User file: ${file.file_name}`);
+    });
 
     // Step 3: Generate report using RAG
     log('[3/5] Generating report with AI...');
@@ -299,12 +314,12 @@ async function processReport(report: any, supabase: any) {
 
     log(`  > Found ${knowledgeResults.length} knowledge chunks`);
 
-    // Retrieve user data chunks
+    // Retrieve user data chunks from all selected files
     const userDataResults = await retrieveUserData(
       questionEmbedding,
       supabase,
       report.user_id,
-      [report.user_data_id],
+      selectedFileIds,
       report.top_k_results || 5
     );
 
