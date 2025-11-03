@@ -163,7 +163,11 @@ export default function DashboardContent() {
         <Card className="bg-primary text-primary-foreground">
           <CardHeader>
             <CardTitle>Upload Chat Record</CardTitle>
-            <CardDescription className="text-primary-foreground/80">Get a new in-depth analysis report.</CardDescription>
+            <CardDescription className="text-primary-foreground/80">
+              Get a new in-depth analysis report.
+              <br />
+              <span className="text-xs opacity-70">TXT, DOCX, MD, CSV, JSON, LOG, PDF* • *PDF requires token</span>
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">
