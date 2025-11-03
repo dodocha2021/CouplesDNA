@@ -903,7 +903,10 @@ export default function TableUpload({
               </button>
             </p>
             <p className="text-xs text-gray-500">
-              Maximum file size: {formatBytes(maxSize)} • Maximum files: {maxFiles}
+              Max size: {formatBytes(maxSize)} • Max files: {maxFiles}
+            </p>
+            <p className="text-xs text-gray-400">
+              Formats: TXT, DOCX, MD, CSV, JSON, LOG, PDF* • *PDF requires token
             </p>
           </div>
         </div>
