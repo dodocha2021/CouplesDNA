@@ -24,7 +24,7 @@ async function generateEmbedding(text: string): Promise<number[]> {
 
   // Use new HuggingFace router endpoint
   const response = await fetch(
-    `https://router.huggingface.co/hf-inference/pipeline/feature-extraction/${embeddingModel}`,
+    `https://router.huggingface.co/hf-inference/models/${embeddingModel}`,
     {
       method: 'POST',
       headers: {
