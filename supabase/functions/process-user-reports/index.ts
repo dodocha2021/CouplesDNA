@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { HfInference } from "https://esm.sh/@huggingface/inference@2";
 
 // CORS headers
 const corsHeaders = {
@@ -8,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper: Generate embedding for a text using HuggingFace SDK
-// This matches the implementation in lib/embedding.js used by Prompt Studio
+// Helper: Generate embedding for a text using HuggingFace API (new endpoint)
+// HuggingFace migrated from api-inference.huggingface.co to router.huggingface.co
 async function generateEmbedding(text: string): Promise<number[]> {
   const hfToken = Deno.env.get("HUGGINGFACE_API_TOKEN");
   if (!hfToken) {
@@ -18,24 +17,36 @@ async function generateEmbedding(text: string): Promise<number[]> {
 
   console.log(`🔍 Generating embedding for text (${text.length} chars): "${text.substring(0, 100)}..."`);
 
-  // Use HuggingFace SDK (same as Prompt Studio in lib/embedding.js)
-  const hf = new HfInference(hfToken);
   const embeddingModel = 'BAAI/bge-base-en-v1.5';
 
   // Clean text (remove newlines)
   const cleanedText = text.replace(/\n/g, ' ');
 
-  const response = await hf.featureExtraction({
-    model: embeddingModel,
-    inputs: cleanedText,
+  // Use HuggingFace's new API endpoint
+  const response = await fetch(`https://router.huggingface.co/hf-inference/models/${embeddingModel}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${hfToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      inputs: cleanedText,
+    }),
   });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`HuggingFace API error: ${response.status} - ${errorText}`);
+  }
+
+  const data = await response.json();
 
   // Ensure the output is a flat array of numbers
   let embedding: number[];
-  if (Array.isArray(response) && typeof response[0] === 'number') {
-    embedding = response as number[];
-  } else if (Array.isArray(response) && Array.isArray(response[0]) && typeof response[0][0] === 'number') {
-    embedding = response[0] as number[];
+  if (Array.isArray(data) && typeof data[0] === 'number') {
+    embedding = data as number[];
+  } else if (Array.isArray(data) && Array.isArray(data[0]) && typeof data[0][0] === 'number') {
+    embedding = data[0] as number[];
   } else {
     throw new Error("Failed to generate a valid embedding vector.");
   }
