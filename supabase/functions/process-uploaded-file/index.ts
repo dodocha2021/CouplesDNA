@@ -45,9 +45,10 @@ function chunkText(text: string, chunkSize = 256): string[] {
 }
 
 // Function to get embeddings from Hugging Face
+// Updated to use new HuggingFace router endpoint
 async function getEmbedding(text: string): Promise<number[]> {
   const response = await fetch(
-    'https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2',
+    'https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2',
     {
       method: 'POST',
       headers: {

@@ -1,8 +1,9 @@
 export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
   const apiKey = Deno.env.get("HUGGINGFACE_API_TOKEN") ?? "";
-  
+
+  // Use new HuggingFace router endpoint
   const response = await fetch(
-    "https://api-inference.huggingface.co/models/BAAI/bge-base-en-v1.5",
+    "https://router.huggingface.co/hf-inference/models/BAAI/bge-base-en-v1.5",
     {
       method: "POST",
       headers: {
