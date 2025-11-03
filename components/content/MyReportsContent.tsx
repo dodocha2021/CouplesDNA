@@ -618,8 +618,8 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
               let isAnimating = false;
               let hideTimeout = null;
 
-              const currentFrame = document.getElementById('slide-current');
-              const nextFrame = document.getElementById('slide-next');
+              let currentFrame = document.getElementById('slide-current');
+              let nextFrame = document.getElementById('slide-next');
               const btnPrev = document.getElementById('btn-prev');
               const btnNext = document.getElementById('btn-next');
               const btnClose = document.getElementById('btn-close');
@@ -674,10 +674,10 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
                   nextFrame.classList.add('current');
 
                   setTimeout(() => {
-                    // Swap frames
-                    const temp = currentFrame.id;
-                    currentFrame.id = nextFrame.id;
-                    nextFrame.id = temp;
+                    // Swap variable references (not IDs)
+                    const temp = currentFrame;
+                    currentFrame = nextFrame;
+                    nextFrame = temp;
 
                     currentFrame.className = 'slide-frame current';
                     nextFrame.className = 'slide-frame next';
@@ -708,10 +708,10 @@ export const MyReportsContent = React.memo(function MyReportsContent() {
                   nextFrame.classList.add('current');
 
                   setTimeout(() => {
-                    // Swap frames
-                    const temp = currentFrame.id;
-                    currentFrame.id = nextFrame.id;
-                    nextFrame.id = temp;
+                    // Swap variable references (not IDs)
+                    const temp = currentFrame;
+                    currentFrame = nextFrame;
+                    nextFrame = temp;
 
                     currentFrame.className = 'slide-frame current';
                     nextFrame.className = 'slide-frame next';
