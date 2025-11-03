@@ -143,9 +143,14 @@ async function createManusTask(prompt: string): Promise<{ taskId: string; shareU
   }
 
   const data = await response.json();
+  console.log('🔍 Manus API response:', JSON.stringify(data, null, 2));
+  // Validate response data
+  if (!data.task_id) {
+    throw new Error('Manus API did not return task_id');
+  }
   return {
-    taskId: data.taskId,
-    shareUrl: data.shareUrl
+    taskId: data.task_id,
+    shareUrl: data.share_url || null
   };
 }
 
@@ -346,7 +351,8 @@ async function processReport(report: any, supabase: any) {
     log(`  > Share URL: ${manusResult.shareUrl}`);
 
     // Update with Manus task info
-    await supabase
+    log('💾 Saving Manus task info to database...');
+    const { error: manusUpdateError } = await supabase
       .from('user_reports')
       .update({
         manus_task_id: manusResult.taskId,
@@ -357,6 +363,11 @@ async function processReport(report: any, supabase: any) {
         updated_at: new Date().toISOString()
       })
       .eq('id', report.id);
+
+    if (manusUpdateError) {
+      throw new Error(`Failed to save Manus task info: ${manusUpdateError.message}`);
+    }
+    log('✅ Manus task info saved to database');
 
     log('✅ Report processing completed successfully');
     log('⏳ Waiting for Manus webhook to complete slide generation');
