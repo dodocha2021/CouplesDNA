@@ -126,7 +126,12 @@ async function retrieveUserData(
     if (result.data) allResults.push(...result.data);
   });
 
-  const uniqueResults = Array.from(new Map(allResults.map(item => [item.id, item])).values());
+  const uniqueResults = Array.from(
+    new Map(allResults.map(item => {
+      const uniqueKey = `${item.metadata?.file_id || 'unknown'}_${item.metadata?.chunk_index ?? 'unknown'}`;
+      return [uniqueKey, item];
+    })).values()
+  );
   return uniqueResults.sort((a: any, b: any) => b.similarity - a.similarity).slice(0, topK);
 }
 
