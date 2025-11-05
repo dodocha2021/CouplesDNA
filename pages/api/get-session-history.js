@@ -13,16 +13,27 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     
-    const { data, error } = await supabase
-      .from('workflow_progress')
-      .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at')
-      .eq('user_id', user.id)
-      .order('started_at', { ascending: false });
+    // --- Temporarily disabled database query ---
+    // The user indicated the tables do not exist yet.
+    // Returning an empty array to allow the UI to render without errors.
+    /*
+    let query = supabase
+      .from('n8n_workflow_sessions')
+      .select('session_id, workflow_type, status, current_step, total_steps, started_at, completed_at');
+
+    if (user.role !== 'admin') {
+      query = query.eq('user_id', user.id);
+    }
+    
+    const { data, error } = await query.order('started_at', { ascending: false });
     
     if (error) {
       throw error;
     }
+    */
     
+    const data = []; // Return empty data
+
     res.status(200).json({
       success: true,
       data: data || []

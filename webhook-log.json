@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-10-19T04:05:44.711Z",
+  "method": "POST",
+  "headers": {
+    "host": "diencephalic-prejournalistic-timmy.ngrok-free.dev",
+    "user-agent": "go-resty/2.16.5 (https://github.com/go-resty/resty)",
+    "content-length": "1956",
+    "accept": "application/json",
+    "accept-encoding": "gzip",
+    "content-type": "application/json",
+    "x-forwarded-for": "52.90.174.10",
+    "x-forwarded-host": "diencephalic-prejournalistic-timmy.ngrok-free.dev",
+    "x-forwarded-proto": "https",
+    "x-webhook-signature": "eiWnewkOZnJSme++h2sDqlx9W0v9vDz7svgAf8oInORz3fdiCIOzQ+T38M77UtilPnpLmlkDtcPLnmWgPnCp14hF9kUIS60cppKc0v58ZFwkRg2mHo1Gi3g8Mb3EeDD5t6XNUie9u7KMCKOzoeaW/FtEUq3AJtmqTVgYIcyzpdih8qhNEl4zEFW6xGJI62BG2odq5xwKB+VijYLKR3c8+YpIX5HPYUha5LThndWviWYXZeCcCBF2a51JntrF/BGN6P7Oc5oUg2Vp9yRrHVYZRBAT+DwvotHd6pjLBSGawDyzjjzKE+XM8mPUZG/lTqBAOnNXpsHRzgHys2mrT/JVpw==",
+    "x-webhook-timestamp": "1760846744",
+    "x-forwarded-port": "3000"
+  },
+  "body": {
+    "event_id": "task_stopped_b6DpNyEwFBZGBemEUGVpze",
+    "event_type": "task_stopped",
+    "task_detail": {
+      "task_id": "b6DpNyEwFBZGBemEUGVpze",
+      "task_title": "How to Create a 3-Slide Presentation on Dogs",
+      "task_url": "https://manus.im/app/b6DpNyEwFBZGBemEUGVpze",
+      "message": "已完成关于狗的3页幻灯片演示文稿。演示文稿包含以下内容：\n\n**第1页 - 封面页**\n展示主题\"狗：人类最忠诚的伙伴\"，采用简洁优雅的设计风格。\n\n**第2页 - 狗是人类驯化最成功的动物之一**\n介绍了狗的驯化历史、品种多样性、智力水平、社会性和适应能力，配有不同品种狗的图片。\n\n**第3页 - 狗为人类社会带来多重价值**\n阐述了狗在工作、健康、心理支持、陪伴等方面为人类带来的价值，配有工作犬和人狗情感纽带的图片。\n\n演示文稿采用了专业的配色方案（深蓝灰、橙色、蓝色）和清晰的视觉层次，内容丰富且易于理解。",
+      "attachments": [
+        {
+          "file_name": "狗：人类最忠诚的伙伴",
+          "url": "https://private-us-east-1.manuscdn.com/sessionFile/b6DpNyEwFBZGBemEUGVpze/sandbox/izjirxdmho0z5l72xq6pr-f03d45be-e2b-prod-aws_1760846734924_na1fn_c2xpZGVz.json?Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly9wcml2YXRlLXVzLWVhc3QtMS5tYW51c2Nkbi5jb20vc2Vzc2lvbkZpbGUvYjZEcE55RXdGQlpHQmVtRVVHVnB6ZS9zYW5kYm94L2l6amlyeGRtaG8wejVsNzJ4cTZwci1mMDNkNDViZS1lMmItcHJvZC1hd3NfMTc2MDg0NjczNDkyNF9uYTFmbl9jMnhwWkdWei5qc29uIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzk4NzYxNjAwfX19XX0_&Key-Pair-Id=K2HSFNDJXOU9YS&Signature=l9kTNIDzg7l2ys34polxzQgOIfeJ0NeLoLTtk7VpY3L7PLgMR69N-JtmSVqxRXnZswd5IT4Gzvwfz0jY4uKdCmwST7R1HHdXmCg7ETqhAzwo7-A~h4lv7UEQFfFWSaHJLcb-1fHRb53YQXO7jfgBk1Nmi6-k3abDgd10GisYsE8BNuXbOr2gm617AZYGVy6-NhTYCxAf8Lo~7EGd5SczoEjd19hKV0b0oWXo6Je7TBJIogjEsDg3iLnG7Ml3xHMpGk8qfI8g5xqyIurTu5ZonstdJTw7H8UuBG5J5NfiPXbQt2MjOHRZ91V4DztWutkYYasOL52DIDNuRAEiPWWEjQ__"
+        }
+      ],
+      "stop_reason": "finish"
+    }
+  }
+}

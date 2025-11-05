@@ -1,31 +1,38 @@
-import '../styles/globals.css';
-import VersionTag from '../components/VersionTag';
-import { useEffect } from 'react';
 
-export default function App({ Component, pageProps }) {
-  useEffect(() => {
-    // Initialize the 21st.dev toolbar only in development mode
-    if (process.env.NODE_ENV === 'development') {
-      const initToolbar = async () => {
-        try {
-          const { initToolbar } = await import('@21st-extension/toolbar');
-          const stagewiseConfig = {
-            plugins: [],
-          };
-          initToolbar(stagewiseConfig);
-        } catch (error) {
-          console.warn('21st.dev toolbar initialization failed:', error);
-        }
-      };
-      
-      initToolbar();
-    }
-  }, []);
+import { useState } from 'react';
+import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
+import { SessionContextProvider } from '@supabase/auth-helpers-react';
+import { Toaster } from "@/components/ui/toaster";
+import { AppProgressBar as ProgressBar } from 'next-nprogress-bar';
+import Head from 'next/head';
+import VersionTag from '@/components/VersionTag';
+import '../styles/globals.css'; // Corrected path
+
+function App({ Component, pageProps }) {
+  // Create a new supabase browser client on every first render.
+  const [supabaseClient] = useState(() => createPagesBrowserClient());
 
   return (
-    <>
-      <VersionTag />
+    <SessionContextProvider
+      supabaseClient={supabaseClient}
+      initialSession={pageProps.initialSession}
+    >
+      <Head>
+        <title>CouplesDNA</title>
+        <meta name="description" content="Understand your relationship better." />
+        {/* Add other global meta tags here */}
+      </Head>
       <Component {...pageProps} />
-    </>
+      <Toaster />
+      <ProgressBar
+        height="4px"
+        color="#ff595e"
+        options={{ showSpinner: false }}
+        shallowRouting
+      />
+      <VersionTag />
+    </SessionContextProvider>
   );
-} 
+}
+
+export default App;

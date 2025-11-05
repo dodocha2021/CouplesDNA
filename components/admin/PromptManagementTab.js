@@ -1,0 +1,1179 @@
+import React, { useState, useEffect } from 'react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { RefreshCw, FileCode, Plus, ExternalLink, Star, Eye, ChevronDown, ChevronUp } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/router'
+
+export default function PromptManagementTab() {
+  const router = useRouter()
+
+  // State management
+  const [loading, setLoading] = useState(true)
+  const [configs, setConfigs] = useState([])
+  const [selectedConfig, setSelectedConfig] = useState(null)
+  const [selectedTab, setSelectedTab] = useState('general')
+
+  // System defaults
+  const [defaultGeneral, setDefaultGeneral] = useState('')
+  const [defaultReport, setDefaultReport] = useState('')
+  const [defaultSlide, setDefaultSlide] = useState('')
+
+  // Modal states
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false)
+
+  // Slide preview states
+  const [slideData, setSlideData] = useState(null)
+  const [slideLoading, setSlideLoading] = useState(false)
+  const [slideError, setSlideError] = useState(null)
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+
+  // Text expansion
+  const [expandedText, setExpandedText] = useState(false)
+
+  // Resizable layout states
+  const [leftPanelWidth, setLeftPanelWidth] = useState(20) // percentage
+  const [isDragging, setIsDragging] = useState(false)
+
+  // Fetch all configurations
+  const fetchConfigs = async () => {
+    try {
+      setLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        console.error('No active session')
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('prompt_configs')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      setConfigs(data || [])
+
+      // Find and set system defaults
+      const generalDefault = data?.find(c => c.prompt_type === 'general' && c.is_system_default)
+      const reportDefault = data?.find(c => c.prompt_type === 'report' && c.is_system_default)
+      const slideDefault = data?.find(c => c.prompt_type === 'slide' && c.is_system_default)
+
+      setDefaultGeneral(generalDefault?.id || '')
+      setDefaultReport(reportDefault?.id || '')
+      setDefaultSlide(slideDefault?.id || '')
+
+      // Auto-select first config if none selected
+      if (!selectedConfig && data && data.length > 0) {
+        const firstOfType = data.find(c => c.prompt_type === selectedTab)
+        if (firstOfType) {
+          setSelectedConfig(firstOfType)
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching configs:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Set system defaults
+  const setSystemDefaults = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        alert('请先登录')
+        return
+      }
+
+      // Update defaults for each type
+      const updates = []
+
+      if (defaultGeneral) {
+        updates.push({ type: 'general', id: defaultGeneral })
+      }
+      if (defaultReport) {
+        updates.push({ type: 'report', id: defaultReport })
+      }
+      if (defaultSlide) {
+        updates.push({ type: 'slide', id: defaultSlide })
+      }
+
+      for (const update of updates) {
+        // First, unset all defaults for this type
+        await supabase
+          .from('prompt_configs')
+          .update({ is_system_default: false })
+          .eq('user_id', session.user.id)
+          .eq('prompt_type', update.type)
+
+        // Then set the new default
+        await supabase
+          .from('prompt_configs')
+          .update({ is_system_default: true })
+          .eq('id', update.id)
+      }
+
+      alert('✅ 系统默认配置已更新')
+      await fetchConfigs()
+    } catch (error) {
+      console.error('Error setting defaults:', error)
+      alert('❌ 更新失败：' + error.message)
+    }
+  }
+
+  // Parse slide data from JSON string
+  const parseSlideData = async (jsonString) => {
+    if (!jsonString) return
+
+    try {
+      setSlideLoading(true)
+      setSlideError(null)
+
+      // Parse the JSON string stored in the database
+      const data = JSON.parse(jsonString)
+      setSlideData(data)
+      setCurrentSlideIndex(0)
+    } catch (error) {
+      console.error('Error parsing slide data:', error)
+      setSlideError('Failed to load slide data')
+    } finally {
+      setSlideLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchConfigs()
+  }, [])
+
+  // Open slides in new window with full navigation
+  const handleOpenSlidesInNewWindow = () => {
+    if (!slideData || !slideData.files || slideData.files.length === 0) {
+      return
+    }
+
+    const slides = slideData.files
+    const startIndex = 0 // Always start from first slide
+    const newWindow = window.open('', '_blank', 'width=1280,height=720,resizable=yes,scrollbars=yes')
+
+    if (newWindow) {
+      newWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${selectedConfig?.name || 'Slides'} - All Slides</title>
+            <style>
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+
+              body {
+                background: #1a1a1a;
+                overflow: hidden;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              }
+
+              #viewer {
+                width: 100%;
+                height: 100%;
+                position: relative;
+                overflow: hidden;
+              }
+
+              #slide-container {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 40px;
+              }
+
+              #slide-wrapper {
+                position: relative;
+                width: 100%;
+                height: 100%;
+                max-width: 1280px;
+                max-height: 720px;
+                display: flex;
+                overflow: hidden;
+              }
+
+              .slide-frame {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                transition: transform 0.3s ease-in-out;
+                transform-origin: center center;
+              }
+
+              .slide-frame.current {
+                transform: translateX(0);
+                z-index: 2;
+              }
+
+              .slide-frame.next {
+                transform: translateX(100%);
+                z-index: 1;
+              }
+
+              .slide-frame.prev {
+                transform: translateX(-100%);
+                z-index: 1;
+              }
+
+              .slide-frame.slide-left {
+                transform: translateX(-100%);
+              }
+
+              .slide-frame.slide-right {
+                transform: translateX(100%);
+              }
+
+              .slide-frame iframe {
+                width: 100%;
+                height: 100%;
+                border: none;
+                background: white;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+              }
+
+              .nav-arrow {
+                position: absolute;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 60px;
+                height: 60px;
+                background: rgba(0,0,0,0.5);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s, background 0.2s;
+                z-index: 100;
+                pointer-events: none;
+              }
+
+              .nav-arrow.visible {
+                opacity: 1;
+                pointer-events: auto;
+              }
+
+              .nav-arrow:hover {
+                background: rgba(0,0,0,0.7);
+              }
+
+              .nav-arrow.left {
+                left: 20px;
+              }
+
+              .nav-arrow.right {
+                right: 20px;
+              }
+
+              .nav-arrow:disabled {
+                opacity: 0 !important;
+                cursor: not-allowed;
+              }
+
+              .page-indicator {
+                position: absolute;
+                bottom: 20px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(0,0,0,0.6);
+                color: white;
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 14px;
+                opacity: 0;
+                transition: opacity 0.3s;
+                z-index: 100;
+              }
+
+              .page-indicator.visible {
+                opacity: 1;
+              }
+
+              .close-btn {
+                position: absolute;
+                top: 20px;
+                right: 20px;
+                width: 40px;
+                height: 40px;
+                background: rgba(0,0,0,0.6);
+                border: none;
+                border-radius: 50%;
+                color: white;
+                font-size: 24px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                opacity: 0;
+                transition: opacity 0.3s, background 0.2s;
+                z-index: 100;
+              }
+
+              .close-btn.visible {
+                opacity: 1;
+              }
+
+              .close-btn:hover {
+                background: rgba(0,0,0,0.8);
+              }
+
+              .hover-zone {
+                position: absolute;
+                top: 0;
+                bottom: 0;
+                width: 20%;
+                z-index: 50;
+              }
+
+              .hover-zone.left {
+                left: 0;
+              }
+
+              .hover-zone.right {
+                right: 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div id="viewer">
+              <div id="slide-container">
+                <div id="slide-wrapper">
+                  <div id="slide-current" class="slide-frame current">
+                    <iframe srcdoc=""></iframe>
+                  </div>
+                  <div id="slide-next" class="slide-frame next">
+                    <iframe srcdoc=""></iframe>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Navigation arrows -->
+              <button class="nav-arrow left" id="btn-prev">←</button>
+              <button class="nav-arrow right" id="btn-next">→</button>
+
+              <!-- Hover zones -->
+              <div class="hover-zone left"></div>
+              <div class="hover-zone right"></div>
+
+              <!-- Page indicator -->
+              <div class="page-indicator" id="page-indicator">1 / 1</div>
+
+              <!-- Close button -->
+              <button class="close-btn" id="btn-close">×</button>
+            </div>
+
+            <script>
+              // Decode base64 slides
+              const slidesEncoded = ${JSON.stringify(slides.map(s => btoa(unescape(encodeURIComponent(s.content)))))};
+              const slides = slidesEncoded.map(encoded => decodeURIComponent(escape(atob(encoded))));
+
+              let currentIndex = ${startIndex};
+              let isAnimating = false;
+              let hideTimeout = null;
+
+              let currentFrame = document.getElementById('slide-current');
+              let nextFrame = document.getElementById('slide-next');
+              const btnPrev = document.getElementById('btn-prev');
+              const btnNext = document.getElementById('btn-next');
+              const btnClose = document.getElementById('btn-close');
+              const pageIndicator = document.getElementById('page-indicator');
+              const hoverZones = document.querySelectorAll('.hover-zone');
+
+              // Initialize
+              function init() {
+                showSlide(currentIndex);
+                updateUI();
+                calculateScale();
+                window.addEventListener('resize', calculateScale);
+              }
+
+              // Calculate scale for responsive display
+              function calculateScale() {
+                const wrapper = document.getElementById('slide-wrapper');
+                const container = document.getElementById('slide-container');
+                const containerWidth = container.offsetWidth - 80; // padding
+                const containerHeight = container.offsetHeight - 80;
+                const slideWidth = 1280;
+                const slideHeight = 720;
+
+                const scaleX = containerWidth / slideWidth;
+                const scaleY = containerHeight / slideHeight;
+                const scale = Math.min(scaleX, scaleY, 1);
+
+                wrapper.style.transform = \`scale(\${scale})\`;
+              }
+
+              // Show slide
+              function showSlide(index) {
+                const iframe = currentFrame.querySelector('iframe');
+                iframe.srcdoc = slides[index];
+              }
+
+              // Navigate to next slide
+              function nextSlide() {
+                if (isAnimating || currentIndex >= slides.length - 1) return;
+
+                isAnimating = true;
+                const nextIndex = currentIndex + 1;
+
+                // Load next slide
+                nextFrame.querySelector('iframe').srcdoc = slides[nextIndex];
+                nextFrame.className = 'slide-frame next';
+
+                // Trigger animation
+                setTimeout(() => {
+                  currentFrame.classList.add('slide-left');
+                  nextFrame.classList.remove('next');
+                  nextFrame.classList.add('current');
+
+                  setTimeout(() => {
+                    // Swap variable references (not IDs)
+                    const temp = currentFrame;
+                    currentFrame = nextFrame;
+                    nextFrame = temp;
+
+                    currentFrame.className = 'slide-frame current';
+                    nextFrame.className = 'slide-frame next';
+                    nextFrame.classList.remove('slide-left');
+
+                    currentIndex = nextIndex;
+                    updateUI();
+                    isAnimating = false;
+                  }, 300);
+                }, 10);
+              }
+
+              // Navigate to previous slide
+              function prevSlide() {
+                if (isAnimating || currentIndex <= 0) return;
+
+                isAnimating = true;
+                const prevIndex = currentIndex - 1;
+
+                // Load prev slide
+                nextFrame.querySelector('iframe').srcdoc = slides[prevIndex];
+                nextFrame.className = 'slide-frame prev';
+
+                // Trigger animation
+                setTimeout(() => {
+                  currentFrame.classList.add('slide-right');
+                  nextFrame.classList.remove('prev');
+                  nextFrame.classList.add('current');
+
+                  setTimeout(() => {
+                    // Swap variable references (not IDs)
+                    const temp = currentFrame;
+                    currentFrame = nextFrame;
+                    nextFrame = temp;
+
+                    currentFrame.className = 'slide-frame current';
+                    nextFrame.className = 'slide-frame next';
+                    nextFrame.classList.remove('slide-right');
+
+                    currentIndex = prevIndex;
+                    updateUI();
+                    isAnimating = false;
+                  }, 300);
+                }, 10);
+              }
+
+              // Update UI
+              function updateUI() {
+                btnPrev.disabled = currentIndex === 0;
+                btnNext.disabled = currentIndex === slides.length - 1;
+                pageIndicator.textContent = \`Slide \${currentIndex + 1} / \${slides.length}\`;
+              }
+
+              // Show controls
+              function showControls() {
+                clearTimeout(hideTimeout);
+                btnPrev.classList.add('visible');
+                btnNext.classList.add('visible');
+                btnClose.classList.add('visible');
+                pageIndicator.classList.add('visible');
+
+                hideTimeout = setTimeout(() => {
+                  btnPrev.classList.remove('visible');
+                  btnNext.classList.remove('visible');
+                  btnClose.classList.remove('visible');
+                  pageIndicator.classList.remove('visible');
+                }, 3000);
+              }
+
+              // Event listeners
+              btnPrev.addEventListener('click', prevSlide);
+              btnNext.addEventListener('click', nextSlide);
+              btnClose.addEventListener('click', () => window.close());
+
+              document.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowLeft') prevSlide();
+                if (e.key === 'ArrowRight') nextSlide();
+                if (e.key === 'Escape') window.close();
+                showControls();
+              });
+
+              document.addEventListener('mousemove', showControls);
+
+              hoverZones.forEach(zone => {
+                zone.addEventListener('mouseenter', () => {
+                  if (zone.classList.contains('left')) {
+                    btnPrev.classList.add('visible');
+                  } else {
+                    btnNext.classList.add('visible');
+                  }
+                });
+              });
+
+              // Initialize
+              init();
+              showControls();
+            </script>
+          </body>
+        </html>
+      `)
+      newWindow.document.close()
+    }
+  }
+
+  // Handle mouse drag for resizing panels
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isDragging) return
+
+      const container = document.getElementById('resizable-container')
+      if (!container) return
+
+      const containerRect = container.getBoundingClientRect()
+      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100
+
+      // Constrain between 15% and 40%
+      if (newWidth >= 15 && newWidth <= 40) {
+        setLeftPanelWidth(newWidth)
+      }
+    }
+
+    const handleMouseUp = () => {
+      setIsDragging(false)
+    }
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove)
+        document.removeEventListener('mouseup', handleMouseUp)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+    }
+  }, [isDragging])
+
+  // Auto-load slide data when selecting a slide config
+  useEffect(() => {
+    if (selectedConfig?.prompt_type === 'slide' && selectedConfig?.generate_slides) {
+      parseSlideData(selectedConfig.generate_slides)
+    } else {
+      setSlideData(null)
+      setSlideError(null)
+    }
+  }, [selectedConfig?.id])
+
+  // Filter configs by type
+  const getConfigsByType = (type) => {
+    const filtered = configs.filter(c => c.prompt_type === type)
+    // Sort: defaults first, then by created_at
+    return filtered.sort((a, b) => {
+      if (a.is_system_default && !b.is_system_default) return -1
+      if (!a.is_system_default && b.is_system_default) return 1
+      return new Date(b.created_at) - new Date(a.created_at)
+    })
+  }
+
+  const generalConfigs = getConfigsByType('general')
+  const reportConfigs = getConfigsByType('report')
+  const slideConfigs = getConfigsByType('slide')
+
+  // Helper to truncate text
+  const truncateText = (text, maxLength = 1000) => {
+    if (!text) return ''
+    if (text.length <= maxLength) return text
+    return expandedText ? text : text.substring(0, maxLength)
+  }
+
+  // Render configuration list item
+  const renderConfigItem = (config) => (
+    <div
+      key={config.id}
+      onClick={() => setSelectedConfig(config)}
+      className={`
+        p-3 rounded-lg cursor-pointer transition-all
+        ${selectedConfig?.id === config.id ? 'bg-primary/10 border-2 border-primary' : 'hover:bg-muted/50 border border-transparent'}
+      `}
+    >
+      <div className="flex items-center gap-2">
+        {config.is_system_default && <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />}
+        <span className="font-medium">{config.name}</span>
+      </div>
+    </div>
+  )
+
+  // Render detail panel based on config type
+  const renderDetailPanel = () => {
+    if (!selectedConfig) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          <div className="text-center">
+            <FileCode className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Select a configuration to view details</p>
+          </div>
+        </div>
+      )
+    }
+
+    const { prompt_type, name, model_selection, created_at, is_system_default } = selectedConfig
+
+    return (
+      <div className="space-y-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <h3 className="text-xl font-bold">{name}</h3>
+            {is_system_default && <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />}
+          </div>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>Model: {model_selection}</p>
+            <p>Created: {new Date(created_at).toLocaleString('en-US')}</p>
+            <p>System Default: {is_system_default ? 'Yes' : 'No'}</p>
+
+            {prompt_type === 'general' && selectedConfig.test_question && (
+              <p className="mt-2">
+                <span className="font-medium text-foreground">Test Question: </span>
+                {selectedConfig.test_question}
+              </p>
+            )}
+
+            {prompt_type === 'report' && selectedConfig.report_topic && (
+              <p className="mt-2">
+                <span className="font-medium text-foreground">Report Topic: </span>
+                {selectedConfig.report_topic}
+              </p>
+            )}
+
+            {prompt_type === 'slide' && selectedConfig.manus_prompt && (
+              <p className="mt-2">
+                <span className="font-medium text-foreground">Manus Prompt: </span>
+                {selectedConfig.manus_prompt}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Generated content preview */}
+        {prompt_type === 'general' && selectedConfig.generated_response && (
+          <div>
+            <h4 className="font-semibold mb-2">📊 Generated Response:</h4>
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <pre className="whitespace-pre-wrap text-sm">
+                {truncateText(selectedConfig.generated_response)}
+              </pre>
+              {selectedConfig.generated_response.length > 1000 && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setExpandedText(!expandedText)}
+                  className="mt-2 p-0 h-auto"
+                >
+                  {expandedText ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
+                  {expandedText ? 'Collapse' : 'Expand'}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {prompt_type === 'report' && selectedConfig.generated_report && (
+          <div>
+            <h4 className="font-semibold mb-2">📄 Generated Report:</h4>
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <pre className="whitespace-pre-wrap text-sm">
+                {truncateText(selectedConfig.generated_report)}
+              </pre>
+              {selectedConfig.generated_report.length > 1000 && (
+                <Button
+                  variant="link"
+                  size="sm"
+                  onClick={() => setExpandedText(!expandedText)}
+                  className="mt-2 p-0 h-auto"
+                >
+                  {expandedText ? <ChevronUp className="h-4 w-4 mr-1" /> : <ChevronDown className="h-4 w-4 mr-1" />}
+                  {expandedText ? 'Collapse' : 'Expand'}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {prompt_type === 'slide' && (
+          <div>
+            <h4 className="font-semibold mb-2">📄 Slide Preview:</h4>
+            {slideLoading ? (
+              <div className="p-8 bg-muted/50 rounded-lg text-center">
+                <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Loading slides...</p>
+              </div>
+            ) : slideError ? (
+              <div className="p-8 bg-destructive/10 border border-destructive/20 rounded-lg text-center">
+                <p className="text-destructive">{slideError}</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => parseSlideData(selectedConfig.generate_slides)}
+                  className="mt-2"
+                >
+                  Retry
+                </Button>
+              </div>
+            ) : slideData ? (
+              <div>
+                <div className="bg-muted/50 rounded-lg overflow-hidden flex items-center justify-center" style={{ height: '600px' }}>
+                  <div style={{
+                    transform: 'scale(0.46)',
+                    transformOrigin: 'center center',
+                    width: '1280px',
+                    height: '720px'
+                  }}>
+                    <iframe
+                      srcDoc={slideData.files?.[0]?.content || ''}
+                      style={{ width: '1280px', height: '720px', border: 'none' }}
+                      sandbox="allow-same-origin"
+                      title="Slide Preview"
+                    />
+                  </div>
+                </div>
+                <div className="mt-2 text-sm text-muted-foreground">
+                  <p>Total Slides: {slideData.slide_ids?.length || 0}</p>
+                  {slideData.slide_ids && slideData.slide_ids.length > 0 && (
+                    <ul className="mt-1 space-y-1">
+                      {slideData.slide_ids.map((id, idx) => (
+                        <li key={idx}>• {id}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenSlidesInNewWindow}
+                  disabled={!slideData || !slideData.files || slideData.files.length === 0}
+                  className="mt-2"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View All Slides
+                </Button>
+              </div>
+            ) : (
+              <div className="p-8 bg-muted/50 rounded-lg text-center">
+                <p className="text-muted-foreground">No slide data available</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex gap-2 pt-4">
+          <Button
+            variant="outline"
+            onClick={() => setDetailsModalOpen(true)}
+          >
+            <Eye className="h-4 w-4 mr-2" />
+            View Full Details
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => window.open(`/admin/prompt-studio?id=${selectedConfig.id}`, '_blank')}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Edit in Studio
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* System Default Configuration */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Star className="h-5 w-5" />
+            System Default Configuration
+          </CardTitle>
+          <CardDescription>Configure system default templates for different scenarios</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">General:</label>
+              <Select value={defaultGeneral} onValueChange={setDefaultGeneral}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {generalConfigs.map(config => (
+                    <SelectItem key={config.id} value={config.id}>
+                      {config.is_system_default && '⭐ '}{config.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Report:</label>
+              <Select value={defaultReport} onValueChange={setDefaultReport}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reportConfigs.map(config => (
+                    <SelectItem key={config.id} value={config.id}>
+                      {config.is_system_default && '⭐ '}{config.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium mb-2 block">Slide:</label>
+              <Select value={defaultSlide} onValueChange={setDefaultSlide}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select" />
+                </SelectTrigger>
+                <SelectContent>
+                  {slideConfigs.map(config => (
+                    <SelectItem key={config.id} value={config.id}>
+                      {config.is_system_default && '⭐ '}{config.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <Button onClick={setSystemDefaults}>
+              Set as System Defaults
+            </Button>
+            <Button variant="outline" onClick={fetchConfigs}>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push(`/admin/prompt-studio?type=${selectedTab}`)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Configuration
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Configuration List and Details */}
+      <Card>
+        <CardHeader>
+          <CardTitle>All Configurations</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div id="resizable-container" className="flex relative" style={{ minHeight: '500px' }}>
+            {/* Left sidebar - Config list */}
+            <div style={{ width: `${leftPanelWidth}%` }} className="pr-4">
+              <Tabs value={selectedTab} onValueChange={(value) => {
+                setSelectedTab(value)
+                setSelectedConfig(null)
+                setExpandedText(false)
+              }}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="general">
+                    General ({generalConfigs.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="report">
+                    Report ({reportConfigs.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="slide">
+                    Slide ({slideConfigs.length})
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="general" className="space-y-2 mt-4">
+                  {generalConfigs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No configurations</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/admin/prompt-studio?type=general')}
+                        className="mt-2"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Configuration
+                      </Button>
+                    </div>
+                  ) : (
+                    generalConfigs.map(renderConfigItem)
+                  )}
+                </TabsContent>
+
+                <TabsContent value="report" className="space-y-2 mt-4">
+                  {reportConfigs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No configurations</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/admin/prompt-studio?type=report')}
+                        className="mt-2"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Configuration
+                      </Button>
+                    </div>
+                  ) : (
+                    reportConfigs.map(renderConfigItem)
+                  )}
+                </TabsContent>
+
+                <TabsContent value="slide" className="space-y-2 mt-4">
+                  {slideConfigs.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No configurations</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/admin/prompt-studio?type=slide')}
+                        className="mt-2"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Configuration
+                      </Button>
+                    </div>
+                  ) : (
+                    slideConfigs.map(renderConfigItem)
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            {/* Draggable divider */}
+            <div
+              className={`w-1 bg-border hover:bg-primary transition-colors cursor-col-resize flex items-center justify-center group relative ${isDragging ? 'bg-primary' : ''}`}
+              onMouseDown={handleMouseDown}
+            >
+              <div className="absolute inset-y-0 flex items-center justify-center w-4 -translate-x-1/2 left-1/2">
+                <div className="flex flex-col gap-1 opacity-40 group-hover:opacity-100 transition-opacity">
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                  <div className="w-1 h-1 rounded-full bg-current"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right panel - Config details */}
+            <div style={{ width: `${100 - leftPanelWidth}%` }} className="pl-4">
+              {renderDetailPanel()}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Full Details Modal */}
+      <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-900">
+          <DialogHeader>
+            <DialogTitle>Configuration Details - {selectedConfig?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedConfig && (
+            <div className="space-y-4">
+              <Tabs defaultValue="basic">
+                <TabsList>
+                  <TabsTrigger value="basic">Basic Info</TabsTrigger>
+                  <TabsTrigger value="prompts">Prompts</TabsTrigger>
+                  <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+                  <TabsTrigger value="result">Generated Result</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="basic" className="space-y-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="font-medium">Name:</p>
+                      <p className="text-muted-foreground">{selectedConfig.name}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Model:</p>
+                      <p className="text-muted-foreground">{selectedConfig.model_selection}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Type:</p>
+                      <p className="text-muted-foreground">{selectedConfig.prompt_type}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">System Default:</p>
+                      <p className="text-muted-foreground">{selectedConfig.is_system_default ? 'Yes' : 'No'}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Created:</p>
+                      <p className="text-muted-foreground">{new Date(selectedConfig.created_at).toLocaleString('en-US')}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Updated:</p>
+                      <p className="text-muted-foreground">{new Date(selectedConfig.updated_at).toLocaleString('en-US')}</p>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="prompts" className="space-y-4">
+                  <div>
+                    <p className="font-medium mb-2">System Prompt:</p>
+                    <pre className="p-4 bg-muted rounded-lg text-sm whitespace-pre-wrap">
+                      {selectedConfig.system_prompt}
+                    </pre>
+                  </div>
+                  <div>
+                    <p className="font-medium mb-2">User Prompt Template:</p>
+                    <pre className="p-4 bg-muted rounded-lg text-sm whitespace-pre-wrap">
+                      {selectedConfig.user_prompt_template}
+                    </pre>
+                  </div>
+                  {selectedConfig.test_question && (
+                    <div>
+                      <p className="font-medium mb-2">Test Question:</p>
+                      <p className="p-4 bg-muted rounded-lg text-sm">{selectedConfig.test_question}</p>
+                    </div>
+                  )}
+                  {selectedConfig.report_topic && (
+                    <div>
+                      <p className="font-medium mb-2">Report Topic:</p>
+                      <p className="p-4 bg-muted rounded-lg text-sm">{selectedConfig.report_topic}</p>
+                    </div>
+                  )}
+                  {selectedConfig.manus_prompt && (
+                    <div>
+                      <p className="font-medium mb-2">Manus Prompt:</p>
+                      <p className="p-4 bg-muted rounded-lg text-sm">{selectedConfig.manus_prompt}</p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="knowledge" className="space-y-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="font-medium">Knowledge Base:</p>
+                      <p className="text-muted-foreground">{selectedConfig.knowledge_base_name || 'None'}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Top K Results:</p>
+                      <p className="text-muted-foreground">{selectedConfig.top_k_results}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium">Strict Mode:</p>
+                      <p className="text-muted-foreground">{selectedConfig.strict_mode ? 'Yes' : 'No'}</p>
+                    </div>
+                    {selectedConfig.user_data_name && (
+                      <div>
+                        <p className="font-medium">User Data:</p>
+                        <p className="text-muted-foreground">{selectedConfig.user_data_name}</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="result">
+                  {selectedConfig.prompt_type === 'general' && selectedConfig.generated_response && (
+                    <pre className="p-4 bg-muted rounded-lg text-sm whitespace-pre-wrap max-h-96 overflow-y-auto">
+                      {selectedConfig.generated_response}
+                    </pre>
+                  )}
+                  {selectedConfig.prompt_type === 'report' && selectedConfig.generated_report && (
+                    <pre className="p-4 bg-muted rounded-lg text-sm whitespace-pre-wrap max-h-96 overflow-y-auto">
+                      {selectedConfig.generated_report}
+                    </pre>
+                  )}
+                  {selectedConfig.prompt_type === 'slide' && selectedConfig.generate_slides && (
+                    <div className="space-y-2">
+                      <p>Slides JSON URL:</p>
+                      <a
+                        href={selectedConfig.generate_slides}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline text-sm break-all"
+                      >
+                        {selectedConfig.generate_slides}
+                      </a>
+                      {selectedConfig.manus_share_url && (
+                        <>
+                          <p className="mt-4">Manus Share URL:</p>
+                          <a
+                            href={selectedConfig.manus_share_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline text-sm break-all"
+                          >
+                            {selectedConfig.manus_share_url}
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
