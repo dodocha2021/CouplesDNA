@@ -7,7 +7,7 @@ export async function splitChunks(text: string): Promise<string[]> {
   const { RecursiveCharacterTextSplitter } = await import('npm:langchain@0.1.25/text_splitter');
   
   const splitter = new RecursiveCharacterTextSplitter({
-    chunkSize: 1200,           // 每个块的最大字符数
+    chunkSize: 2500,           // 每个块的最大字符数
     chunkOverlap: 200,         // 块之间的重叠字符数
     separators: ['\n\n', '\n', '. ', '? ', '! ', ' ', ''],  // 优先级顺序的分隔符
   });
