@@ -8,9 +8,12 @@ import { generateEmbeddings } from "./service-embeddings.ts";
 import { SupabaseClient } from "./service-supabase.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*', 
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Segmented processing: 每次处理500个chunks
+const CHUNK_LIMIT = 500;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -25,7 +28,7 @@ serve(async (req) => {
     const { record } = await req.json();
     fileId = record.id;
     const db = new SupabaseClient();
-    
+
     console.log(`
 ${'='.repeat(60)}`);
     console.log(`📄 Processing Knowledge Upload: ${record.file_name} (ID: ${fileId})`);
@@ -33,9 +36,9 @@ ${'='.repeat(60)}`);
     console.log(`📂 Source: ${record.metadata?.source || 'file_upload'}`);
     console.log(`${'='.repeat(60)}
 `);
-    
+
     let text: string;
-    
+
     // Check if it's a manual entry
     if (record.metadata?.source === 'manual_entry' && record.metadata?.manual_content) {
       step = "extract manual content";
@@ -48,57 +51,87 @@ ${'='.repeat(60)}`);
       console.log(`📥 Step 1: Downloading file from R2...`);
       const buffer = await downloadFile(record.storage_path);
       console.log(`✅ Downloaded: ${(buffer.byteLength / 1024).toFixed(2)} KB`);
-      
+
       step = "extract text";
       console.log(`
 📝 Step 2: Extracting text...`);
       text = await extractText(buffer, record.file_name);
       console.log(`✅ Extracted: ${text.length} characters`);
     }
-    
+
     // Step 3: Clean and split text (使用新的 LangChain splitter)
     step = "process chunks";
     console.log(`
 ✂️  Step 3: Cleaning and splitting text...`);
     const cleanedText = cleanText(text);
-    const chunks = await splitChunks(cleanedText);  // ← 注意这里添加了 await
-    console.log(`✅ Created ${chunks.length} chunks`);
-    
+    const allChunks = await splitChunks(cleanedText);
+    console.log(`✅ Created ${allChunks.length} chunks (total)`);
+
+    // Segmented processing: 获取已处理的chunks数量
+    const processedCount = record.metadata?.processed_chunks || 0;
+    console.log(`📊 Already processed: ${processedCount} chunks`);
+
+    // 计算本次要处理的chunks
+    const remainingChunks = allChunks.slice(processedCount);
+    const chunksToProcess = remainingChunks.slice(0, CHUNK_LIMIT);
+    const newProcessedCount = processedCount + chunksToProcess.length;
+
+    console.log(`🎯 This batch: processing ${chunksToProcess.length} chunks (${processedCount} → ${newProcessedCount})`);
+
     // Step 4: Generate embeddings
     step = "generate embeddings";
     console.log(`
 🧠 Step 4: Generating embeddings...`);
-    const embeddings = await generateEmbeddings(chunks);
+    console.log(`
+📊 Total texts to process: ${chunksToProcess.length}`);
+    const embeddings = await generateEmbeddings(chunksToProcess);
     console.log(`✅ Generated ${embeddings.length} embeddings`);
-    
-    // Step 5: Insert vectors into database
+
+    // Step 5: Insert vectors into database (使用全局chunk索引)
     step = "insert vectors";
     console.log(`
 💾 Step 5: Inserting vectors into database...`);
-    await db.insertVectors(fileId, chunks, embeddings);
-    console.log(`✅ Inserted ${chunks.length} vectors`);
-    
+
+    // 为每个chunk添加全局索引
+    const chunksWithIndex = chunksToProcess.map((content, i) => ({
+      content,
+      index: processedCount + i  // 使用全局索引
+    }));
+
+    await db.insertVectorsWithIndex(fileId, chunksWithIndex, embeddings);
+    console.log(`✅ Inserted ${chunksToProcess.length} vectors`);
+
     // Step 6: Update upload record status
     step = "update status";
     console.log(`
 📊 Step 6: Updating upload record status...`);
-    await db.updateUploadRecord(fileId, "completed", {
-      chunks_count: chunks.length,
-      processed_at: new Date().toISOString()
+
+    // 判断是否全部处理完成
+    const isComplete = newProcessedCount >= allChunks.length;
+    const newStatus = isComplete ? "completed" : "pending";
+
+    await db.updateUploadRecord(fileId, newStatus, {
+      chunks_count: allChunks.length,
+      processed_chunks: newProcessedCount,
+      ...(isComplete && { processed_at: new Date().toISOString() })
     });
-    console.log(`✅ Status updated to 'completed'`);
-    
+
+    console.log(`✅ Status updated to '${newStatus}' (${newProcessedCount}/${allChunks.length} chunks)`);
+
     console.log(`
 ${'='.repeat(60)}`);
-    console.log(`✨ Successfully processed: ${record.file_name}`);
+    console.log(`✨ Batch processed: ${record.file_name}`);
     console.log(`${'='.repeat(60)}
 `);
-    
+
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        fileId, 
-        chunksCount: chunks.length 
+      JSON.stringify({
+        success: true,
+        fileId,
+        chunksProcessed: chunksToProcess.length,
+        totalProcessed: newProcessedCount,
+        totalChunks: allChunks.length,
+        isComplete
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -109,7 +142,7 @@ ${'='.repeat(60)}`);
   } catch (error) {
     console.error(`
 ❌ Error at step '${step}':`, error);
-    
+
     // Try to update the record status to 'failed'
     if (fileId) {
       try {
@@ -124,12 +157,12 @@ ${'='.repeat(60)}`);
         console.error(`❌ Failed to update error status:`, updateError);
       }
     }
-    
+
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message,
         step,
-        fileId 
+        fileId
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
