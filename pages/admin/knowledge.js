@@ -319,14 +319,38 @@ const KnowledgePage = () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from('knowledge_uploads')
-      .select('id, file_name, status, metadata, created_at')
+      .select(`
+        id,
+        file_name,
+        status,
+        created_at,
+        category:metadata->category,
+        source:metadata->source,
+        type:metadata->type,
+        processed_chunks:metadata->processed_chunks,
+        chunks_count:metadata->chunks_count
+      `)
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
     if (error) {
       toast({ variant: "destructive", title: "Error fetching knowledge", description: error.message });
     } else {
-      setKnowledge(data);
+      // Restructure data to maintain compatibility with existing code
+      const restructuredData = data?.map(item => ({
+        id: item.id,
+        file_name: item.file_name,
+        status: item.status,
+        created_at: item.created_at,
+        metadata: {
+          category: item.category,
+          source: item.source,
+          type: item.type,
+          processed_chunks: item.processed_chunks,
+          chunks_count: item.chunks_count
+        }
+      })) || [];
+      setKnowledge(restructuredData);
     }
     setIsLoading(false);
   };
@@ -335,7 +359,7 @@ const KnowledgePage = () => {
     try {
       const { data, error } = await supabase
         .from('knowledge_uploads')
-        .select('metadata')
+        .select('category:metadata->category')
         .eq('is_active', true);
 
       if (error) throw error;
@@ -343,8 +367,8 @@ const KnowledgePage = () => {
       // Extract unique categories
       const categories = new Set(defaultCategories);
       data?.forEach(item => {
-        const category = item.metadata?.category;
-        if (category && category.trim()) {
+        const category = item.category;
+        if (category && typeof category === 'string' && category.trim()) {
           categories.add(category);
         }
       });
