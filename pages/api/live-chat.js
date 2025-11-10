@@ -84,7 +84,7 @@ export default async function handler(req, res) {
     // 5. Generate embedding for the message
     console.log('[Live Chat] Generating embedding...')
     const embedding = await generateEmbedding(message)
-    const vectorString = `[${embedding.join(',')]`
+    const vectorString = `[${embedding.join(',')}]`
 
     // 6. Build scope for vector search
     // Get knowledge files to determine category thresholds
