@@ -160,6 +160,7 @@ export const SimpleChatInterface = ({
   isLoading = false,
   onSendMessage,
   onSaveChat,
+  disabled = false,
   className,
   ...props
 }) => {
@@ -167,7 +168,7 @@ export const SimpleChatInterface = ({
 
   const handleSendMessage = (e) => {
     e?.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || disabled) return;
 
     const message = inputValue;
     setInputValue("");
@@ -186,7 +187,7 @@ export const SimpleChatInterface = ({
       </div>
 
       {/* Messages */}
-      <MessagesContainer 
+      <MessagesContainer
         messages={messages}
         isLoading={isLoading}
       />
@@ -197,7 +198,7 @@ export const SimpleChatInterface = ({
         onChange={(e) => setInputValue(e.target.value)}
         onSubmit={handleSendMessage}
         onSaveChat={onSaveChat}
-        disabled={isLoading}
+        disabled={isLoading || disabled}
         placeholder="Ask me anything about your relationship..."
         showSaveButton={!!onSaveChat && messages.some(msg => msg.sender?.isCurrentUser)}
       />

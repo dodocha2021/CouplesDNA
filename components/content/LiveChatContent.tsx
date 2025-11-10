@@ -1,38 +1,53 @@
 "use client"
 
-import React from 'react'
-import Link from 'next/link'
+import React, { useState, useEffect } from 'react'
 import { SimpleChatInterface } from '../chat/SimpleChatInterface'
-import { useChat } from '../../hooks/useChat'
+import { useLiveChat } from '../../hooks/useLiveChat'
 import { Button } from '../ui/button'
-import { History, Save } from 'lucide-react'
+import { RefreshCw, AlertCircle, Info } from 'lucide-react'
+import { Alert, AlertDescription, AlertTitle } from '../ui/alert'
 
 export function LiveChatContent() {
   const {
     messages,
     isLoading,
     sendMessage,
-    startNewChat,
-    error
-  } = useChat({
+    clearChat,
+    error,
+    isSessionExpired,
+    getSessionInfo
+  } = useLiveChat({
     welcomeMessage: true,
     onError: (error) => {
       console.error('Chat error:', error);
+    },
+    onSessionLimitReached: (info) => {
+      console.log('Session limit reached:', info);
     }
   });
 
-  const handleSaveChat = async () => {
-    // Check if there are any user messages to save
-    const hasUserMessages = messages.some(msg => msg.sender?.isCurrentUser);
-    if (!hasUserMessages) {
-      return;
-    }
-    
-    const result = await startNewChat();
-    if (result.success) {
-      // Show success message briefly
-      console.log('Chat saved and new chat started');
-    }
+  const [sessionInfo, setSessionInfo] = useState(null);
+  const [showSessionWarning, setShowSessionWarning] = useState(false);
+
+  // Update session info periodically
+  useEffect(() => {
+    const updateInfo = () => {
+      const info = getSessionInfo();
+      setSessionInfo(info);
+
+      // Show warning when approaching limits
+      const shouldWarn = info.remainingMessages <= 10 || info.remainingMinutes <= 5;
+      setShowSessionWarning(shouldWarn && !info.isExpired);
+    };
+
+    updateInfo();
+    const interval = setInterval(updateInfo, 30000); // Update every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [getSessionInfo]);
+
+  const handleRefresh = () => {
+    window.location.reload();
   };
 
   return (
@@ -41,17 +56,69 @@ export function LiveChatContent() {
         <div>
           <h1 className="text-3xl font-bold mb-2">Live Chat Analysis</h1>
           <p className="text-muted-foreground">
-            Real-time conversation analysis and insights
+            Real-time conversation with AI-powered relationship insights
           </p>
         </div>
-        
-        <Link href="/live-chat">
-          <Button variant="outline" className="flex items-center gap-2">
-            <History className="h-4 w-4" />
-            View Chat History
+
+        <div className="flex items-center gap-2">
+          {sessionInfo && !isSessionExpired && (
+            <div className="text-sm text-muted-foreground mr-4">
+              <span className="font-medium">{sessionInfo.messageCount}</span>/{sessionInfo.maxMessages} messages
+              <span className="mx-2">•</span>
+              <span className="font-medium">{sessionInfo.elapsedMinutes}</span> min
+            </div>
+          )}
+
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={handleRefresh}
+          >
+            <RefreshCw className="h-4 w-4" />
+            New Session
           </Button>
-        </Link>
+        </div>
       </div>
+
+      {/* Session Expired Alert */}
+      {isSessionExpired && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Session Limit Reached</AlertTitle>
+          <AlertDescription>
+            You've reached the session limit. Please refresh the page to start a new conversation.
+            <Button
+              variant="outline"
+              size="sm"
+              className="ml-4"
+              onClick={handleRefresh}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Page
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Session Warning */}
+      {showSessionWarning && !isSessionExpired && (
+        <Alert className="mb-6">
+          <Info className="h-4 w-4" />
+          <AlertTitle>Session Limit Approaching</AlertTitle>
+          <AlertDescription>
+            You have {sessionInfo?.remainingMessages} messages or {sessionInfo?.remainingMinutes} minutes remaining in this session.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Error Alert */}
+      {error && !isSessionExpired && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="bg-white rounded-lg border shadow-sm h-[600px]">
         <SimpleChatInterface
@@ -59,14 +126,16 @@ export function LiveChatContent() {
           messages={messages}
           isLoading={isLoading}
           onSendMessage={sendMessage}
-          onSaveChat={handleSaveChat}
+          disabled={isSessionExpired}
         />
-        
-        {error && (
-          <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
-            <p className="text-destructive text-sm">Error: {error}</p>
-          </div>
-        )}
+      </div>
+
+      {/* Info Section */}
+      <div className="mt-4 text-sm text-muted-foreground text-center">
+        <p>
+          💡 Each session allows up to 50 messages or 30 minutes.
+          Refresh the page to start a new conversation.
+        </p>
       </div>
     </div>
   )
