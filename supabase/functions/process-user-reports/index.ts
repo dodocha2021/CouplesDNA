@@ -424,8 +424,42 @@ async function processReport(report: any, supabase: any) {
       })
       .eq('id', report.id);
 
-    // Build Manus prompt
-    const manusPrompt = (report.manus_prompt || 'Create a professional presentation with slides based on this report in english: ') + aiResult.content;
+    // Fetch user profile information
+    log('  > Fetching user profile information...');
+    const { data: userProfile, error: profileError } = await supabase
+      .from('profiles')
+      .select('relationship_status, gender, age_range, relationship_duration, consultation_focus')
+      .eq('id', report.user_id)
+      .single();
+
+    if (profileError) {
+      log(`  ⚠️ Warning: Could not fetch user profile: ${profileError.message}`);
+    }
+
+    // Build user profile context
+    let userProfileText = '';
+    if (userProfile) {
+      const topicsText = Array.isArray(userProfile.consultation_focus) && userProfile.consultation_focus.length > 0
+        ? userProfile.consultation_focus.join(', ')
+        : 'Not specified';
+
+      userProfileText = `
+User Profile Context:
+- Relationship Status: ${userProfile.relationship_status || 'Not specified'}
+- Gender: ${userProfile.gender || 'Not specified'}
+- Age Range: ${userProfile.age_range || 'Not specified'}
+- Relationship Duration: ${userProfile.relationship_duration || 'Not specified'}
+- Topics of Interest: ${topicsText}
+
+`;
+      log(`  ✓ User profile loaded: ${userProfile.relationship_status || 'N/A'}, ${userProfile.gender || 'N/A'}, ${userProfile.age_range || 'N/A'}`);
+    } else {
+      log('  ⚠️ No user profile information available');
+    }
+
+    // Build Manus prompt with user profile context
+    const manusPromptBase = report.manus_prompt || 'Create a professional presentation with slides based on this report in english: ';
+    const manusPrompt = manusPromptBase + '\n\n' + userProfileText + aiResult.content;
 
     log(`  > Manus prompt length: ${manusPrompt.length} characters`);
 
