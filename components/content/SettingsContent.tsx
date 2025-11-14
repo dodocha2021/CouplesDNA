@@ -9,18 +9,68 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { User, Bell, Shield, Lock, Mail, CreditCard, Plus, Trash2, CheckCircle2, AlertCircle, Edit } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Textarea } from '@/components/ui/textarea'
+import { User, Bell, Shield, Lock, Mail, CreditCard, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import { FirstLoginOnboardingDialog } from '@/components/onboarding/FirstLoginOnboardingDialog'
+
+const RELATIONSHIP_STATUS_OPTIONS = [
+  "In a relationship",
+  "Married / Long-term partnership",
+  "Post-breakup / Divorce recovery",
+  "It's complicated (Casual / Long-distance / Other)",
+]
+
+const GENDER_OPTIONS = [
+  "Male",
+  "Female",
+  "Non-binary",
+  "Prefer not to say",
+]
+
+const AGE_RANGE_OPTIONS = [
+  "18-24",
+  "25-29",
+  "30-34",
+  "35-39",
+  "40+",
+]
+
+const RELATIONSHIP_DURATION_OPTIONS = [
+  "Less than 3 months",
+  "3-12 months",
+  "1-3 years",
+  "3-5 years",
+  "5+ years",
+]
+
+const CONSULTATION_FOCUS_OPTIONS = [
+  "Communication skills",
+  "Emotional connection & intimacy",
+  "Conflict resolution",
+  "Trust & security",
+  "Personal growth & independence",
+  "Future planning (Marriage / Children)",
+  "Breakup / Heartbreak healing",
+  "Self-awareness & relationship patterns",
+]
 
 export function SettingsContent() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
   const [saveStatus, setSaveStatus] = useState(null)
-  const [showOnboarding, setShowOnboarding] = useState(false)
-  const [onboardingData, setOnboardingData] = useState(null)
+
+  // Profile questionnaire form data
+  const [questionnaireData, setQuestionnaireData] = useState({
+    relationshipStatus: '',
+    gender: '',
+    ageRange: '',
+    relationshipDuration: '',
+    consultationFocus: [],
+    primaryChallenge: ''
+  })
   
   const [profile, setProfile] = useState({
     fullName: '',
@@ -83,15 +133,14 @@ export function SettingsContent() {
           marketingEmails: profileData.marketing_emails ?? false
         })
 
-        // Load onboarding questionnaire data
-        setOnboardingData({
+        // Load questionnaire data
+        setQuestionnaireData({
           relationshipStatus: profileData.relationship_status || '',
           gender: profileData.gender || '',
           ageRange: profileData.age_range || '',
           relationshipDuration: profileData.relationship_duration || '',
           consultationFocus: profileData.consultation_focus || [],
-          primaryChallenge: profileData.primary_challenge || '',
-          profileCompleted: profileData.profile_completed || false
+          primaryChallenge: profileData.primary_challenge || ''
         })
       }
     } catch (error) {
@@ -277,10 +326,99 @@ export function SettingsContent() {
     }
   }
 
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false)
-    // Reload user data to reflect changes
-    loadUserData()
+  const saveQuestionnaire = async () => {
+    if (!user) return
+
+    // Validation
+    if (!questionnaireData.relationshipStatus) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Please select your relationship status'
+      })
+      return
+    }
+
+    if (!questionnaireData.gender) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Please select your gender'
+      })
+      return
+    }
+
+    if (!questionnaireData.ageRange) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Please select your age range'
+      })
+      return
+    }
+
+    if (questionnaireData.consultationFocus.length === 0) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Please select at least 1 topic of interest'
+      })
+      return
+    }
+
+    if (questionnaireData.consultationFocus.length > 3) {
+      setSaveStatus({
+        type: 'error',
+        message: 'Please select no more than 3 topics'
+      })
+      return
+    }
+
+    try {
+      setSaving(true)
+      setSaveStatus(null)
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          relationship_status: questionnaireData.relationshipStatus,
+          gender: questionnaireData.gender,
+          age_range: questionnaireData.ageRange,
+          relationship_duration: questionnaireData.relationshipDuration || null,
+          consultation_focus: questionnaireData.consultationFocus,
+          primary_challenge: questionnaireData.primaryChallenge || null,
+          profile_completed: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+
+      if (error) throw error
+
+      setSaveStatus({
+        type: 'success',
+        message: 'Profile updated successfully!'
+      })
+
+      setTimeout(() => setSaveStatus(null), 3000)
+    } catch (error) {
+      console.error('Error saving questionnaire:', error)
+      setSaveStatus({
+        type: 'error',
+        message: 'Failed to save profile. Please try again.'
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleToggleFocus = (option: string) => {
+    setQuestionnaireData(prev => {
+      const current = prev.consultationFocus
+      if (current.includes(option)) {
+        return { ...prev, consultationFocus: current.filter(f => f !== option) }
+      } else {
+        if (current.length >= 3) {
+          return prev // Don't add if already 3 selected
+        }
+        return { ...prev, consultationFocus: [...current, option] }
+      }
+    })
   }
 
   const deleteAccount = async () => {
@@ -336,14 +474,7 @@ export function SettingsContent() {
   }
 
   return (
-    <>
-      {/* Onboarding Dialog */}
-      <FirstLoginOnboardingDialog
-        open={showOnboarding}
-        onComplete={handleOnboardingComplete}
-      />
-
-      <div className="p-6 max-w-6xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
         <p className="text-muted-foreground">
@@ -440,126 +571,171 @@ export function SettingsContent() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
-          {/* Onboarding Questionnaire Card */}
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>Personal Profile Questionnaire</CardTitle>
-                  <CardDescription>
-                    Information from your initial questionnaire helps us provide personalized insights.
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowOnboarding(true)}
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Profile
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {onboardingData?.profileCompleted ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground mb-1">Relationship Status</p>
-                    <p className="font-medium">{onboardingData.relationshipStatus || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Gender</p>
-                    <p className="font-medium">{onboardingData.gender || 'Not specified'}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground mb-1">Age Range</p>
-                    <p className="font-medium">{onboardingData.ageRange || 'Not specified'}</p>
-                  </div>
-                  {onboardingData.relationshipDuration && (
-                    <div>
-                      <p className="text-muted-foreground mb-1">Relationship Duration</p>
-                      <p className="font-medium">{onboardingData.relationshipDuration}</p>
-                    </div>
-                  )}
-                  {onboardingData.consultationFocus?.length > 0 && (
-                    <div className="md:col-span-2">
-                      <p className="text-muted-foreground mb-1">Topics of Interest</p>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {onboardingData.consultationFocus.map((topic, index) => (
-                          <span
-                            key={index}
-                            className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs"
-                          >
-                            {topic}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {onboardingData.primaryChallenge && (
-                    <div className="md:col-span-2">
-                      <p className="text-muted-foreground mb-1">Main Challenge</p>
-                      <p className="font-medium text-sm italic">"{onboardingData.primaryChallenge}"</p>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <p className="text-muted-foreground mb-4">
-                    You haven't completed your profile questionnaire yet.
-                  </p>
-                  <Button onClick={() => setShowOnboarding(true)}>
-                    Complete Questionnaire
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Relationship Profile</CardTitle>
+              <CardTitle>Personal Profile Questionnaire</CardTitle>
               <CardDescription>
-                Help us provide more personalized insights by sharing information about your relationship.
+                Information helps us provide personalized insights.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Relationship Status */}
                 <div className="space-y-2">
-                  <Label htmlFor="ageRange">Age Range</Label>
-                  <Select value={profile.ageRange} onValueChange={(value) => setProfile(prev => ({ ...prev, ageRange: value }))}>
+                  <Label htmlFor="relationshipStatus">
+                    Relationship Status <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={questionnaireData.relationshipStatus}
+                    onValueChange={(value) => setQuestionnaireData(prev => ({ ...prev, relationshipStatus: value }))}
+                  >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="18-24">18-24</SelectItem>
-                      <SelectItem value="25-34">25-34</SelectItem>
-                      <SelectItem value="35-44">35-44</SelectItem>
-                      <SelectItem value="45+">45+</SelectItem>
+                      {RELATIONSHIP_STATUS_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Gender */}
                 <div className="space-y-2">
-                  <Label htmlFor="relationshipStage">Relationship Stage</Label>
-                  <Select value={profile.relationshipStage} onValueChange={(value) => setProfile(prev => ({ ...prev, relationshipStage: value }))}>
+                  <Label htmlFor="gender">
+                    Gender <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={questionnaireData.gender}
+                    onValueChange={(value) => setQuestionnaireData(prev => ({ ...prev, gender: value }))}
+                  >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="dating">Dating / Early Stage</SelectItem>
-                      <SelectItem value="living-together">Long-term / Living Together</SelectItem>
-                      <SelectItem value="married">Engaged / Married</SelectItem>
-                      <SelectItem value="challenges">Facing Challenges / Seeking Repair</SelectItem>
+                      {GENDER_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Age Range */}
+                <div className="space-y-2">
+                  <Label htmlFor="ageRange">
+                    Age Range <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={questionnaireData.ageRange}
+                    onValueChange={(value) => setQuestionnaireData(prev => ({ ...prev, ageRange: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select age range" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AGE_RANGE_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Relationship Duration */}
+                <div className="space-y-2">
+                  <Label htmlFor="relationshipDuration">
+                    Relationship Duration
+                  </Label>
+                  <Select
+                    value={questionnaireData.relationshipDuration}
+                    onValueChange={(value) => setQuestionnaireData(prev => ({ ...prev, relationshipDuration: value }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select duration" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RELATIONSHIP_DURATION_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <Button 
-                onClick={saveProfile} 
-                disabled={saving}
-              >
-                {saving ? 'Saving...' : 'Update Profile'}
-              </Button>
+
+              {/* Topics of Interest */}
+              <div className="space-y-3">
+                <Label>
+                  Topics of Interest (Select 1-3) <span className="text-red-500">*</span>
+                </Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {CONSULTATION_FOCUS_OPTIONS.map((option) => (
+                    <label
+                      key={option}
+                      className={`flex items-center space-x-3 rounded-lg border p-3 cursor-pointer transition-colors ${
+                        questionnaireData.consultationFocus.includes(option)
+                          ? 'border-primary bg-primary/5'
+                          : 'border-gray-200 hover:border-gray-300'
+                      } ${
+                        questionnaireData.consultationFocus.length >= 3 && !questionnaireData.consultationFocus.includes(option)
+                          ? 'opacity-50 cursor-not-allowed'
+                          : ''
+                      }`}
+                    >
+                      <Checkbox
+                        checked={questionnaireData.consultationFocus.includes(option)}
+                        onCheckedChange={() => handleToggleFocus(option)}
+                        disabled={questionnaireData.consultationFocus.length >= 3 && !questionnaireData.consultationFocus.includes(option)}
+                      />
+                      <span className="text-sm">{option}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Selected: {questionnaireData.consultationFocus.length}/3
+                </p>
+              </div>
+
+              {/* Primary Challenge */}
+              <div className="space-y-2">
+                <Label htmlFor="primaryChallenge">
+                  Main Challenge (Optional)
+                </Label>
+                <Textarea
+                  id="primaryChallenge"
+                  placeholder="e.g., We always argue about small things, I don't know how to express my needs..."
+                  value={questionnaireData.primaryChallenge}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 200) {
+                      setQuestionnaireData(prev => ({ ...prev, primaryChallenge: e.target.value }))
+                    }
+                  }}
+                  rows={4}
+                  className="resize-none"
+                />
+                <p className="text-xs text-muted-foreground text-right">
+                  {questionnaireData.primaryChallenge.length}/200 characters
+                </p>
+              </div>
+
+              {/* Save Button */}
+              <div className="flex items-center gap-4 pt-4">
+                <Button
+                  onClick={saveQuestionnaire}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </Button>
+                {saveStatus && (
+                  <div className={`flex items-center gap-2 text-sm ${
+                    saveStatus.type === 'error' ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {saveStatus.type === 'error' ?
+                      <AlertCircle className="h-4 w-4" /> :
+                      <CheckCircle2 className="h-4 w-4" />
+                    }
+                    {saveStatus.message}
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -760,7 +936,6 @@ export function SettingsContent() {
           </Card>
         </TabsContent>
       </Tabs>
-      </div>
-    </>
+    </div>
   )
 }
