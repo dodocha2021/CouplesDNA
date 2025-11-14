@@ -165,7 +165,9 @@ export function SettingsContent() {
         .from('profiles')
         .upsert({
           id: user.id,
-          full_name: profile.fullName
+          full_name: profile.fullName,
+          phone: profile.phone,
+          timezone: profile.timezone
         })
 
       if (error) throw error
