@@ -173,8 +173,7 @@ export function SettingsContent() {
           email_reports: notifications.emailReports,
           weekly_insights: notifications.weeklyInsights,
           chat_reminders: notifications.chatReminders,
-          marketing_emails: notifications.marketingEmails,
-          updated_at: new Date().toISOString()
+          marketing_emails: notifications.marketingEmails
         })
 
       if (error) throw error
@@ -208,8 +207,7 @@ export function SettingsContent() {
         .upsert({
           id: user.id,
           age_range: profile.ageRange,
-          relationship_stage: profile.relationshipStage,
-          updated_at: new Date().toISOString()
+          relationship_stage: profile.relationshipStage
         })
 
       if (error) throw error
@@ -245,8 +243,7 @@ export function SettingsContent() {
           email_reports: notifications.emailReports,
           weekly_insights: notifications.weeklyInsights,
           chat_reminders: notifications.chatReminders,
-          marketing_emails: notifications.marketingEmails,
-          updated_at: new Date().toISOString()
+          marketing_emails: notifications.marketingEmails
         })
 
       if (error) throw error
@@ -383,8 +380,7 @@ export function SettingsContent() {
           relationship_duration: questionnaireData.relationshipDuration || null,
           consultation_focus: questionnaireData.consultationFocus,
           primary_challenge: questionnaireData.primaryChallenge || null,
-          profile_completed: true,
-          updated_at: new Date().toISOString()
+          profile_completed: true
         })
         .eq('id', user.id)
 
