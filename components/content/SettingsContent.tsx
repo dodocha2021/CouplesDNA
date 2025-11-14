@@ -9,15 +9,18 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { User, Bell, Shield, Lock, Mail, CreditCard, Plus, Trash2, CheckCircle2, AlertCircle } from 'lucide-react'
+import { User, Bell, Shield, Lock, Mail, CreditCard, Plus, Trash2, CheckCircle2, AlertCircle, Edit } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { FirstLoginOnboardingDialog } from '@/components/onboarding/FirstLoginOnboardingDialog'
 
 export function SettingsContent() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [user, setUser] = useState(null)
   const [saveStatus, setSaveStatus] = useState(null)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingData, setOnboardingData] = useState(null)
   
   const [profile, setProfile] = useState({
     fullName: '',
@@ -78,6 +81,17 @@ export function SettingsContent() {
           weeklyInsights: profileData.weekly_insights ?? true,
           chatReminders: profileData.chat_reminders ?? false,
           marketingEmails: profileData.marketing_emails ?? false
+        })
+
+        // Load onboarding questionnaire data
+        setOnboardingData({
+          relationshipStatus: profileData.relationship_status || '',
+          gender: profileData.gender || '',
+          ageRange: profileData.age_range || '',
+          relationshipDuration: profileData.relationship_duration || '',
+          consultationFocus: profileData.consultation_focus || [],
+          primaryChallenge: profileData.primary_challenge || '',
+          profileCompleted: profileData.profile_completed || false
         })
       }
     } catch (error) {
@@ -263,6 +277,12 @@ export function SettingsContent() {
     }
   }
 
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false)
+    // Reload user data to reflect changes
+    loadUserData()
+  }
+
   const deleteAccount = async () => {
     if (!user) return
 
@@ -316,7 +336,14 @@ export function SettingsContent() {
   }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
+    <>
+      {/* Onboarding Dialog */}
+      <FirstLoginOnboardingDialog
+        open={showOnboarding}
+        onComplete={handleOnboardingComplete}
+      />
+
+      <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Settings</h1>
         <p className="text-muted-foreground">
@@ -413,6 +440,82 @@ export function SettingsContent() {
 
         {/* Profile Tab */}
         <TabsContent value="profile" className="space-y-6">
+          {/* Onboarding Questionnaire Card */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Personal Profile Questionnaire</CardTitle>
+                  <CardDescription>
+                    Information from your initial questionnaire helps us provide personalized insights.
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowOnboarding(true)}
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Profile
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {onboardingData?.profileCompleted ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground mb-1">Relationship Status</p>
+                    <p className="font-medium">{onboardingData.relationshipStatus || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground mb-1">Gender</p>
+                    <p className="font-medium">{onboardingData.gender || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground mb-1">Age Range</p>
+                    <p className="font-medium">{onboardingData.ageRange || 'Not specified'}</p>
+                  </div>
+                  {onboardingData.relationshipDuration && (
+                    <div>
+                      <p className="text-muted-foreground mb-1">Relationship Duration</p>
+                      <p className="font-medium">{onboardingData.relationshipDuration}</p>
+                    </div>
+                  )}
+                  {onboardingData.consultationFocus?.length > 0 && (
+                    <div className="md:col-span-2">
+                      <p className="text-muted-foreground mb-1">Topics of Interest</p>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {onboardingData.consultationFocus.map((topic, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-primary/10 text-primary rounded-full text-xs"
+                          >
+                            {topic}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {onboardingData.primaryChallenge && (
+                    <div className="md:col-span-2">
+                      <p className="text-muted-foreground mb-1">Main Challenge</p>
+                      <p className="font-medium text-sm italic">"{onboardingData.primaryChallenge}"</p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6">
+                  <p className="text-muted-foreground mb-4">
+                    You haven't completed your profile questionnaire yet.
+                  </p>
+                  <Button onClick={() => setShowOnboarding(true)}>
+                    Complete Questionnaire
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>Relationship Profile</CardTitle>
@@ -657,6 +760,7 @@ export function SettingsContent() {
           </Card>
         </TabsContent>
       </Tabs>
-    </div>
+      </div>
+    </>
   )
 }
