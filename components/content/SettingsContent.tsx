@@ -163,12 +163,12 @@ export function SettingsContent() {
 
       const { error } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
+        .update({
           full_name: profile.fullName,
           phone: profile.phone,
           timezone: profile.timezone
         })
+        .eq('id', user.id)
 
       if (error) throw error
 
