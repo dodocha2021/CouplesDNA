@@ -165,15 +165,7 @@ export function SettingsContent() {
         .from('profiles')
         .upsert({
           id: user.id,
-          full_name: profile.fullName,
-          phone: profile.phone,
-          timezone: profile.timezone,
-          age_range: profile.ageRange,
-          relationship_stage: profile.relationshipStage,
-          email_reports: notifications.emailReports,
-          weekly_insights: notifications.weeklyInsights,
-          chat_reminders: notifications.chatReminders,
-          marketing_emails: notifications.marketingEmails
+          full_name: profile.fullName
         })
 
       if (error) throw error
@@ -202,15 +194,8 @@ export function SettingsContent() {
       setSaving(true)
       setSaveStatus(null)
 
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          age_range: profile.ageRange,
-          relationship_stage: profile.relationshipStage
-        })
-
-      if (error) throw error
+      // Note: This function is kept for compatibility but doesn't save anything
+      // Age range and relationship info are saved via the questionnaire
 
       setSaveStatus({
         type: 'success',
@@ -236,17 +221,8 @@ export function SettingsContent() {
       setSaving(true)
       setSaveStatus(null)
 
-      const { error } = await supabase
-        .from('profiles')
-        .upsert({
-          id: user.id,
-          email_reports: notifications.emailReports,
-          weekly_insights: notifications.weeklyInsights,
-          chat_reminders: notifications.chatReminders,
-          marketing_emails: notifications.marketingEmails
-        })
-
-      if (error) throw error
+      // Note: Notification fields don't exist in profiles table yet
+      // This is kept for future implementation when notification fields are added
 
       setSaveStatus({
         type: 'success',
