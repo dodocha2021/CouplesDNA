@@ -17,6 +17,8 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase, getUserRole } from '@/lib/supabase'
+import { FirstLoginOnboardingDialog } from '@/components/onboarding/FirstLoginOnboardingDialog'
+import { ProfileIncompleteBanner } from '@/components/dashboard/ProfileIncompleteBanner'
 
 // Lazy load content components for better performance
 const DashboardContent = lazy(() => import('@/components/content/DashboardContent'))
@@ -61,6 +63,7 @@ export function DashboardLayout({ children, enableSPA = false }: DashboardLayout
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeContent, setActiveContent] = useState('dashboard')
   const [isLoading, setIsLoading] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -88,10 +91,15 @@ export function DashboardLayout({ children, enableSPA = false }: DashboardLayout
               .eq('id', user.id)
               .single()
             setUserProfile(profile)
-            
+
             // Use role from profile if available
             if (profile?.role) {
               setUserRole(profile.role)
+            }
+
+            // Check if user needs to complete onboarding
+            if (profile && !profile.profile_completed) {
+              setShowOnboarding(true)
             }
           }
         }
@@ -219,8 +227,38 @@ export function DashboardLayout({ children, enableSPA = false }: DashboardLayout
     )
   }
 
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false)
+    // Refresh user profile to get updated data
+    const refreshProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single()
+        setUserProfile(profile)
+      }
+    }
+    refreshProfile()
+  }
+
+  const handleBannerCompleteClick = () => {
+    setShowOnboarding(true)
+  }
+
   return (
     <div className="min-h-screen bg-background">
+      {/* First Login Onboarding Dialog */}
+      <FirstLoginOnboardingDialog
+        open={showOnboarding}
+        onComplete={handleOnboardingComplete}
+      />
+
+      {/* Profile Incomplete Banner */}
+      <ProfileIncompleteBanner onCompleteClick={handleBannerCompleteClick} />
+
       {/* Top Navigation */}
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
         <div className="flex h-16 items-center px-4">

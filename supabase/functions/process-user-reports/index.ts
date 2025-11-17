@@ -1,226 +1,18 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Import services
+import { generateEmbedding } from "./service-embeddings.ts";
+import { callAI } from "./service-ai.ts";
+import { createManusTask } from "./service-manus.ts";
+import { retrieveKnowledge, retrieveUserData, buildRAGContext, RAGScope } from "./service-rag.ts";
+import { getUserProfileContext } from "./service-profile.ts";
+
 // CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
-
-// Helper: Generate embedding for a text using HuggingFace API
-// Updated to use new HuggingFace router endpoint
-async function generateEmbedding(text: string): Promise<number[]> {
-  const hfToken = Deno.env.get("HUGGINGFACE_API_TOKEN");
-  if (!hfToken) {
-    throw new Error("HUGGINGFACE_API_TOKEN not configured");
-  }
-
-  console.log(`🔍 Generating embedding for text (${text.length} chars): "${text.substring(0, 100)}..."`);
-
-  const embeddingModel = 'BAAI/bge-base-en-v1.5';
-
-  // Clean text (remove newlines)
-  const cleanedText = text.replace(/\n/g, ' ');
-
-  // Use new HuggingFace router endpoint
-  const response = await fetch(
-    `https://router.huggingface.co/hf-inference/models/${embeddingModel}`,
-    {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${hfToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        inputs: cleanedText,
-      }),
-    }
-  );
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`HuggingFace API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-
-  // Ensure the output is a flat array of numbers
-  let embedding: number[];
-  if (Array.isArray(data) && typeof data[0] === 'number') {
-    embedding = data as number[];
-  } else if (Array.isArray(data) && Array.isArray(data[0]) && typeof data[0][0] === 'number') {
-    embedding = data[0] as number[];
-  } else {
-    throw new Error("Failed to generate a valid embedding vector.");
-  }
-
-  console.log(`✅ Embedding generated successfully (${embedding.length} dimensions)`);
-  return embedding;
-}
-
-// Helper: Call OpenRouter AI
-async function callAI(
-  model: string,
-  userPrompt: string,
-  systemPrompt: string,
-  options: { temperature?: number; max_tokens?: number } = {}
-): Promise<{ content: string; usage: any; model: string }> {
-  const apiKey = Deno.env.get("OPENROUTER_API_KEY");
-  if (!apiKey) {
-    throw new Error("OPENROUTER_API_KEY not configured");
-  }
-
-  // Log request details
-  console.log('🤖 OpenRouter API Request:');
-  console.log(`  > Model: ${model}`);
-  console.log(`  > System prompt length: ${systemPrompt.length} chars`);
-  console.log(`  > User prompt length: ${userPrompt.length} chars`);
-  console.log(`  > Temperature: ${options.temperature || 0.7}`);
-  console.log(`  > Max tokens: ${options.max_tokens || 4000}`);
-
-  const requestBody = {
-    model: model,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userPrompt }
-    ],
-    temperature: options.temperature || 0.7,
-    max_tokens: options.max_tokens || 4000,
-  };
-
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(requestBody),
-  });
-
-  console.log(`📡 OpenRouter API Response Status: ${response.status}`);
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`❌ OpenRouter API Error: ${response.status}`);
-    console.error(`❌ Error details: ${errorText}`);
-    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-
-  // Log full response for debugging
-  console.log('📦 OpenRouter API Full Response:');
-  console.log(JSON.stringify(data, null, 2));
-
-  // Validate response structure
-  if (!data.choices || !Array.isArray(data.choices) || data.choices.length === 0) {
-    console.error('❌ Invalid response structure: no choices array');
-    throw new Error('Invalid OpenRouter API response: missing choices array');
-  }
-
-  if (!data.choices[0].message || typeof data.choices[0].message.content !== 'string') {
-    console.error('❌ Invalid response structure: no message content');
-    throw new Error('Invalid OpenRouter API response: missing message content');
-  }
-
-  const content = data.choices[0].message.content;
-
-  // Check if content is suspiciously short
-  if (content.length < 100) {
-    console.warn(`⚠️ WARNING: AI response is very short (${content.length} chars)`);
-    console.warn(`⚠️ Content: "${content}"`);
-  }
-
-  // Log usage information
-  if (data.usage) {
-    console.log('📊 Token Usage:');
-    console.log(`  > Prompt tokens: ${data.usage.prompt_tokens || 'N/A'}`);
-    console.log(`  > Completion tokens: ${data.usage.completion_tokens || 'N/A'}`);
-    console.log(`  > Total tokens: ${data.usage.total_tokens || 'N/A'}`);
-  }
-
-  console.log(`✅ AI response received: ${content.length} characters`);
-
-  return {
-    content: content,
-    usage: data.usage,
-    model: data.model,
-  };
-}
-
-// Helper: Retrieve user data chunks
-async function retrieveUserData(
-  questionEmbedding: number[],
-  supabase: any,
-  userId: string,
-  selectedFileIds: string[],
-  topK: number
-): Promise<any[]> {
-  const vectorString = `[${questionEmbedding.join(',')}]`;
-
-  const promises = selectedFileIds.map(fileId =>
-    supabase.rpc('match_user_data_by_files', {
-      p_user_id: userId,
-      query_embedding: vectorString,
-      match_count: topK,
-      p_file_ids: [fileId]
-    })
-  );
-
-  const results = await Promise.all(promises);
-
-  let allResults: any[] = [];
-  results.forEach((result: any) => {
-    if (result.data) allResults.push(...result.data);
-  });
-
-  const uniqueResults = Array.from(
-    new Map(allResults.map(item => {
-      const uniqueKey = `${item.metadata?.file_id || 'unknown'}_${item.metadata?.chunk_index ?? 'unknown'}`;
-      return [uniqueKey, item];
-    })).values()
-  );
-  return uniqueResults.sort((a: any, b: any) => b.similarity - a.similarity).slice(0, topK);
-}
-
-// Helper: Create Manus slide task
-async function createManusTask(prompt: string): Promise<{ taskId: string; shareUrl: string }> {
-  const apiKey = Deno.env.get("MANUS_API_KEY");
-  if (!apiKey) {
-    throw new Error("MANUS_API_KEY not configured");
-  }
-
-  const response = await fetch('https://api.manus.ai/v1/tasks', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'API_KEY': apiKey
-    },
-    body: JSON.stringify({
-      prompt: prompt,
-      taskMode: 'adaptive',
-      agentProfile: 'quality',
-      hideInTaskList: false,
-      createShareableLink: true
-    })
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Manus API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json();
-  console.log('🔍 Manus API response:', JSON.stringify(data, null, 2));
-  // Validate response data
-  if (!data.task_id) {
-    throw new Error('Manus API did not return task_id');
-  }
-  return {
-    taskId: data.task_id,
-    shareUrl: data.share_url || null
-  };
-}
 
 // Main: Process a single report
 async function processReport(report: any, supabase: any) {
@@ -237,11 +29,9 @@ async function processReport(report: any, supabase: any) {
     // Support both single file (legacy) and multiple files (new)
     let selectedFileIds: string[] = [];
     if (report.user_data_ids && Array.isArray(report.user_data_ids) && report.user_data_ids.length > 0) {
-      // New: multiple files
       selectedFileIds = report.user_data_ids;
       log(`User Data IDs: ${selectedFileIds.join(', ')}`);
     } else if (report.user_data_id) {
-      // Legacy: single file
       selectedFileIds = [report.user_data_id];
       log(`User Data ID (legacy): ${report.user_data_id}`);
     } else {
@@ -270,7 +60,6 @@ async function processReport(report: any, supabase: any) {
       throw new Error('User data file(s) not found');
     }
 
-    // Log all selected files
     userDataFiles.forEach((file: any) => {
       log(`  > User file: ${file.file_name}`);
     });
@@ -278,19 +67,14 @@ async function processReport(report: any, supabase: any) {
     // Step 3: Generate report using RAG
     log('[3/5] Generating report with AI...');
 
-    // IMPORTANT: Use report_topic as the actual question
-    // report_topic contains the full question (e.g., "What Mia can do to...")
-    // setting_name is just a display label (e.g., "Relationship")
     const question = report.report_topic || report.setting_name;
-
     log(`  > Question: ${question}`);
 
     // Generate embedding
     const questionEmbedding = await generateEmbedding(question);
     const vectorString = `[${questionEmbedding.join(',')}]`;
 
-    // Build scope from selected_knowledge_ids and category_thresholds
-    // First, fetch all knowledge files to get their categories
+    // Fetch knowledge files metadata for categories
     const { data: knowledgeFiles, error: knowledgeError } = await supabase
       .from('knowledge_uploads')
       .select('id, file_name, metadata')
@@ -300,7 +84,7 @@ async function processReport(report: any, supabase: any) {
       log(`⚠️ Warning: Could not fetch knowledge file metadata: ${knowledgeError.message}`);
     }
 
-    // Parse category_thresholds from JSONB (it might be stored as string or object)
+    // Parse category_thresholds
     let categoryThresholds: any = {};
     if (report.category_thresholds) {
       if (typeof report.category_thresholds === 'string') {
@@ -315,10 +99,10 @@ async function processReport(report: any, supabase: any) {
     }
 
     // Build scope with correct thresholds per file
-    const scope = report.selected_knowledge_ids.map((fileId: string) => {
+    const scope: RAGScope[] = report.selected_knowledge_ids.map((fileId: string) => {
       const file = knowledgeFiles?.find((f: any) => f.id === fileId);
       const category = file?.metadata?.category || 'General';
-      const threshold = categoryThresholds[category] || 0.30; // Use category-specific threshold or default
+      const threshold = categoryThresholds[category] || 0.30;
 
       log(`  > File: ${file?.file_name || fileId}, Category: ${category}, Threshold: ${threshold}`);
 
@@ -328,41 +112,17 @@ async function processReport(report: any, supabase: any) {
     log(`  > Knowledge scope: ${scope.length} files`);
 
     // Retrieve knowledge chunks
-    const knowledgePromises = scope.map(({ file_id, threshold }: any) =>
-      supabase.rpc('match_knowledge', {
-        query_embedding: vectorString,
-        match_threshold: parseFloat(threshold),
-        match_count: report.top_k_results || 5,
-        p_file_ids: [file_id]
-      })
+    const knowledgeResults = await retrieveKnowledge(
+      questionEmbedding,
+      supabase,
+      scope,
+      report.top_k_results || 5,
+      log
     );
-
-    const knowledgeSearchResults = await Promise.all(knowledgePromises);
-
-    let knowledgeResults: any[] = [];
-    knowledgeSearchResults.forEach((result: any, index: number) => {
-      if (result.error) {
-        log(`❌ RPC Error for file ${scope[index].file_id}: ${result.error.message}`);
-      }
-      if (result.data) {
-        log(`  ✓ Found ${result.data.length} chunks from file ${scope[index].file_id}`);
-        knowledgeResults.push(...result.data);
-      }
-    });
-
-    const uniqueKnowledge = Array.from(
-      new Map(knowledgeResults.map(item => {
-        const uniqueKey = `${item.metadata?.file_id || 'unknown'}_${item.metadata?.chunk_index ?? 'unknown'}`;
-        return [uniqueKey, item];
-      })).values()
-    );
-    knowledgeResults = uniqueKnowledge
-      .sort((a: any, b: any) => b.similarity - a.similarity)
-      .slice(0, report.top_k_results || 5);
 
     log(`  > Found ${knowledgeResults.length} knowledge chunks`);
 
-    // Retrieve user data chunks from all selected files
+    // Retrieve user data chunks
     const userDataResults = await retrieveUserData(
       questionEmbedding,
       supabase,
@@ -374,13 +134,10 @@ async function processReport(report: any, supabase: any) {
     log(`  > Found ${userDataResults.length} user data chunks`);
 
     // Build context
-    const knowledgeContext = knowledgeResults.length > 0
-      ? knowledgeResults.map((r: any, i: number) => `[K${i+1}] ${r.content}`).join('\n\n---\n\n')
-      : "No knowledge found.";
-
-    const userDataContext = userDataResults.length > 0
-      ? userDataResults.map((r: any, i: number) => `[U${i+1}] ${r.content}`).join('\n\n---\n\n')
-      : "No user data found.";
+    const { knowledgeContext, userDataContext } = buildRAGContext(
+      knowledgeResults,
+      userDataResults
+    );
 
     // Build final prompt
     const finalUserPrompt = report.user_prompt_template
@@ -424,8 +181,12 @@ async function processReport(report: any, supabase: any) {
       })
       .eq('id', report.id);
 
-    // Build Manus prompt
-    const manusPrompt = (report.manus_prompt || 'Create a professional presentation with slides based on this report in english: ') + aiResult.content;
+    // Get user profile context
+    const userProfileText = await getUserProfileContext(supabase, report.user_id, log);
+
+    // Build Manus prompt with user profile context
+    const manusPromptBase = report.manus_prompt || 'Create a professional presentation with slides based on this report in english: ';
+    const manusPrompt = manusPromptBase + '\n\n' + userProfileText + aiResult.content;
 
     log(`  > Manus prompt length: ${manusPrompt.length} characters`);
 
@@ -498,7 +259,7 @@ serve(async (req) => {
       .select('*')
       .eq('status', 'pending')
       .order('created_at', { ascending: true })
-      .limit(1); // Process one at a time
+      .limit(1);
 
     if (queryError) {
       throw queryError;
